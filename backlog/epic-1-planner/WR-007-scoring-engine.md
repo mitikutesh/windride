@@ -73,3 +73,60 @@ Key design/decisions:
 Follow-up for WR-008: the Plan screen wires `generateCandidates` (ORS) → weather (Open-Meteo) →
 `scoreCandidates`/`analyzeCandidate` → `explainCandidate` into the results the UI renders; no
 scoring-engine changes expected, just composition at the UI/adapter boundary.
+
+### Fable 5 review pass — fixes
+
+A Fable 5 review found one BLOCKER and several SHOULD-FIX/NITs. All addressed; gate green
+(`npm test` 126 passing, lint clean, build clean, engine coverage still > 90%).
+
+- **BLOCKER — two-pass sampling, wrong segment midpoint (`scoring.ts` `analyzeCandidate`):** the
+  rough-pass elapsed-time midpoint was computed as `roughStart[i] + roughStart[i+1]/2` — an
+  operator-precedence bug (missing parens around the subtraction) that added half of the *next
+  segment's absolute start time* instead of half of *this segment's own duration*. That inflated
+  elapsed time by roughly 50% and mis-sampled the forecast hour whenever wind shifts hour-to-hour,
+  corrupting the sequencing/forecast-shift lever (PRODUCT_SPEC §1). Fixed to the true midpoint:
+  `roughStart[i] + ((roughStart[i + 1] ?? acc) - roughStart[i]) / 2`. Added a ≥4-hour synthetic
+  test asserting the exact expected `hourIndex` per segment.
+- **SHOULD-FIX — physics drag sign (`speedModel.ts`):** the physics (Newton-iteration) model used
+  `air*air` for the aerodynamic drag term, which is always resistive regardless of sign, so a
+  tailwind faster than the rider was modeled as drag instead of propulsion — breaking §3
+  monotonicity above roughly ±8 m/s of wind. Switched to signed drag `air*|air|` (via `absAir`),
+  which correctly propels the rider once the tailwind exceeds their speed; kept the
+  convergence/step-tolerance break in the Newton loop. The monotonicity property sweep is widened
+  from its previous range to ±15 m/s to cover the regime the bug was hiding in.
+- **SHOULD-FIX — honest ETAs on malformed wind input (`scoring.ts` `analyzeCandidate`):** a
+  transposed or truncated `WindGrid` (`windBySegment.length !== segments.length`, or an empty
+  per-segment hourly array) was silently scored as dead calm, producing a confident-but-wrong ETA
+  with no error. Now throws immediately with a message naming the shape mismatch. Test added
+  covering both the transposed-length case and the empty-per-segment-hourly case.
+- **NIT — `maxGustMs` scope (`scoring.ts` `computeMetrics`):** was tracking the global max gust
+  across the whole candidate, then quoting it in `explain.ts` alongside "km exposed to gusts" —
+  misleading if the true global max occurred on a sheltered, non-exposed segment. Now tracked only
+  within the exposed-gusty segments (`vCrossMs > crossThreshold && exposure >= 1.0`) it is quoted
+  alongside, so the number in the sentence always belongs to the km it describes.
+- **NIT — explanation capitalisation (`explain.ts`):** sentences are now capitalised individually
+  (`capitalize()` applied per fact) rather than relying on the headline's leading capital, since
+  the headline starts with a digit (distance) and was leaving fact sentences lower-cased after the
+  join. Added tests for the gravel/paths/climb fact templates plus the gusty-segment scoping above.
+- **NIT — sequencing sentinel unified (`scoring.ts` `computeMetrics`):** `evidence.headwindFirstHalfShare`
+  now always equals the internal `seqShare` (0.5 = neutral when there is no headwind to sequence),
+  removing a second, separately-computed "no headwind" sentinel that could drift from the scored
+  value.
+- **NIT — distance rejection message (`scoring.ts` `hardConstraintReasons`):** now interpolates the
+  actual configured `distanceTolerancePct` (`±${Math.round(tol * 100)}%`) instead of hard-coding
+  "±15%", so the message stays correct if the tolerance is ever overridden via `ScoreOptions`.
+- **NIT — `homeBeforeDark` without `minutesUntilSunset` (`scoring.ts` `scoreCandidates`):** was
+  silently no-oping the safety constraint (never rejecting anything) if the caller asked for
+  home-before-dark but forgot to pass `minutesUntilSunset`. Now throws loudly at the top of
+  `scoreCandidates` instead.
+
+Documented, not changed:
+- A single surviving candidate normalises every sub-score to 0.5 by construction
+  (`normalizeHigher`/`normalizeLower` return 0.5 when `max - min < 1e-12`), so its `total` is
+  always ~50 regardless of how good or bad the route actually is. **WR-011 must assert its
+  "visible margin" test on `sub.wind.raw`** (the time-weighted headwind penalty, i.e.
+  `headwindPenalty` before normalization) — never on the normalized sub-score or `total` — when
+  only one candidate survives hard constraints.
+- A possible future refinement: a third wind-sampling pass using wind-adjusted (rather than
+  rough base-speed) times could tighten the forecast-hour estimate further; not needed to close
+  this story, flagged for a later iteration if sampling accuracy becomes a bottleneck.

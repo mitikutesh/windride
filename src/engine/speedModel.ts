@@ -67,14 +67,22 @@ function physicsSpeedKmh(
   const crr = s.crr[surface] ?? s.crr.unknown;
   const rollGrav = crr * s.massKg * G + s.massKg * G * slope;
   let v = Math.max(1, s.baseKmh[surface] / 3.6); // initial guess (m/s)
-  for (let i = 0; i < 40; i++) {
+  for (let i = 0; i < 60; i++) {
     const air = v + wHead;
-    const f = 0.5 * s.rho * s.cda * air * air * v + rollGrav * v - s.powerW;
-    const df = 0.5 * s.rho * s.cda * (2 * air * v + air * air) + rollGrav;
+    // Signed drag: air*|air| stays resistive against a headwind but PROPELS when a tailwind is
+    // faster than the rider — keeping the model monotone in wind (air*air would spuriously slow).
+    const absAir = Math.abs(air);
+    const f = 0.5 * s.rho * s.cda * air * absAir * v + rollGrav * v - s.powerW;
+    const df = 0.5 * s.rho * s.cda * (2 * absAir * v + air * absAir) + rollGrav;
     if (Math.abs(df) < 1e-9) break;
     const next = v - f / df;
     if (!Number.isFinite(next)) break;
-    v = clamp(next, 0.1, s.maxKmh / 3.6);
+    const clamped = clamp(next, 0.1, s.maxKmh / 3.6);
+    if (Math.abs(clamped - v) < 1e-6) {
+      v = clamped;
+      break;
+    }
+    v = clamped;
   }
   return clamp(v * 3.6, s.minKmh, s.maxKmh);
 }

@@ -178,6 +178,14 @@ export function analyzeCandidate(
   const startHour = opts.startHourIndex ?? 0;
   const segs = candidate.segments;
 
+  // Guard the classic transposition / truncation bug (domain.ts): malformed wind input must fail
+  // loudly, not silently score as dead calm and emit a confident-but-wrong ETA.
+  if (windBySegment.length !== segs.length) {
+    throw new Error(
+      `scoring: windBySegment has ${windBySegment.length} entries but the route has ${segs.length} segments (transposed WindGrid?)`,
+    );
+  }
+
   // Pass 1: rough base-speed times to place each segment on the forecast hour axis.
   const roughStart: number[] = [];
   let acc = 0;
@@ -194,17 +202,13 @@ export function analyzeCandidate(
   for (let i = 0; i < segs.length; i++) {
     const seg = segs[i];
     if (seg.wayClass === 'ferry') hasFerry = true;
-    const hourly = windBySegment[i] ?? [];
-    const midS = roughStart[i] + (roughStart[i + 1] ?? acc - roughStart[i]) / 2;
+    const hourly = windBySegment[i];
+    if (hourly.length === 0) throw new Error(`scoring: no wind samples for segment ${i}`);
+    // Midpoint elapsed time of this segment on the rough (base-speed) time axis. The extra parens
+    // matter: without them `?? acc - roughStart[i]` mis-groups and inflates the midpoint.
+    const midS = roughStart[i] + ((roughStart[i + 1] ?? acc) - roughStart[i]) / 2;
     const hourIndex = Math.max(0, Math.min(hourly.length - 1, startHour + Math.floor(midS / 3600)));
-    const sample = hourly[hourIndex] ?? {
-      windMs: 0,
-      windFromDeg: 0,
-      gustMs: 0,
-      precipProb: 0,
-      tempC: 15,
-      time: '',
-    };
+    const sample = hourly[hourIndex];
     const wind = decompose(
       seg.bearingDeg,
       sample.windFromDeg,
@@ -268,8 +272,9 @@ function computeMetrics(a: CandidateAnalysis, opts: ScoreOptions): RawMetrics {
     if (sa.wind.vCrossMs > crossThreshold && sa.seg.exposure >= 1.0) {
       crossPenalty += sa.timeS * sa.wind.gustEffMs;
       gustyKm += km;
+      // Track the peak gust only among the exposed-gusty km so the explanation stays truthful.
+      maxGustMs = Math.max(maxGustMs, sa.wind.gustEffMs);
     }
-    maxGustMs = Math.max(maxGustMs, sa.wind.gustEffMs);
     trafficPenalty += sa.timeS * trafficWeight(sa.seg.wayClass);
     rainPenalty += sa.timeS * (sa.precipProb / 100);
 
@@ -289,9 +294,11 @@ function computeMetrics(a: CandidateAnalysis, opts: ScoreOptions): RawMetrics {
   }
 
   const distGuard = totalDist || 1;
+  // Share of headwind time in the first half (0.5 = neutral when there is no headwind to sequence).
+  const seqShare = hwTime > 0 ? hwFirst / hwTime : 0.5;
   return {
     headwindPenalty,
-    seqShare: hwTime > 0 ? hwFirst / hwTime : 0.5,
+    seqShare,
     crossPenalty,
     surfaceMatchShare: prefersSurface === 'any' ? 0.5 : matchDist / distGuard,
     trafficPenalty,
@@ -314,7 +321,7 @@ function computeMetrics(a: CandidateAnalysis, opts: ScoreOptions): RawMetrics {
       greenerKm: greenerDist / M_PER_KM,
       gustyKm,
       maxGustMs,
-      headwindFirstHalfShare: hwTime > 0 ? hwFirst / hwTime : 0,
+      headwindFirstHalfShare: seqShare,
     },
   };
 }
@@ -333,7 +340,7 @@ function hardConstraintReasons(a: CandidateAnalysis, opts: ScoreOptions): string
   const reasons: string[] = [];
   const tol = opts.distanceTolerancePct ?? 0.15;
   if (Math.abs(a.distanceM - opts.targetDistanceM) / opts.targetDistanceM > tol) {
-    reasons.push('distance outside ±15% of target');
+    reasons.push(`distance outside ±${Math.round(tol * 100)}% of target`);
   }
   if (a.hasFerry) reasons.push('route uses a ferry');
   if (opts.homeBeforeDark && opts.minutesUntilSunset !== undefined) {
@@ -344,6 +351,10 @@ function hardConstraintReasons(a: CandidateAnalysis, opts: ScoreOptions): string
 }
 
 export function scoreCandidates(inputs: CandidateWindInput[], opts: ScoreOptions): ScoreResult {
+  // Fail loudly rather than silently no-op the safety constraint if the caller forgets sunset.
+  if (opts.homeBeforeDark && opts.minutesUntilSunset === undefined) {
+    throw new Error('scoring: homeBeforeDark requires minutesUntilSunset');
+  }
   const weights = opts.weights ?? DEFAULT_WEIGHTS;
   const analyses = inputs.map((i) => analyzeCandidate(i.candidate, i.windBySegment, opts));
 

@@ -136,6 +136,25 @@ describe('two-pass arrival-time wind sampling (§1)', () => {
     expect(a.segments[a.segments.length - 1].wind.vParMs).toBeGreaterThan(0); // late: tailwind (hour 1)
     expect(a.segments[a.segments.length - 1].hourIndex).toBeGreaterThan(a.segments[0].hourIndex);
   });
+
+  it('maps each segment to the correct forecast hour (midpoint math, ≥4 hours)', () => {
+    // 30 flat paved 1 km segments at 27 km/h base => ~133 s each. Segment k's midpoint elapsed
+    // time is (k+0.5)*133 s; the hour index is floor(that / 3600).
+    const n = 30;
+    const windBySegment: WindSample[][] = Array.from({ length: n }, () =>
+      Array.from({ length: 6 }, (_v, h) => sample(225, h)),
+    );
+    const a = analyzeCandidate(candidate('hours', 90, n), windBySegment, OPTS);
+    const perSegMs = 1000 / (27 / 3.6);
+    for (let i = 0; i < n; i++) {
+      const expected = Math.min(5, Math.floor(((i + 0.5) * perSegMs) / 3600));
+      expect(a.segments[i].hourIndex).toBe(expected);
+    }
+  });
+
+  it('throws on a transposed/short WindGrid rather than scoring dead calm', () => {
+    expect(() => analyzeCandidate(candidate('x', 45, 10), steadyWind(3), OPTS)).toThrow(/segments/);
+  });
 });
 
 describe('loop-cancellation invariant (§7)', () => {

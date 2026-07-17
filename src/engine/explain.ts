@@ -70,5 +70,5 @@ export function explainCandidate(sc: ScoredCandidate, set: ScoredCandidate[]): s
   }
 
   const top = facts.sort((a, b) => b.priority - a.priority).slice(0, 2);
-  return capitalize([headline, ...top.map((f) => f.text)].join('. ')) + '.';
+  return [headline, ...top.map((f) => f.text)].map(capitalize).join('. ') + '.';
 }

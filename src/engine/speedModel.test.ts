@@ -27,8 +27,9 @@ describe('speedModel — base sanity (SCORING_SPEC §3, DEC-004)', () => {
 describe('speedModel — monotonicity (both models)', () => {
   for (const s of [DEFAULT_SPEED_SETTINGS, physics]) {
     it(`more headwind never increases speed (${s.model})`, () => {
+      // Sweep a wide range (±15 m/s) so a strong tailwind can't spuriously slow the physics model.
       let prev = Infinity;
-      for (let vPar = 8; vPar >= -8; vPar -= 1) {
+      for (let vPar = 15; vPar >= -15; vPar -= 1) {
         const v = segmentSpeedKmh('paved', 0, vPar, s);
         expect(v).toBeLessThanOrEqual(prev + 1e-9);
         prev = v;
