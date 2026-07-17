@@ -6,6 +6,7 @@ import { useSavedRoutesStore } from '../../state/savedRoutesStore';
 import { candidateToGpxTrack } from '../routeGeo';
 import { downloadText } from '../download';
 import { gpxFilename, toGpx } from '../../utils/gpx';
+import { localYMD } from '../../utils/units';
 
 /** Results screen (WR-009): top-3 cards synced with a wind-coloured MapLibre route map. */
 export function ResultsScreen() {
@@ -30,14 +31,14 @@ export function ResultsScreen() {
   const exportGpx = () => {
     const xml = toGpx(candidateToGpxTrack(selected, routeName));
     downloadText(
-      gpxFilename(selected.evidence.distanceKm, new Date().toISOString()),
+      gpxFilename(selected.evidence.distanceKm, localYMD(new Date())),
       'application/gpx+xml',
       xml,
     );
   };
   const saveRoute = () =>
     void useSavedRoutesStore.getState().save({
-      id: selected.candidate.id,
+      id: crypto.randomUUID(), // persistence identity, not the generation cache key
       name: routeName,
       savedAt: Date.now(),
       distanceKm: selected.evidence.distanceKm,

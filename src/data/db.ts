@@ -19,11 +19,17 @@ const ROUTES = 'routes';
 
 let dbPromise: Promise<IDBPDatabase> | undefined;
 export function openWindrideDb(): Promise<IDBPDatabase> {
-  return (dbPromise ??= openDB(DB_NAME, 1, {
-    upgrade(db) {
-      if (!db.objectStoreNames.contains(ROUTES)) db.createObjectStore(ROUTES, { keyPath: 'id' });
-    },
-  }));
+  if (!dbPromise) {
+    dbPromise = openDB(DB_NAME, 1, {
+      upgrade(db) {
+        if (!db.objectStoreNames.contains(ROUTES)) db.createObjectStore(ROUTES, { keyPath: 'id' });
+      },
+    }).catch((e) => {
+      dbPromise = undefined; // don't cache a rejection — allow a later retry
+      throw e;
+    });
+  }
+  return dbPromise;
 }
 
 export async function saveRoute(route: SavedRoute): Promise<void> {

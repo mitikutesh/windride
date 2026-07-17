@@ -1,6 +1,8 @@
+import 'fake-indexeddb/auto';
 import { describe, expect, it, vi } from 'vitest';
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { CandidateRoute, Segment, WindSample } from '../../domain';
+import { useSavedRoutesStore } from '../../state/savedRoutesStore';
 
 // The MapLibre map needs WebGL (unavailable in jsdom) and isn't unit-tested (testing policy);
 // mock it, but capture its props so we can assert the map receives the selection (card->map) and
@@ -96,5 +98,13 @@ describe('<ResultsScreen />', () => {
     useResultsStore.getState().clear();
     render(<ResultsScreen />);
     expect(screen.getByText(/No routes yet/i)).toBeInTheDocument();
+  });
+
+  it('Save route persists the selected candidate to the saved-routes store', async () => {
+    useSavedRoutesStore.setState({ routes: [], error: null });
+    seed();
+    render(<ResultsScreen />);
+    fireEvent.click(screen.getByRole('button', { name: /Save route/i }));
+    await waitFor(() => expect(useSavedRoutesStore.getState().routes.length).toBeGreaterThan(0));
   });
 });

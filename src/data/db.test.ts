@@ -1,4 +1,5 @@
 import 'fake-indexeddb/auto';
+import { openDB } from 'idb';
 import { describe, expect, it } from 'vitest';
 import { deleteRoute, listRoutes, openWindrideDb, saveRoute, type SavedRoute } from './db';
 
@@ -24,10 +25,18 @@ describe('routes store (idb)', () => {
     expect(all.map((r) => r.id)).toEqual(['b']);
   });
 
-  it('opening v1 twice is stable (migration smoke)', async () => {
-    const a = await openWindrideDb();
-    const b = await openWindrideDb();
-    expect(a).toBe(b); // memoised single connection
-    expect(a.objectStoreNames.contains('routes')).toBe(true);
+  it('reopening v1 keeps the store and its data (migration smoke)', async () => {
+    await saveRoute(route('smoke', 3000));
+    await openWindrideDb(); // first open (via the app helper)
+    // A genuinely separate second connection at v1 sees the store and the persisted record.
+    const again = await openDB('windride', 1, {
+      upgrade(db) {
+        if (!db.objectStoreNames.contains('routes'))
+          db.createObjectStore('routes', { keyPath: 'id' });
+      },
+    });
+    expect(again.objectStoreNames.contains('routes')).toBe(true);
+    expect(((await again.get('routes', 'smoke')) as SavedRoute).id).toBe('smoke');
+    again.close();
   });
 });

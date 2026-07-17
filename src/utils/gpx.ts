@@ -61,10 +61,12 @@ export function toGpx(track: GpxTrack): string {
 /** Parse the track points back out of a GPX document (for the round-trip test / re-import). */
 export function fromGpx(xml: string): GpxPoint[] {
   const points: GpxPoint[] = [];
-  const trkpt = /<trkpt\b([^>]*)>([\s\S]*?)<\/trkpt>|<trkpt\b([^>]*)\/>/g;
+  // One pattern handles both self-closing <trkpt .../> and paired <trkpt ...>...</trkpt>; the
+  // self-closing branch must be tried first so its attributes don't swallow a later "/".
+  const trkpt = /<trkpt\b([^>]*?)(?:\/>|>([\s\S]*?)<\/trkpt>)/g;
   let m: RegExpExecArray | null;
   while ((m = trkpt.exec(xml)) !== null) {
-    const attrs = m[1] ?? m[3] ?? '';
+    const attrs = m[1] ?? '';
     const inner = m[2] ?? '';
     const lat = Number(/lat="([-\d.]+)"/.exec(attrs)?.[1]);
     const lon = Number(/lon="([-\d.]+)"/.exec(attrs)?.[1]);

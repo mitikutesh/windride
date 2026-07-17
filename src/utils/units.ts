@@ -39,3 +39,11 @@ export function timeOfDay(iso: string): string {
   const t = iso.split('T')[1] ?? iso;
   return t.slice(0, 5);
 }
+
+/** Local calendar date as YYYY-MM-DD (avoids the UTC off-by-one an ISO slice would cause). */
+export function localYMD(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}

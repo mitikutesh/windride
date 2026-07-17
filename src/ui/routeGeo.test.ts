@@ -89,12 +89,12 @@ describe('routeToRibbon', () => {
 });
 
 describe('candidateToGpxTrack', () => {
-  it('emits segment endpoints (n+1 points) with elevation and a WindRide creator', () => {
+  it('emits every source polyline vertex with elevation and a WindRide creator', () => {
     const sc = scoredOne(45);
     const track = candidateToGpxTrack(sc, 'My route');
     expect(track.creator).toBe('WindRide');
     expect(track.name).toBe('My route');
-    expect(track.points).toHaveLength(sc.analysis.segments.length + 1);
+    expect(track.points).toHaveLength(sc.candidate.polyline.length); // full polyline, no corner-cutting
     expect(track.points[0].ele).toBe(0);
     expect(track.points.every((p) => p.ele !== undefined)).toBe(true);
   });

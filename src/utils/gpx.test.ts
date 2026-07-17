@@ -41,4 +41,17 @@ describe('toGpx / fromGpx', () => {
   it('names the file windride-<date>-<km>km.gpx', () => {
     expect(gpxFilename(51.8, '2026-07-17T12:00:00Z')).toBe('windride-2026-07-17-52km.gpx');
   });
+
+  it('parses a mix of self-closing and paired trkpts without dropping points', () => {
+    const xml = `<gpx><trk><trkseg>
+      <trkpt lat="60.1" lon="24.1"/>
+      <trkpt lat="60.2" lon="24.2"><ele>15</ele></trkpt>
+      <trkpt lat="60.3" lon="24.3"/>
+    </trkseg></trk></gpx>`;
+    const pts = fromGpx(xml);
+    expect(pts).toHaveLength(3);
+    expect(pts[0]).toEqual({ lat: 60.1, lon: 24.1 });
+    expect(pts[1].ele).toBe(15); // ele stays on its own point, not migrated
+    expect(pts[2]).toEqual({ lat: 60.3, lon: 24.3 });
+  });
 });

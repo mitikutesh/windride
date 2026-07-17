@@ -4,6 +4,7 @@ import { DEFAULT_START, usePlanStore } from '../../state/planStore';
 import { useSavedRoutesStore } from '../../state/savedRoutesStore';
 import { downloadText } from '../download';
 import { gpxFilename, toGpx } from '../../utils/gpx';
+import { localYMD } from '../../utils/units';
 
 /** Plan screen (WR-008): inputs -> "Find today's route" -> pipeline (mocks or live per env). */
 export function PlanScreen() {
@@ -150,7 +151,7 @@ export function PlanScreen() {
                     className="wr-navlink"
                     onClick={() =>
                       downloadText(
-                        gpxFilename(r.distanceKm, new Date(r.savedAt).toISOString()),
+                        gpxFilename(r.distanceKm, localYMD(new Date(r.savedAt))),
                         'application/gpx+xml',
                         toGpx(r.track),
                       )

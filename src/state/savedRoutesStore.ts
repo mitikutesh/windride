@@ -4,6 +4,8 @@ import { deleteRoute, listRoutes, saveRoute, type SavedRoute } from '../data/db'
 
 interface SavedRoutesState {
   routes: SavedRoute[];
+  /** Set when an idb operation fails (private mode / storage pressure) so the UI can notify. */
+  error: string | null;
   refresh: () => Promise<void>;
   save: (route: SavedRoute) => Promise<void>;
   remove: (id: string) => Promise<void>;
@@ -11,19 +13,28 @@ interface SavedRoutesState {
 
 export const useSavedRoutesStore = create<SavedRoutesState>((set, get) => ({
   routes: [],
+  error: null,
   refresh: async () => {
     try {
-      set({ routes: await listRoutes() });
+      set({ routes: await listRoutes(), error: null });
     } catch {
-      /* idb unavailable — leave the list empty */
+      set({ error: 'Could not read saved routes.' });
     }
   },
   save: async (route) => {
-    await saveRoute(route);
-    await get().refresh();
+    try {
+      await saveRoute(route);
+      await get().refresh();
+    } catch {
+      set({ error: 'Could not save the route.' });
+    }
   },
   remove: async (id) => {
-    await deleteRoute(id);
-    await get().refresh();
+    try {
+      await deleteRoute(id);
+      await get().refresh();
+    } catch {
+      set({ error: 'Could not delete the route.' });
+    }
   },
 }));

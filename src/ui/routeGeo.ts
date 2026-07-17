@@ -71,21 +71,39 @@ export function routeToRibbon(scored: ScoredCandidate): RibbonSegment[] {
 const round1 = (n: number) => Math.round(n * 10) / 10;
 
 /**
- * Build a GPX track from a scored candidate (WR-010). Elevation is integrated from segment grades
- * (relative, starting at 0) since CandidateRoute carries grade, not absolute per-point elevation.
+ * Build a GPX track from a scored candidate (WR-010). Emits EVERY source polyline vertex (a bike
+ * computer following coarse ~300 m chords would sit off the road) with elevation sampled from the
+ * grade-integrated profile at each vertex's cumulative distance. Elevation is relative (from 0)
+ * since CandidateRoute carries grade, not absolute per-point elevation (DEC-019).
  */
 export function candidateToGpxTrack(scored: ScoredCandidate, name: string): GpxTrack {
+  const poly = scored.candidate.polyline;
   const segs = scored.analysis.segments;
+  if (poly.length === 0) return { name, creator: 'WindRide', points: [] };
+  if (segs.length === 0) {
+    return { name, creator: 'WindRide', points: poly.map((p) => ({ lat: p.lat, lon: p.lon })) };
+  }
+
+  // Piecewise-linear elevation profile: boundary elevations at each segment's start distance.
+  const segLen = segs[0].seg.lengthM;
+  const boundaryEle = [0];
+  for (const sa of segs) {
+    boundaryEle.push(
+      boundaryEle[boundaryEle.length - 1] + (sa.seg.gradePct / 100) * sa.seg.lengthM,
+    );
+  }
+  const total = segLen * segs.length;
+  const eleAt = (dist: number): number => {
+    const d = Math.max(0, Math.min(total, dist));
+    const k = Math.min(segs.length - 1, Math.floor(d / segLen));
+    return boundaryEle[k] + (segs[k].seg.gradePct / 100) * (d - k * segLen);
+  };
+
   const points: GpxPoint[] = [];
-  if (segs.length > 0) {
-    let ele = 0;
-    points.push({ lat: segs[0].seg.a.lat, lon: segs[0].seg.a.lon, ele: round1(ele) });
-    for (const sa of segs) {
-      ele += (sa.seg.gradePct / 100) * sa.seg.lengthM;
-      points.push({ lat: sa.seg.b.lat, lon: sa.seg.b.lon, ele: round1(ele) });
-    }
-  } else {
-    for (const p of scored.candidate.polyline) points.push({ lat: p.lat, lon: p.lon });
+  let cum = 0;
+  for (let i = 0; i < poly.length; i++) {
+    if (i > 0) cum += haversineM(poly[i - 1], poly[i]);
+    points.push({ lat: poly[i].lat, lon: poly[i].lon, ele: round1(eleAt(cum)) });
   }
   return { name, creator: 'WindRide', points };
 }
