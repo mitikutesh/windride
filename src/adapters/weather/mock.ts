@@ -1,6 +1,6 @@
 // adapters/weather/mock.ts — deterministic, zero-network WeatherProvider (WR-003).
 // Feeds the whole app offline and backs the provider contract tests.
-import openMeteoSampleRaw from '../../../fixtures/openmeteo-sample.json?raw';
+import openMeteoSampleRaw from '../../../fixtures/openmeteo/real-espoo.json?raw';
 import type { Daylight, LatLon, WindGrid, WindSample } from '../../domain';
 import { ProviderError, type ProviderErrorKind } from '../errors';
 import type { WeatherProvider } from './index';
@@ -23,20 +23,19 @@ function isoHour(h: number): string {
   return new Date(Date.parse(BASE_ISO) + h * HOUR_MS).toISOString().slice(0, 16);
 }
 
-type OpenMeteoSample = {
-  responses: Array<{
-    hourly: {
-      time: string[];
-      wind_speed_10m: number[];
-      wind_direction_10m: number[];
-      wind_gusts_10m: number[];
-      temperature_2m: number[];
-      precipitation_probability: number[];
-    };
-    daily: { sunrise: string[]; sunset: string[] };
-  }>;
+// The captured Open-Meteo shape: a top-level array, one object per point (WR-004).
+type OpenMeteoPoint = {
+  hourly: {
+    time: string[];
+    wind_speed_10m: number[];
+    wind_direction_10m: number[];
+    wind_gusts_10m: number[];
+    temperature_2m: number[];
+    precipitation_probability: Array<number | null>;
+  };
+  daily: { sunrise: string[]; sunset: string[] };
 };
-const FIXTURE = JSON.parse(openMeteoSampleRaw) as OpenMeteoSample;
+const FIXTURE = JSON.parse(openMeteoSampleRaw) as OpenMeteoPoint[];
 
 function sampleFor(scenario: WeatherScenario, pointIdx: number, hour: number): WindSample {
   const time = isoHour(hour);
@@ -57,14 +56,15 @@ function sampleFor(scenario: WeatherScenario, pointIdx: number, hour: number): W
       time,
     };
   }
-  // 'fixture' — cycle the small captured sample, varying gently by point so points differ.
-  const r = FIXTURE.responses[pointIdx % FIXTURE.responses.length];
+  // 'fixture' — cycle the captured real sample, varying by point so points differ. Time stays
+  // synthetic (isoHour) so it is always monotonic even if `hours` exceeds the captured length.
+  const r = FIXTURE[pointIdx % FIXTURE.length];
   const i = hour % r.hourly.time.length;
   return {
     windMs: r.hourly.wind_speed_10m[i],
     windFromDeg: r.hourly.wind_direction_10m[i],
     gustMs: r.hourly.wind_gusts_10m[i],
-    precipProb: r.hourly.precipitation_probability[i],
+    precipProb: r.hourly.precipitation_probability[i] ?? 0,
     tempC: r.hourly.temperature_2m[i],
     time,
   };
@@ -89,7 +89,7 @@ export class MockWeatherProvider implements WeatherProvider {
 
   async daylight(_p: LatLon): Promise<Daylight> {
     if (this.failWith) throw new ProviderError(this.failWith);
-    const r = FIXTURE.responses[0];
+    const r = FIXTURE[0];
     return { sunrise: r.daily.sunrise[0], sunset: r.daily.sunset[0] };
   }
 }

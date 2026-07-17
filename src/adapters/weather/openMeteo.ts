@@ -1,2 +1,145 @@
-// adapters/weather/openMeteo.ts — Open-Meteo weather provider (implemented in WR-004).
-export {};
+// adapters/weather/openMeteo.ts — real Open-Meteo WeatherProvider (WR-004).
+// One multipoint call -> WindGrid[pointIdx][hourIdx]. Keyless, CC-BY 4.0 (attribution in the UI
+// footer, WR-002). wind_direction is meteorological (FROM) — see CLAUDE.md domain warnings.
+import type { Daylight, LatLon, WindGrid, WindSample } from '../../domain';
+import { ProviderError } from '../errors';
+import { createWeatherCache, type WeatherCache } from './cache';
+import type { WeatherProvider } from './index';
+
+const ENDPOINT = 'https://api.open-meteo.com/v1/forecast';
+const HOURLY =
+  'wind_speed_10m,wind_direction_10m,wind_gusts_10m,temperature_2m,apparent_temperature,precipitation_probability';
+const TTL_MS = 30 * 60 * 1000;
+
+// Real multipoint responses are a top-level ARRAY (one object per requested point, in order);
+// a single-point response is a bare object. Parsers below accept either.
+type OpenMeteoHourly = {
+  time: string[];
+  wind_speed_10m: number[];
+  wind_direction_10m: number[];
+  wind_gusts_10m: number[];
+  temperature_2m: number[];
+  precipitation_probability: Array<number | null>;
+};
+type OpenMeteoPoint = { hourly: OpenMeteoHourly; daily: { sunrise: string[]; sunset: string[] } };
+
+function asPointArray(body: unknown): OpenMeteoPoint[] {
+  const arr = (Array.isArray(body) ? body : [body]) as OpenMeteoPoint[];
+  if (arr.length === 0 || !arr[0]?.hourly) throw new ProviderError('badResponse', 'no forecast');
+  return arr;
+}
+
+export function parseWindGrid(body: unknown, pointCount: number, hours: number): WindGrid {
+  const arr = asPointArray(body);
+  const grid: WindGrid = [];
+  for (let p = 0; p < pointCount; p++) {
+    const point = arr[p];
+    const h = point?.hourly;
+    if (!h || h.time.length < hours) {
+      throw new ProviderError('badResponse', `point ${p} missing ${hours}h of data`);
+    }
+    const perPoint: WindSample[] = [];
+    for (let i = 0; i < hours; i++) {
+      perPoint.push({
+        windMs: h.wind_speed_10m[i],
+        windFromDeg: h.wind_direction_10m[i],
+        gustMs: h.wind_gusts_10m[i],
+        precipProb: h.precipitation_probability[i] ?? 0,
+        tempC: h.temperature_2m[i],
+        time: h.time[i],
+      });
+    }
+    grid.push(perPoint);
+  }
+  return grid;
+}
+
+export function parseDaylight(body: unknown): Daylight {
+  const [first] = asPointArray(body);
+  const d = first.daily;
+  if (!d?.sunrise?.[0] || !d?.sunset?.[0]) throw new ProviderError('badResponse', 'no daylight');
+  return { sunrise: d.sunrise[0], sunset: d.sunset[0] };
+}
+
+function round3(n: number): string {
+  return n.toFixed(3);
+}
+
+/** Cache key: rounded points + hours + the current date-hour bucket (WR-004 technical notes). */
+function cacheKey(points: LatLon[], hours: number, nowMs: number): string {
+  const pts = points.map((p) => `${round3(p.lat)},${round3(p.lon)}`).join('|');
+  const dateHour = new Date(nowMs).toISOString().slice(0, 13); // YYYY-MM-DDTHH
+  return `${pts}#h${hours}#${dateHour}`;
+}
+
+export interface OpenMeteoOptions {
+  /** Injectable fetch for fixture-mode tests (defaults to global fetch). */
+  fetchFn?: typeof fetch;
+  cache?: WeatherCache;
+  /** Injectable clock (ms) for deterministic cache keys/TTL in tests. */
+  now?: () => number;
+}
+
+export class OpenMeteoProvider implements WeatherProvider {
+  private readonly fetchFn: typeof fetch;
+  private readonly cache: WeatherCache;
+  private readonly now: () => number;
+
+  constructor(opts: OpenMeteoOptions = {}) {
+    this.fetchFn = opts.fetchFn ?? fetch.bind(globalThis);
+    this.now = opts.now ?? (() => Date.now());
+    this.cache = opts.cache ?? createWeatherCache(this.now);
+  }
+
+  private buildUrl(points: LatLon[], hours: number): string {
+    const days = Math.max(1, Math.ceil(hours / 24));
+    const params = new URLSearchParams({
+      latitude: points.map((p) => p.lat).join(','),
+      longitude: points.map((p) => p.lon).join(','),
+      hourly: HOURLY,
+      daily: 'sunrise,sunset',
+      wind_speed_unit: 'ms',
+      timezone: 'auto',
+      forecast_days: String(days),
+    });
+    return `${ENDPOINT}?${params.toString()}`;
+  }
+
+  private async fetchJson(url: string): Promise<unknown> {
+    let res: Response;
+    try {
+      res = await this.fetchFn(url);
+    } catch {
+      throw new ProviderError('network', 'fetch failed');
+    }
+    if (res.status === 429) throw new ProviderError('quota', 'Open-Meteo daily limit');
+    if (!res.ok) throw new ProviderError('badResponse', `HTTP ${res.status}`);
+    try {
+      return await res.json();
+    } catch {
+      throw new ProviderError('badResponse', 'invalid JSON');
+    }
+  }
+
+  async windAlong(points: LatLon[], hours: number): Promise<WindGrid> {
+    const key = cacheKey(points, hours, this.now());
+    const cached = await this.cache.get(key);
+    if (cached) return cached;
+
+    const body = await this.fetchJson(this.buildUrl(points, hours));
+    const grid = parseWindGrid(body, points.length, hours);
+    await this.cache.set(key, grid, this.now() + TTL_MS);
+    return grid;
+  }
+
+  async daylight(p: LatLon): Promise<Daylight> {
+    const params = new URLSearchParams({
+      latitude: String(p.lat),
+      longitude: String(p.lon),
+      daily: 'sunrise,sunset',
+      timezone: 'auto',
+    });
+    const body = await this.fetchJson(`${ENDPOINT}?${params.toString()}`);
+    return parseDaylight(body);
+  }
+}
