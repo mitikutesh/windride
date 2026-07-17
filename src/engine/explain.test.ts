@@ -94,6 +94,7 @@ function scoredWith(evidence: Partial<Evidence>): ScoredCandidate {
     'distance',
     'rain',
     'sequencing',
+    'novelty',
   ] as SubScoreName[]) {
     sub[n] = { normalized: 0, raw: 0 };
   }
@@ -113,6 +114,7 @@ function scoredWith(evidence: Partial<Evidence>): ScoredCandidate {
     shelteredUpwindKm: 0,
     shelteredEffWindMs: 0,
     robustnessSpreadMs: 0,
+    noveltyShare: 0,
     ...evidence,
   };
   const c = candidate('x', 45);

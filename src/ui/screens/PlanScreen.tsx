@@ -3,6 +3,7 @@ import { ConditionsStrip, DistanceSlider, PrimaryButton, Segmented, Toggle } fro
 import { DownwindResults } from '../components/DownwindResults';
 import { suggestWinter } from '../../engine/winter';
 import { DEFAULT_START, usePlanStore } from '../../state/planStore';
+import { useNoveltyStore } from '../../state/noveltyStore';
 import { useSavedRoutesStore } from '../../state/savedRoutesStore';
 import { downloadText } from '../download';
 import { gpxFilename, toGpx } from '../../utils/gpx';
@@ -31,6 +32,7 @@ export function PlanScreen() {
       const located = atDefault ? s.locate() : Promise.resolve();
       void located.then(() => usePlanStore.getState().loadConditions());
       void useSavedRoutesStore.getState().refresh();
+      void useNoveltyStore.getState().hydrate(); // ridden roads for the Novelty sub-score (WR-028)
     };
     if (usePlanStore.persist.hasHydrated()) {
       run();

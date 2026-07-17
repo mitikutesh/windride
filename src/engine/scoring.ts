@@ -8,6 +8,7 @@
 import type { CandidateRoute, Segment, WindSample } from '../domain';
 import { explainCandidate } from './explain';
 import { detectGustStretches, flaggedSegmentIndices, isGustFlagged } from './gustFlags';
+import { noveltyShare } from './novelty';
 import { decompose, type WindComponents } from './wind';
 import {
   DEFAULT_SPEED_SETTINGS,
@@ -27,7 +28,8 @@ export type SubScoreName =
   | 'climb'
   | 'distance'
   | 'rain'
-  | 'sequencing';
+  | 'sequencing'
+  | 'novelty';
 
 export type ScoringWeights = Record<SubScoreName, number>;
 
@@ -35,10 +37,12 @@ export type ScoringWeights = Record<SubScoreName, number>;
 export const SHELTER_EXPOSURE_MAX = 0.6;
 /** Along-wind speeds within this of zero are treated as neither head- nor tailwind (float dust). */
 const V_PAR_EPS = 1e-6;
+/** No ridden history ⇒ every road is novel (shared empty set avoids per-call allocation). */
+const EMPTY_RIDDEN: ReadonlySet<string> = new Set();
 
-// Weights (SCORING_SPEC §6). Shelter (.06) joined in Epic 3 (WR-019); Robustness (.10) joins in
-// Epic 4 (WR-025). The total renormalises over whatever weights are present, so a caller may still
-// drop a sub-score (sum <1 by design) without skewing the others.
+// Weights (SCORING_SPEC §6). Shelter (.06) joined in Epic 3 (WR-019); Robustness (.10) and Novelty
+// (.04) join in Epic 4 (WR-025, WR-028). The total renormalises over whatever weights are present,
+// so a caller may still drop a sub-score (sum <1 by design) without skewing the others.
 export const DEFAULT_WEIGHTS: ScoringWeights = {
   wind: 0.28,
   robustness: 0.1,
@@ -51,6 +55,7 @@ export const DEFAULT_WEIGHTS: ScoringWeights = {
   distance: 0.05,
   rain: 0.04,
   sequencing: 0.02,
+  novelty: 0.04,
 };
 
 /** Forecast-robustness perturbation (SCORING_SPEC §4): re-score at wind_from ± this many degrees. */
@@ -77,6 +82,8 @@ export interface ScoreOptions {
   /** True only when a real exposure grid covered the routes; else the shelter axis stays uniform
    *  so presence-of-headwind can't masquerade as shelter differentiation (WR-019). */
   hasShelterData?: boolean;
+  /** Geohash-7 cells the owner has already ridden — drives the Novelty sub-score (WR-028). */
+  riddenEdges?: ReadonlySet<string>;
 }
 
 export interface SegmentAnalysis {
@@ -119,12 +126,16 @@ export interface Evidence {
   /** Extra time-weighted effective headwind (m/s) under the worst ±30° forecast error (WR-025).
    *  Small ⇒ robust; large ⇒ fragile (the route only works at the exact forecast). */
   robustnessSpreadMs: number;
+  /** Share of the route's length on roads not previously ridden (0–1) — the "% new roads" chip. */
+  noveltyShare: number;
 }
 
 interface RawMetrics {
   headwindPenalty: number;
   /** Worst (max) headwind penalty over wind_from ∈ {−30°, 0°, +30°} — low = robust (WR-025). */
   robustnessPenalty: number;
+  /** Share of length on unridden roads (WR-028). */
+  novelty: number;
   seqShare: number;
   shelterShare: number;
   crossPenalty: number;
@@ -412,9 +423,13 @@ function computeMetrics(
     effHeadwindOf(a.segments),
     total,
   );
+  // Novelty (WR-028): share of length on roads the owner hasn't ridden (empty set ⇒ all new = 1).
+  const novelty = noveltyShare(a, opts.riddenEdges ?? EMPTY_RIDDEN);
+
   return {
     headwindPenalty,
     robustnessPenalty: robustness.worstPenalty,
+    novelty,
     seqShare,
     shelterShare,
     crossPenalty,
@@ -444,6 +459,7 @@ function computeMetrics(
       shelteredEffWindMs:
         shelteredUpwindTime > 0 ? shelteredEffWindTimeWeighted / shelteredUpwindTime : 0,
       robustnessSpreadMs: robustness.spreadMs,
+      noveltyShare: novelty,
     },
   };
 }
@@ -477,6 +493,7 @@ function subScoreNorms(
     distance: normalizeHigher(metrics.map((m) => m.distanceMatch)),
     rain: normalizeLower(metrics.map((m) => m.rainPenalty)),
     sequencing: normalizeHigher(metrics.map((m) => m.seqShare)),
+    novelty: normalizeHigher(metrics.map((m) => m.novelty)),
   };
 }
 
@@ -545,6 +562,7 @@ export function scoreCandidates(inputs: CandidateWindInput[], opts: ScoreOptions
     distance: metrics.map((m) => m.distanceMatch),
     rain: metrics.map((m) => m.rainPenalty),
     sequencing: metrics.map((m) => m.seqShare),
+    novelty: metrics.map((m) => m.novelty),
   };
 
   const names = Object.keys(weights) as SubScoreName[];

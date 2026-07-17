@@ -511,6 +511,14 @@
   font-weight: 600;
 }
 
+/* Novelty "% new roads" chip (WR-028). */
+.wr-card__novelty {
+  margin: var(--space-1) 0 0;
+  color: var(--text2);
+  font-size: var(--fs-small);
+  font-weight: 600;
+}
+
 /* Winter caution (WR-027). */
 .wr-winter {
   margin: var(--space-2) 0;

@@ -12,6 +12,7 @@ import {
 } from '../../nav/recorder';
 import { RideController, type RideState } from '../../nav/rideController';
 import { useCalibrationStore } from '../../state/calibrationStore';
+import { useNoveltyStore } from '../../state/noveltyStore';
 import { useResultsStore } from '../../state/resultsStore';
 import { useRidesStore } from '../../state/ridesStore';
 import { gpxFilename } from '../../utils/gpx';
@@ -150,6 +151,8 @@ export function RideScreen() {
       // Feed the finished ride to speed-model calibration (WR-024). Aggregates only; the owner
       // must apply any resulting model explicitly from Settings — planning never changes silently.
       if (analysis) useCalibrationStore.getState().recordRide(analysis, points);
+      // Remember the ridden roads for the Novelty sub-score (WR-028) — recordings only.
+      void useNoveltyStore.getState().recordRide(points);
       void refreshRides();
     });
     setStatus('ended');

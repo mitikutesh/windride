@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { CandidateRoute, Segment, WindSample } from '../domain';
-import { resample } from './geometry';
+import { encodeGeohash } from './geohash';
+import { resample, segmentMidpoint } from './geometry';
 import { decompose } from './wind';
 import {
   analyzeCandidate,
@@ -245,6 +246,7 @@ describe('WR-025 forecast robustness (±30°)', () => {
       distance: 0.05,
       rain: 0,
       sequencing: 0,
+      novelty: 0,
     });
     expect(scoreCandidates(inputs, { ...OPTS, weights: iso(0.1) }).ranked[0].candidate.id).toBe(
       'robust',
@@ -366,5 +368,75 @@ describe('performance guard', () => {
     const t0 = performance.now();
     scoreCandidates(inputs, opts);
     expect(performance.now() - t0).toBeLessThan(300);
+  });
+});
+
+describe('WR-028 novelty (roads you have not ridden)', () => {
+  /** A straight N-bound line of `n` 1 km segments starting at (lat, lon) — distinct geohash cells. */
+  function lineCandidate(id: string, lat: number, lon: number, n = 10): CandidateRoute {
+    const segs: Segment[] = Array.from({ length: n }, (_v, i) => ({
+      a: { lat: lat + i * 0.002, lon },
+      b: { lat: lat + (i + 1) * 0.002, lon },
+      lengthM: 1000,
+      bearingDeg: 0,
+      gradePct: 0,
+      surface: 'paved',
+      exposure: 1,
+    }));
+    return {
+      id,
+      polyline: [
+        { lat, lon },
+        { lat: lat + n * 0.002, lon },
+      ],
+      segments: segs,
+      distanceM: n * 1000,
+      ascentM: 0,
+      steps: [],
+    };
+  }
+
+  const RIDDEN = lineCandidate('ridden', 60.1, 24.9);
+  const NOVEL = lineCandidate('novel', 60.5, 25.5); // far away ⇒ different geohash-7 cells
+  const inputs: CandidateWindInput[] = [
+    { candidate: RIDDEN, windBySegment: steadyWind(10) },
+    { candidate: NOVEL, windBySegment: steadyWind(10) },
+  ];
+  // Pre-seed the ridden set with every one of RIDDEN's segment-midpoint cells.
+  const riddenEdges = new Set(
+    RIDDEN.segments.map((s) => encodeGeohash(segmentMidpoint(s).lat, segmentMidpoint(s).lon)),
+  );
+  const onlyNovelty: ScoringWeights = {
+    wind: 0,
+    robustness: 0,
+    safety: 0,
+    shelter: 0,
+    surface: 0,
+    traffic: 0,
+    scenery: 0,
+    climb: 0,
+    distance: 0,
+    rain: 0,
+    sequencing: 0,
+    novelty: 1,
+  };
+
+  it('ranks the all-new route above the fully-ridden one', () => {
+    const { ranked } = scoreCandidates(inputs, {
+      ...OPTS,
+      weights: onlyNovelty,
+      riddenEdges,
+    });
+    const ridden = ranked.find((r) => r.candidate.id === 'ridden')!;
+    const novel = ranked.find((r) => r.candidate.id === 'novel')!;
+    expect(ridden.sub.novelty.raw).toBeCloseTo(0, 6); // every cell already ridden
+    expect(novel.sub.novelty.raw).toBeCloseTo(1, 6); // all new
+    expect(novel.evidence.noveltyShare).toBeCloseTo(1, 6); // powers the "% new roads" chip
+    expect(ranked[0].candidate.id).toBe('novel');
+  });
+
+  it('does not differentiate without a ridden history (everything is new)', () => {
+    const { ranked } = scoreCandidates(inputs, { ...OPTS, weights: onlyNovelty });
+    for (const r of ranked) expect(r.sub.novelty.raw).toBe(1);
   });
 });

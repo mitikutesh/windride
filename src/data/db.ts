@@ -52,11 +52,12 @@ const ROUTES = 'routes';
 const RIDES = 'rides';
 const RIDE_POINTS = 'ridePoints';
 const STRAVA = 'strava';
+const RIDDEN_EDGES = 'riddenEdges';
 
 let dbPromise: Promise<IDBPDatabase> | undefined;
 export function openWindrideDb(): Promise<IDBPDatabase> {
   if (!dbPromise) {
-    dbPromise = openDB(DB_NAME, 3, {
+    dbPromise = openDB(DB_NAME, 4, {
       upgrade(db) {
         if (!db.objectStoreNames.contains(ROUTES)) db.createObjectStore(ROUTES, { keyPath: 'id' });
         if (!db.objectStoreNames.contains(RIDES)) db.createObjectStore(RIDES, { keyPath: 'id' });
@@ -65,6 +66,9 @@ export function openWindrideDb(): Promise<IDBPDatabase> {
           store.createIndex('byRide', 'rideId');
         }
         if (!db.objectStoreNames.contains(STRAVA)) db.createObjectStore(STRAVA, { keyPath: 'key' });
+        // v4: ridden-road geohash cells for the Novelty sub-score (WR-028). The edge string IS the
+        // key, so re-saving a ride is idempotent (a put on an existing key is a no-op change).
+        if (!db.objectStoreNames.contains(RIDDEN_EDGES)) db.createObjectStore(RIDDEN_EDGES);
       },
     }).catch((e) => {
       dbPromise = undefined; // don't cache a rejection — allow a later retry
@@ -72,6 +76,25 @@ export function openWindrideDb(): Promise<IDBPDatabase> {
     });
   }
   return dbPromise;
+}
+
+// --- ridden edges (WR-028) -----------------------------------------------------------------
+/** Merge a batch of geohash cells into the ridden set (one transaction). Idempotent by key. */
+export async function addRiddenEdges(edges: Iterable<string>): Promise<void> {
+  const db = await openWindrideDb();
+  const tx = db.transaction(RIDDEN_EDGES, 'readwrite');
+  for (const e of edges) void tx.store.put(1, e);
+  await tx.done;
+}
+
+/** Hydrate the whole ridden-edge set once (kept in memory as a Set for scoring). */
+export async function loadRiddenEdges(): Promise<Set<string>> {
+  const keys = (await (await openWindrideDb()).getAllKeys(RIDDEN_EDGES)) as string[];
+  return new Set(keys);
+}
+
+export async function clearRiddenEdges(): Promise<void> {
+  await (await openWindrideDb()).clear(RIDDEN_EDGES);
 }
 
 export async function saveRoute(route: SavedRoute): Promise<void> {

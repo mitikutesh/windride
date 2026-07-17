@@ -9,6 +9,7 @@ import {
   type RibbonSegment,
 } from '../components';
 import { CalibrationSettings } from '../components/CalibrationSettings';
+import { NoveltySettings } from '../components/NoveltySettings';
 import { StravaSettings } from '../components/StravaSettings';
 
 // Dev-only replay panel (WR-012). The conditional dynamic import is dead-code-eliminated from
@@ -76,6 +77,9 @@ export function KitScreen() {
 
       <h2>Speed-model calibration</h2>
       <CalibrationSettings />
+
+      <h2>Roads explored</h2>
+      <NoveltySettings />
 
       <h2>Strava (upload-only)</h2>
       <StravaSettings />

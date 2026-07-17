@@ -4,11 +4,11 @@ exports[`WR-025 forecast robustness (±30°) > demotes a fragile route below a r
 [
   {
     "id": "robust",
-    "total": 60,
+    "total": 59,
   },
   {
     "id": "fragile",
-    "total": 40,
+    "total": 41,
   },
 ]
 `;
@@ -17,15 +17,15 @@ exports[`scoreCandidates — golden ranking (SW 8 m/s steady) > is snapshot-lock
 [
   {
     "id": "A",
-    "total": 76,
+    "total": 75,
   },
   {
     "id": "C",
-    "total": 73,
+    "total": 72,
   },
   {
     "id": "B",
-    "total": 24,
+    "total": 25,
   },
 ]
 `;

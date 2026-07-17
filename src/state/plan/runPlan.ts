@@ -9,6 +9,7 @@
 import type { Providers } from '../../adapters/registry';
 import { generateCandidates } from '../../adapters/routing/ors';
 import { activeSpeedSettings } from '../calibrationStore';
+import { activeRiddenEdges } from '../noveltyStore';
 import { exposureAt, loadExposureGrid, type DecodedGrid } from '../../data/exposureGrid';
 import type { LatLon } from '../../domain';
 import { resample, segmentMidpoint } from '../../engine/geometry';
@@ -181,6 +182,8 @@ export async function runPlan(
     hasShelterData: shelterDataAvailable,
     // Winter studded speeds, else the owner's calibrated model / default (WR-024, WR-027).
     speed,
+    // Roads already ridden, for the Novelty sub-score (WR-028); empty until a ride is recorded.
+    riddenEdges: activeRiddenEdges(),
   };
 
   const { ranked, rejected } = scoreCandidates(windInputs, {

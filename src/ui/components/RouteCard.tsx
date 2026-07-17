@@ -55,6 +55,12 @@ export function RouteCard({ scored, rank, selected, onSelect }: RouteCardProps) 
         </p>
       ) : null}
 
+      {e.noveltyShare < 1 ? (
+        <p className="wr-card__novelty" role="note">
+          {Math.round(e.noveltyShare * 100)}% new roads
+        </p>
+      ) : null}
+
       {(() => {
         // Forecast-robustness marker (WR-025). Deliberately QUALITY-NEUTRAL: it reports how much a
         // 30°-wrong forecast would worsen the ride, NOT whether the ride is good. A poor route can be
