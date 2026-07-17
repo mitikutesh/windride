@@ -142,15 +142,34 @@ describe('OrsRouteProvider', () => {
     await provider.roundTrip(params);
     expect(calls).toBe(1);
   });
+
+  it('caches pointToPoint legs too (identical repeat = zero extra fetches)', async () => {
+    let calls = 0;
+    const counting = (async (_url: string, init: RequestInit) => {
+      calls++;
+      const body = JSON.parse(init.body as string) as Body;
+      const [a, b] = body.coordinates;
+      return jsonResponse(p2pCollection(a, b));
+    }) as unknown as typeof fetch;
+    const provider = new OrsRouteProvider({
+      apiKey: 'test',
+      fetchFn: counting,
+      now: () => FIXED_NOW,
+    });
+    const a = { lat: 60.1, lon: 24.6 };
+    const b = { lat: 60.2, lon: 24.7 };
+    await provider.pointToPoint(a, b, 'cycling-regular');
+    await provider.pointToPoint(a, b, 'cycling-regular');
+    expect(calls).toBe(1);
+  });
 });
 
-// A fetch that returns seed-distinct loops (translated) and can fail a subset of calls by index.
-function diverseFetch(failIndex?: (i: number) => boolean): typeof fetch {
-  let n = 0;
+// A fetch returning seed-distinct loops (translated); can fail specific requests by CONTENT
+// (deterministic regardless of call ordering).
+function diverseFetch(shouldFail?: (body: Body) => boolean): typeof fetch {
   return (async (_url: string, init: RequestInit) => {
-    const i = n++;
-    if (failIndex?.(i)) throw new Error('simulated failure');
     const body = JSON.parse(init.body as string) as Body;
+    if (shouldFail?.(body)) throw new Error('simulated failure');
     if (body.options?.round_trip) {
       const seed = body.options.round_trip.seed;
       const shifted = JSON.parse(JSON.stringify(ROUNDTRIP));
@@ -168,24 +187,29 @@ function diverseFetch(failIndex?: (i: number) => boolean): typeof fetch {
 describe('generateCandidates', () => {
   const start: LatLon = { lat: 60.15, lon: 24.65 };
 
-  it('produces multiple distinct candidates when all calls succeed', async () => {
+  it('dedupes the seed x points twins: 8 tasks -> 5 candidates (3 loops + 2 out-and-back)', async () => {
     const provider = new OrsRouteProvider({
       apiKey: 'test',
       fetchFn: diverseFetch(),
       now: () => FIXED_NOW,
     });
+    // seeds [10,20,30] x points [3,4] = 6 round trips (each seed's p3/p4 are identical geometry
+    // -> dedupe to 3) + 2 out-and-back bearings.
     const cands = await generateCandidates(provider, start, 50_000, 'cycling-regular');
-    expect(cands.length).toBeGreaterThanOrEqual(3);
+    expect(cands).toHaveLength(5);
   });
 
-  it('still returns >=3 candidates when half the calls fail', async () => {
+  it('still returns >=3 candidates when the seed 10 & 20 round trips all fail', async () => {
     const provider = new OrsRouteProvider({
       apiKey: 'test',
-      fetchFn: diverseFetch((i) => i % 2 === 0), // fail every other call
+      fetchFn: diverseFetch((b) => {
+        const s = b.options?.round_trip?.seed;
+        return s === 10 || s === 20; // 4 of 8 tasks fail
+      }),
       now: () => FIXED_NOW,
     });
     const cands = await generateCandidates(provider, start, 50_000, 'cycling-regular');
-    expect(cands.length).toBeGreaterThanOrEqual(3);
+    expect(cands.length).toBeGreaterThanOrEqual(3); // seed30 loop + 2 out-and-back
   });
 });
 

@@ -145,8 +145,20 @@ export interface OrsOptions {
   timeoutMs?: number;
 }
 
-function round3(n: number): string {
-  return n.toFixed(3);
+// 4 dp (~11 m) keeps cache hits for the same spot while staying inside the contract's 50 m
+// "starts at start" tolerance (a coarser round could return a route starting up to ~78 m away).
+function round4(n: number): string {
+  return n.toFixed(4);
+}
+
+/** Short deterministic hash of a cache key, appended to route ids so they are globally unique. */
+function shortHash(s: string): string {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return (h >>> 0).toString(36);
 }
 
 export class OrsRouteProvider implements RouteProvider {
@@ -170,39 +182,50 @@ export class OrsRouteProvider implements RouteProvider {
     if (import.meta.env.MODE === 'development') {
       console.info(`[ORS] live call #${liveCalls} (${profile})`);
     }
-    const doFetch = this.fetchFn(`${BASE}/v2/directions/${profile}/geojson`, {
-      method: 'POST',
-      headers: { Authorization: this.apiKey, 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
-    const timeout = new Promise<never>((_resolve, reject) =>
-      setTimeout(
-        () => reject(new ProviderError('network', 'ORS request timed out')),
-        this.timeoutMs,
-      ),
-    );
-
-    let res: Response;
+    // One AbortController + timer covers BOTH header arrival and body read, aborts the losing
+    // request, and is always cleared in finally (no lingering timer after a fast response).
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), this.timeoutMs);
     try {
-      res = await Promise.race([doFetch, timeout]);
-    } catch (e) {
-      if (e instanceof ProviderError) throw e;
-      throw new ProviderError('network', 'fetch failed');
-    }
-    if (res.status === 429) throw new ProviderError('quota', 'ORS rate limit');
-    if (!res.ok) throw new ProviderError('badResponse', `HTTP ${res.status}`);
-    try {
-      return (await res.json()) as OrsResponse;
-    } catch {
-      throw new ProviderError('badResponse', 'invalid JSON');
+      let res: Response;
+      try {
+        res = await this.fetchFn(`${BASE}/v2/directions/${profile}/geojson`, {
+          method: 'POST',
+          headers: { Authorization: this.apiKey, 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+          signal: controller.signal,
+        });
+      } catch {
+        throw new ProviderError(
+          'network',
+          controller.signal.aborted ? 'timed out' : 'fetch failed',
+        );
+      }
+      if (res.status === 429) throw new ProviderError('quota', 'ORS rate limit');
+      if (!res.ok) throw new ProviderError('badResponse', `HTTP ${res.status}`);
+      try {
+        return (await res.json()) as OrsResponse;
+      } catch {
+        throw new ProviderError(
+          controller.signal.aborted ? 'network' : 'badResponse',
+          controller.signal.aborted ? 'timed out reading body' : 'invalid JSON',
+        );
+      }
+    } finally {
+      clearTimeout(timer);
     }
   }
 
   async roundTrip(p: RoundTripParams): Promise<CandidateRoute> {
     if (p.lengthM > ROUND_TRIP_CAP_M) {
-      throw new ProviderError('badResponse', 'Round-trip length exceeds the 100 km ORS cap');
+      // 'roundtrip-cap' code: the UI must phrase this (retrying can never succeed), not offer retry.
+      throw new ProviderError(
+        'badResponse',
+        'Round-trip length exceeds the 100 km ORS cap',
+        'roundtrip-cap',
+      );
     }
-    const key = `${round3(p.start.lat)},${round3(p.start.lon)}#${p.lengthM}#s${p.seed}#p${p.points}#${p.profile}`;
+    const key = `${round4(p.start.lat)},${round4(p.start.lon)}#${p.lengthM}#s${p.seed}#p${p.points}#${p.profile}`;
     const cached = await this.cache.get(key);
     if (cached) return cached;
 
@@ -216,12 +239,16 @@ export class OrsRouteProvider implements RouteProvider {
     const json = await this.post(p.profile, body);
     const feature = json.features?.[0];
     if (!feature) throw new ProviderError('badResponse', 'no route feature');
-    const route = parseOrsRoute(feature, `ors-rt-${p.seed}-${p.points}`);
+    const route = parseOrsRoute(feature, `ors-rt-${p.seed}-${p.points}-${shortHash(key)}`);
     await this.cache.set(key, route, this.now() + TTL_MS);
     return route;
   }
 
   async pointToPoint(a: LatLon, b: LatLon, profile: string): Promise<CandidateRoute> {
+    const key = `p2p#${round4(a.lat)},${round4(a.lon)}-${round4(b.lat)},${round4(b.lon)}#${profile}`;
+    const cached = await this.cache.get(key);
+    if (cached) return cached;
+
     const body = {
       coordinates: [
         [a.lon, a.lat],
@@ -234,7 +261,9 @@ export class OrsRouteProvider implements RouteProvider {
     const json = await this.post(profile, body);
     const feature = json.features?.[0];
     if (!feature) throw new ProviderError('badResponse', 'no route feature');
-    return parseOrsRoute(feature, `ors-p2p`);
+    const route = parseOrsRoute(feature, `ors-p2p-${shortHash(key)}`);
+    await this.cache.set(key, route, this.now() + TTL_MS);
+    return route;
   }
 }
 
@@ -293,8 +322,11 @@ export async function generateCandidates(
     }
   }
   for (const bearing of bearings) {
-    const far = destination([start.lon, start.lat], lengthM / 2, bearing, { units: 'meters' })
-      .geometry.coordinates;
+    // Crow-flies radius is shrunk (~0.75x half-length) because the road there-and-back winds,
+    // so the out-and-back total lands nearer the requested length.
+    const radiusM = (lengthM / 2) * 0.75;
+    const far = destination([start.lon, start.lat], radiusM, bearing, { units: 'meters' }).geometry
+      .coordinates;
     const dest: LatLon = { lat: far[1], lon: far[0] };
     tasks.push(
       provider
@@ -316,24 +348,23 @@ export interface DedupeOptions<T> {
   score?: (item: T) => number;
 }
 
-/** Drop candidates whose geometry overlaps an already-kept one beyond `threshold` (default 0.7). */
+/**
+ * Drop candidates whose geometry overlaps an already-kept one beyond `threshold` (default 0.7).
+ * Highest-scoring first (stable sort), then keep-first greedy checking each new item against ALL
+ * kept ones — this guarantees the output is pairwise below `threshold` AND keeps the higher-scoring
+ * member of every cluster (no score => input order preserved, first wins).
+ */
 export function dedupeByOverlap<T extends { polyline: LatLon[] }>(
   items: T[],
   opts: DedupeOptions<T> = {},
 ): T[] {
   const threshold = opts.threshold ?? 0.7;
   const score = opts.score ?? (() => 0);
+  const ordered = [...items].sort((a, b) => score(b) - score(a));
   const kept: T[] = [];
-  for (const item of items) {
-    let dupIdx = -1;
-    for (let i = 0; i < kept.length; i++) {
-      if (overlapRatio(item.polyline, kept[i].polyline) > threshold) {
-        dupIdx = i;
-        break;
-      }
-    }
-    if (dupIdx < 0) kept.push(item);
-    else if (score(item) > score(kept[dupIdx])) kept[dupIdx] = item;
+  for (const item of ordered) {
+    const isDup = kept.some((k) => overlapRatio(item.polyline, k.polyline) > threshold);
+    if (!isDup) kept.push(item);
   }
   return kept;
 }

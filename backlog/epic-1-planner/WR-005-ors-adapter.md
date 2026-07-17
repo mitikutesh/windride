@@ -84,3 +84,45 @@ score input yet and falls back to first-wins tie-breaking.
 
 Follow-up: run `npm run probe:ors` once a `VITE_ORS_API_KEY` exists, capture real small/medium
 loops, and verify the parser against them per fixtures/README.md's freeze policy.
+
+## Fable 5 review pass — fixes
+
+A Fable 5 review found SHOULD-FIX items (no blockers); all addressed. Gate green: `npm test`
+96 passing, `npm run lint`, `npm run build`; adapters coverage 92.5%, `idbCache` 86.7%.
+
+- **Budget protection**: `pointToPoint` now goes through the same 24 h idb cache as `roundTrip`
+  (keyed by `a@4dp,b@4dp,profile`), so the 2 out-and-back return legs are no longer live calls on
+  every replan.
+- **Dedupe correctness**: `dedupeByOverlap` rewritten as stable-sort-by-score-descending then
+  keep-first greedy, checking each new candidate against *all* previously kept ones. This
+  guarantees the surviving set is pairwise below the overlap threshold and always keeps the
+  higher-scoring member of a cluster — fixes an old in-place-replace bug that could leave two
+  candidates >70% overlapped once WR-008 supplies real scores.
+- **Error ergonomics**: the 100 km round-trip cap now raises a `ProviderError` carrying a
+  machine-readable `code: 'roundtrip-cap'` (new optional `code` field on `ProviderError`) so the
+  UI can phrase this specific, unrecoverable case instead of offering a pointless retry. See
+  DEC-014.
+- **Timeout robustness**: `post()`'s timeout rewritten to a single `AbortController` + timer
+  covering both header arrival and body read (`res.json()`); the losing request is aborted and
+  the timer is always cleared in `finally`.
+- **Out-and-back accuracy**: destination radius shrunk to `0.75 × (length/2)` to account for road
+  winding, so out-and-back totals land closer to the requested length.
+- **Cache key precision & id uniqueness**: cache keys now round to 4 dp (~11 m, inside the 50 m
+  start-tolerance contract) instead of 3 dp; route ids append a short deterministic hash of the
+  cache key so ids stay globally unique across plans.
+- **idbCache hardening**: `get()` now returns a `structuredClone` of the stored value (a caller
+  mutating the result can no longer corrupt the cache), and `open()` does a one-time sweep of
+  expired rows to bound storage growth. Added `src/adapters/idbCache.test.ts` covering TTL,
+  cross-instance persistence, clone isolation, and expired-persisted-row cleanup.
+- **Shared cache, for real**: `weather/cache.ts` migrated to delegate to `createIdbCache<WindGrid>`,
+  removing the near-duplicate implementation so the "shared cache" claim is now accurate; weather's
+  existing cache tests still pass.
+- **Test strength**: `generateCandidates` tests now fail by request *content* (deterministic)
+  instead of by call order, and assert an exact count (8 tasks → 5 candidates: 3 seed-distinct
+  loops after the p3/p4 twins are deduped + 2 out-and-back), proving dedupe is actually wired in;
+  added a `pointToPoint` cache test.
+
+Deferred NITs (documented, not changed — revisit if they start to bite):
+- In-flight request de-duplication (two concurrent identical calls both hit the network today).
+- Out-and-back return-leg turn steps (belongs with Epic 2 navigation work).
+- Probe script: per-loop skip behaviour and printing the ORS error body on failure.
