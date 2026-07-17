@@ -145,6 +145,9 @@ export const usePlanStore = create<PlanState>()(
             ranked: out.ranked,
             rejected: out.rejected,
             shelterDataAvailable: out.shelterDataAvailable,
+            startMatrix: out.startMatrix,
+            startMessage: out.startMessage,
+            hourLabels: out.hourLabels,
           });
           set({ conditions: out.conditions, status: 'ready', progress: '' });
           if (typeof window !== 'undefined') {

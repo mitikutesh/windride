@@ -1,5 +1,6 @@
 import { RouteCard } from '../components/RouteCard';
 import { RouteMap } from '../components/RouteMap';
+import { HeatStrip } from '../components/HeatStrip';
 import { PrimaryButton } from '../components';
 import { useResultsStore } from '../../state/resultsStore';
 import { useSavedRoutesStore } from '../../state/savedRoutesStore';
@@ -14,6 +15,9 @@ export function ResultsScreen() {
   const selectedId = useResultsStore((s) => s.selectedId);
   const select = useResultsStore((s) => s.select);
   const shelterDataAvailable = useResultsStore((s) => s.shelterDataAvailable);
+  const startMatrix = useResultsStore((s) => s.startMatrix);
+  const startMessage = useResultsStore((s) => s.startMessage);
+  const hourLabels = useResultsStore((s) => s.hourLabels);
 
   if (ranked.length === 0) {
     return (
@@ -47,6 +51,19 @@ export function ResultsScreen() {
       track: candidateToGpxTrack(selected, routeName),
     });
 
+  // Heat strip for the selected route (WR-020): its matrix row, coloured across the whole matrix.
+  const selectedRow = startMatrix?.rows.find((r) => r.candidate.id === selected.candidate.id);
+  const allTotals =
+    startMatrix?.rows.flatMap((r) =>
+      r.cells.map((c) => c.total).filter((t): t is number => t !== null),
+    ) ?? [];
+  const heatMin = allTotals.length ? Math.min(...allTotals) : 0;
+  const heatMax = allTotals.length ? Math.max(...allTotals) : 1;
+  const bestHour = selectedRow?.cells.reduce<{ h: number; t: number } | null>((acc, c) => {
+    if (c.total === null) return acc;
+    return !acc || c.total > acc.t ? { h: c.hourIndex, t: c.total } : acc;
+  }, null);
+
   return (
     <section className="wr-results">
       <RouteMap candidates={top3} selectedId={selectedId} onSelect={select} />
@@ -54,6 +71,18 @@ export function ResultsScreen() {
         <h1>Your routes</h1>
         {!shelterDataAvailable ? (
           <p className="wr-muted">No shelter data here — wind shown without forest sheltering.</p>
+        ) : null}
+        {startMessage ? <p className="wr-results__when">{startMessage}</p> : null}
+        {selectedRow && selectedRow.cells.length > 0 ? (
+          <HeatStrip
+            cells={selectedRow.cells}
+            min={heatMin}
+            max={heatMax}
+            bestHourIndex={bestHour?.h}
+            nowHourIndex={0}
+            hourLabel={(h) => hourLabels[h] ?? `+${h}h`}
+            ariaLabel="Best departure hour for the selected route"
+          />
         ) : null}
         <div className="wr-results__actions">
           <PrimaryButton onClick={exportGpx}>Export GPX</PrimaryButton>

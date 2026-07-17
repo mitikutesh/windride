@@ -37,7 +37,7 @@ Test contract · Technical notes · Out of scope · Log.
 |---|---|---|---|---|
 | WR-018 | tools/: exposure-grid preprocessing (Python) | 011 | L | DONE |
 | WR-019 | Shelter-aware effective wind + shelter sub-score | 018 | M | DONE |
-| WR-020 | Start-time optimizer + heat strip UI | 011 | M | TODO |
+| WR-020 | Start-time optimizer + heat strip UI | 011 | M | DONE |
 | WR-021 | Gust-exposure safety flags | 019 | S | TODO |
 | WR-022 | Feels-like elevation chart | 009 | M | TODO |
 | WR-023 | Strava upload (single-player OAuth, GPX push) | 017 | M | TODO |

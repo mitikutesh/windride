@@ -80,6 +80,20 @@ export function PlanScreen() {
         />
       </div>
 
+      <div className="wr-field">
+        <span className="wr-field__label">Start</span>
+        <Segmented
+          ariaLabel="Departure time"
+          value={String(inputs.departureHour ?? 0)}
+          onChange={(v) => setInput({ departureHour: Number(v) })}
+          options={[
+            { value: '0', label: 'Now' },
+            { value: '3', label: '+3 h' },
+            { value: '6', label: '+6 h' },
+          ]}
+        />
+      </div>
+
       <div className="wr-field wr-plan__toggles">
         <Toggle
           checked={false}

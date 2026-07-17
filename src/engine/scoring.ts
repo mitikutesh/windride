@@ -366,6 +366,40 @@ function normalizeLower(values: number[]): number[] {
   return normalizeHigher(values.map((v) => -v));
 }
 
+/** Normalise each sub-score 0–1 across a set of metric rows (shared by scoreCandidates + matrix). */
+function subScoreNorms(
+  metrics: RawMetrics[],
+  hasShelterData: boolean,
+): Record<SubScoreName, number[]> {
+  return {
+    wind: normalizeLower(metrics.map((m) => m.headwindPenalty)),
+    safety: normalizeLower(metrics.map((m) => m.crossPenalty)),
+    shelter: hasShelterData
+      ? normalizeHigher(metrics.map((m) => m.shelterShare))
+      : metrics.map(() => 0.5),
+    surface: normalizeHigher(metrics.map((m) => m.surfaceMatchShare)),
+    traffic: normalizeLower(metrics.map((m) => m.trafficPenalty)),
+    scenery: normalizeHigher(metrics.map((m) => m.sceneryShare)),
+    climb: normalizeHigher(metrics.map((m) => m.climbMatch)),
+    distance: normalizeHigher(metrics.map((m) => m.distanceMatch)),
+    rain: normalizeLower(metrics.map((m) => m.rainPenalty)),
+    sequencing: normalizeHigher(metrics.map((m) => m.seqShare)),
+  };
+}
+
+/** Total 0–100 for one metric row given pre-normalised sub-scores at index i and the weight vector. */
+function weightedTotal(
+  norm: Record<SubScoreName, number[]>,
+  i: number,
+  weights: ScoringWeights,
+): number {
+  const names = Object.keys(weights) as SubScoreName[];
+  const weightSum = names.reduce((sum, n) => sum + weights[n], 0) || 1;
+  let total = 0;
+  for (const n of names) total += (weights[n] / weightSum) * norm[n][i];
+  return total * 100;
+}
+
 function hardConstraintReasons(a: CandidateAnalysis, opts: ScoreOptions): string[] {
   const reasons: string[] = [];
   const tol = opts.distanceTolerancePct ?? 0.15;
@@ -401,23 +435,7 @@ export function scoreCandidates(inputs: CandidateWindInput[], opts: ScoreOptions
   const metrics = survivors.map((a) => computeMetrics(a, opts));
 
   // Each sub-score normalised 0–1 across the surviving set (higher = better).
-  const norm: Record<SubScoreName, number[]> = {
-    wind: normalizeLower(metrics.map((m) => m.headwindPenalty)),
-    safety: normalizeLower(metrics.map((m) => m.crossPenalty)),
-    // Only differentiate on shelter when a real exposure grid covered the routes; otherwise every
-    // candidate is uniform so presence-of-headwind (raw 0 vs the neutral 0.5) can't masquerade as
-    // shelter (WR-019 review — DEC-025).
-    shelter: opts.hasShelterData
-      ? normalizeHigher(metrics.map((m) => m.shelterShare))
-      : metrics.map(() => 0.5),
-    surface: normalizeHigher(metrics.map((m) => m.surfaceMatchShare)),
-    traffic: normalizeLower(metrics.map((m) => m.trafficPenalty)),
-    scenery: normalizeHigher(metrics.map((m) => m.sceneryShare)),
-    climb: normalizeHigher(metrics.map((m) => m.climbMatch)),
-    distance: normalizeHigher(metrics.map((m) => m.distanceMatch)),
-    rain: normalizeLower(metrics.map((m) => m.rainPenalty)),
-    sequencing: normalizeHigher(metrics.map((m) => m.seqShare)),
-  };
+  const norm = subScoreNorms(metrics, !!opts.hasShelterData);
   const rawByName: Record<SubScoreName, number[]> = {
     wind: metrics.map((m) => m.headwindPenalty),
     safety: metrics.map((m) => m.crossPenalty),
@@ -432,20 +450,14 @@ export function scoreCandidates(inputs: CandidateWindInput[], opts: ScoreOptions
   };
 
   const names = Object.keys(weights) as SubScoreName[];
-  const weightSum = names.reduce((sum, n) => sum + weights[n], 0) || 1;
 
   const scored: ScoredCandidate[] = survivors.map((a, i) => {
     const sub = {} as Record<SubScoreName, SubScoreResult>;
-    let total = 0;
-    for (const n of names) {
-      const normalized = norm[n][i];
-      sub[n] = { normalized, raw: rawByName[n][i] };
-      total += (weights[n] / weightSum) * normalized;
-    }
+    for (const n of names) sub[n] = { normalized: norm[n][i], raw: rawByName[n][i] };
     return {
       candidate: a.candidate,
       analysis: a,
-      total: total * 100,
+      total: weightedTotal(norm, i, weights),
       sub,
       evidence: metrics[i].evidence,
       rank: 0,
@@ -459,4 +471,73 @@ export function scoreCandidates(inputs: CandidateWindInput[], opts: ScoreOptions
   for (const sc of scored) sc.explanation = explainCandidate(sc, scored);
 
   return { ranked: scored, rejected };
+}
+
+// --- start-time matrix (WR-020) ------------------------------------------------------------
+export interface StartTimeCell {
+  hourIndex: number;
+  /** Score 0–100, or null when a hard constraint (e.g. would-not-finish-before-dark) rejects it. */
+  total: number | null;
+}
+export interface StartTimeRow {
+  candidate: CandidateRoute;
+  cells: StartTimeCell[];
+}
+export interface StartTimeMatrix {
+  hours: number[];
+  rows: StartTimeRow[];
+}
+
+/**
+ * Score every candidate at every departure hour (WR-020). Sub-scores are normalised JOINTLY across
+ * ALL (candidate, hour) cells, so totals are comparable across the whole matrix — the joint best
+ * cell is meaningful, unlike per-hour scoring which re-anchors normalisation each hour. Geometry is
+ * fixed; only the wind sampling (via startHourIndex) and the daylight constraint vary by hour.
+ * `opts.minutesUntilSunset` is now-relative and shrinks by 60 per departure hour.
+ */
+export function scoreMatrix(
+  inputs: CandidateWindInput[],
+  hours: number[],
+  opts: ScoreOptions,
+): StartTimeMatrix {
+  const weights = opts.weights ?? DEFAULT_WEIGHTS;
+  interface Cell {
+    ci: number;
+    hi: number;
+    metrics: RawMetrics;
+  }
+  const cells: Cell[] = [];
+  const index = new Map<string, number>(); // `${ci}:${hi}` -> position in `cells`
+
+  inputs.forEach((input, ci) => {
+    hours.forEach((h, hi) => {
+      const a = analyzeCandidate(input.candidate, input.windBySegment, {
+        ...opts,
+        startHourIndex: h,
+      });
+      const perHour: ScoreOptions = {
+        ...opts,
+        minutesUntilSunset:
+          opts.minutesUntilSunset !== undefined ? opts.minutesUntilSunset - h * 60 : undefined,
+      };
+      if (hardConstraintReasons(a, perHour).length > 0) return; // rejected cell (e.g. dark)
+      index.set(`${ci}:${hi}`, cells.length);
+      cells.push({ ci, hi, metrics: computeMetrics(a, perHour) });
+    });
+  });
+
+  const norm = subScoreNorms(
+    cells.map((c) => c.metrics),
+    !!opts.hasShelterData,
+  );
+  const totals = cells.map((_, i) => weightedTotal(norm, i, weights));
+
+  const rows: StartTimeRow[] = inputs.map((input, ci) => ({
+    candidate: input.candidate,
+    cells: hours.map((h, hi) => {
+      const pos = index.get(`${ci}:${hi}`);
+      return { hourIndex: h, total: pos === undefined ? null : totals[pos] };
+    }),
+  }));
+  return { hours, rows };
 }

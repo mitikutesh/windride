@@ -14,10 +14,13 @@ import { resample, segmentMidpoint } from '../../engine/geometry';
 import {
   DEFAULT_WEIGHTS,
   scoreCandidates,
+  scoreMatrix,
   type RejectedCandidate,
   type ScoredCandidate,
   type ScoringWeights,
+  type StartTimeMatrix,
 } from '../../engine/scoring';
+import { startTimeMessage } from '../../engine/startTime';
 
 export interface PlanInputs {
   distanceKm: number;
@@ -26,6 +29,8 @@ export interface PlanInputs {
   homeBeforeDark: boolean;
   avoidBusy: boolean;
   start: LatLon;
+  /** Departure hour offset from now for the main ranking (0 = now; WR-020 picker). */
+  departureHour?: number;
 }
 
 export interface Conditions {
@@ -50,6 +55,11 @@ export interface PlanOutput {
   conditions: Conditions;
   /** False when the exposure grid isn't generated / the ride is outside its region (WR-019). */
   shelterDataAvailable: boolean;
+  /** Candidate × departure-hour score matrix + the joint recommendation (WR-020). */
+  startMatrix: StartTimeMatrix;
+  startMessage: string;
+  /** Clock label per hour index (e.g. "17:00"), aligned to startMatrix.hours. */
+  hourLabels: string[];
 }
 
 export interface RunPlanOpts {
@@ -120,28 +130,61 @@ export async function runPlan(
   };
 
   opts.onProgress?.({ phase: 'scoring' });
+  const departureHour = inputs.departureHour ?? 0;
+  // Sunset margin from NOW; each departure hour eats 60 min of it (handled per-hour by scoreMatrix).
+  const minutesUntilSunsetNow = (Date.parse(daylight.sunset) - opts.now) / 60000;
   const minutesUntilSunset = inputs.homeBeforeDark
-    ? (Date.parse(daylight.sunset) - opts.now) / 60000
+    ? minutesUntilSunsetNow - departureHour * 60
     : undefined;
   const weights: ScoringWeights = inputs.avoidBusy
     ? { ...DEFAULT_WEIGHTS, traffic: DEFAULT_WEIGHTS.traffic * 2 }
     : DEFAULT_WEIGHTS;
 
-  const { ranked, rejected } = scoreCandidates(
-    candidates.map((candidate) => ({
-      candidate,
-      windBySegment: candidate.segments.map(() => hourly),
-    })),
-    {
-      targetDistanceM: lengthM,
-      prefersSurface: inputs.surface === 'gravel' ? 'gravel' : 'paved',
-      homeBeforeDark: inputs.homeBeforeDark,
-      minutesUntilSunset,
-      startHourIndex: 0,
-      weights,
-      hasShelterData: shelterDataAvailable,
-    },
-  );
+  const windInputs = candidates.map((candidate) => ({
+    candidate,
+    windBySegment: candidate.segments.map(() => hourly),
+  }));
+  const baseOpts = {
+    targetDistanceM: lengthM,
+    prefersSurface: (inputs.surface === 'gravel' ? 'gravel' : 'paved') as 'gravel' | 'paved',
+    weights,
+    hasShelterData: shelterDataAvailable,
+  };
 
-  return { ranked, rejected, conditions, shelterDataAvailable };
+  const { ranked, rejected } = scoreCandidates(windInputs, {
+    ...baseOpts,
+    homeBeforeDark: inputs.homeBeforeDark,
+    minutesUntilSunset,
+    startHourIndex: departureHour,
+  });
+
+  // Start-time matrix over the whole window (WR-020) — always daylight-constrained so late cells
+  // drop out, regardless of the ranking's home-before-dark toggle.
+  const windowHours = Array.from({ length: Math.max(1, hourly.length) }, (_v, i) => i);
+  const startMatrix = scoreMatrix(windInputs, windowHours, {
+    ...baseOpts,
+    homeBeforeDark: true,
+    minutesUntilSunset: minutesUntilSunsetNow,
+  });
+  const hourLabels = windowHours.map((h) => {
+    const d = new Date(opts.now + h * 3_600_000);
+    return `${String(d.getHours()).padStart(2, '0')}:00`;
+  });
+  const labelByRank = new Map(
+    ranked.map((r, i) => [r.candidate.id, `Route ${String.fromCharCode(65 + i)}`]),
+  );
+  const startMessage = startTimeMessage(startMatrix, {
+    label: (id) => labelByRank.get(id) ?? 'a route',
+    hourLabel: (h) => hourLabels[h] ?? `+${h}h`,
+  });
+
+  return {
+    ranked,
+    rejected,
+    conditions,
+    shelterDataAvailable,
+    startMatrix,
+    startMessage,
+    hourLabels,
+  };
 }
