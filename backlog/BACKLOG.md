@@ -12,7 +12,7 @@ Test contract · Technical notes · Out of scope · Log.
 |---|---|---|---|---|
 | WR-001 | Repo scaffold: Vite+TS+PWA, lint, vitest, CI | — | M | DONE |
 | WR-002 | Design tokens + app shell + attribution footer | 001 | M | DONE |
-| WR-003 | Domain types + adapter interfaces + mock providers | 001 | M | TODO |
+| WR-003 | Domain types + adapter interfaces + mock providers | 001 | M | DONE |
 | WR-004 | Open-Meteo weather adapter (multipoint, hourly) | 003 | M | TODO |
 | WR-005 | ORS routing adapter (round-trip diversity + dedupe) | 003 | L | TODO |
 | WR-006 | Geometry engine: resample, bearings, grades, overlap | 003 | M | TODO |
