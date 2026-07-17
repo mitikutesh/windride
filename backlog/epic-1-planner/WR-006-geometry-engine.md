@@ -63,3 +63,40 @@ zero imports from adapters/ui/state.
   (earlier) ID, because WR-005's candidate dedupe depends on `overlapRatio`/
   `expandRangesToEdges` defined here — per BACKLOG.md "Sequencing rules," dependency order
   wins over ID order when they conflict. Recorded as DEC-012.
+
+## Log — Fable 5 review pass — fixes
+
+A Fable 5 review of WR-006 raised one BLOCKER and several SHOULD-FIXes; all are fixed and the
+gate (`npm test` = 76 passing, `npm run lint`, `npm run build`) is green.
+
+- **BLOCKER (perf) — `overlapRatio` was O(S·N) via turf `along` + `pointToLineDistance`,
+  costing ~1.6–7 s per pair — unusable for WR-005's pairwise candidate dedupe. Rewritten to
+  O(|A|+|B|+samples): a single-walk `sampleAlong` emits sample points along each line in one
+  pass, and B's samples are indexed in a planar `spatialHash` (cell size = `bufferM`, 3×3
+  neighbourhood lookup) so membership tests are ~O(1) instead of scanning every point of the
+  other line. Dropped the turf `along`/`length`/`lineString`/`pointToLineDistance` imports;
+  only `distance` and `bearing` remain. Benchmark: 28 pairs of 1200-point lines now run in
+  ~67 ms total (was tens of seconds). Output values are unchanged: identical lines → 1,
+  disjoint → 0, the metric stays symmetric, and a reversed loop → ~1.
+- **SHOULD-FIX (bearings)** — segment bearing is now the length-weighted circular mean of the
+  underlying edge bearings (`segmentBearing`), with a fallback to the dominant (longest) edge's
+  bearing when the vector sum collapses (chord ≈ 0, e.g. an out-and-back turnaround). Previously
+  a chord (start→end) bearing was used, which goes garbage on folds and curves and would have
+  poisoned WR-007's wind decomposition on any there-and-back segment.
+- **SHOULD-FIX (elevations)** — `resample` now throws when `elevations.length !==
+  polyline.length` instead of silently grading 0; corrupt/misaligned adapter output is loud.
+  Absent elevations (the normal "no elevation data" case) still yield grade 0 as before.
+- **SHOULD-FIX (tests)** — the grade-smoothing test was un-failable (bound of 16.7% against an
+  actual smoothed value of ~4.4%); tightened to `<6%` so it actually guards the 3-segment
+  smoothing window. Added a golden bendy-path bearing test (north-then-east legs with known
+  0°/90° leg bearings) and a fold/turnaround bearing test (asserts a sane, non-garbage bearing
+  instead of a chord artifact). Documented and tested the "<200 m route ⇒ single whole-length
+  segment" invariant explicitly.
+- **NIT (coverage)** — added tests for `deg2rad`/`rad2deg` round-trip, `haversineM` against a
+  known short distance, `smallestAngle` with negative and >360 inputs, `overlapRatio` symmetry,
+  and `expandRangesToEdges` gap-fallback / out-of-range-clipping / off-by-one behaviour.
+- **Direction-blind note** — `overlapRatio` is direction-blind by design (a reversed loop scores
+  ~1); this is now called out explicitly in the doc comment. WR-005 should use it purely to
+  dedupe geometry (same/near-same path regardless of direction), then decide separately how to
+  handle CW vs CCW traversal for the sequencing subscore.
+- Test count: 76 passing total (up from 67); `npm run lint` and `npm run build` green.
