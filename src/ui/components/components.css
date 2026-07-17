@@ -534,8 +534,9 @@
   font-weight: 600;
 }
 .wr-downwind__return {
+  /* Transit copy is not a wind relationship, so it must not borrow a wind hue (DESIGN §1). */
   margin-top: var(--space-1);
-  color: var(--tail);
+  color: var(--text2);
   font-size: var(--fs-small);
 }
 

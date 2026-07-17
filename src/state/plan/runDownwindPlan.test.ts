@@ -129,4 +129,40 @@ describe('runDownwindPlan', () => {
     );
     expect(results).toEqual([]);
   });
+
+  it('ranks by tailwind share when return frequency is equal (a headwind dogleg loses)', async () => {
+    // Both stations are in the arc with EQUAL return frequency; FREQ is reached via an upwind dogleg
+    // (headwind leg → lower tailwind share), RARE via a straight tailwind route (share ≈ 1).
+    const swDetour = stationAt('sw', 225, 7_000); // a point straight upwind of START (short dogleg)
+    const p = providers();
+    const straight = p.routing.pointToPoint;
+    p.routing.pointToPoint = (async (a: LatLon, b: LatLon, profile: string) => {
+      if (haversineM(b, FREQ) < 200) {
+        return {
+          id: 'dogleg-freq',
+          polyline: [a, { lat: swDetour.lat, lon: swDetour.lon }, b], // upwind then to FREQ
+          segments: [],
+          distanceM:
+            haversineM(a, { lat: swDetour.lat, lon: swDetour.lon }) + haversineM(swDetour, b),
+          ascentM: 0,
+        };
+      }
+      return straight(a, b, profile);
+    }) as typeof p.routing.pointToPoint;
+
+    const results = await runDownwindPlan(
+      p,
+      { start: START, distanceKm: 52, surface: 'road' },
+      {
+        now: NOW,
+        stations: [FREQ, RARE],
+        loadGrid: noGrid,
+        transit: transit({ freq: 30, rare: 30 }),
+      },
+    );
+    const freq = results.find((r) => r.endpoint.station.id === 'freq')!;
+    const rare = results.find((r) => r.endpoint.station.id === 'rare')!;
+    expect(freq.tailwindShare).toBeLessThan(rare.tailwindShare); // dogleg has real headwind
+    expect(results[0].endpoint.station.id).toBe('rare'); // higher tailwind share wins the tie-free rank
+  });
 });

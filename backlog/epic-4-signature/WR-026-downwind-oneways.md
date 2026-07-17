@@ -80,3 +80,39 @@ Multi-leg transit optimization; buying tickets.
   Digitransit-read-vs-Strava-upload, and bike-carriage design decisions.
 - Reviewed post-implementation by a substitute senior reviewer (Opus) — Fable 5 was out of usage
   credits this session; see follow-up review commit for findings/fixes.
+
+**2026-07-18 — Substitute review (Opus, standing in for Fable 5 — out of credits) — fixes
+applied.** Verdict: REQUEST-CHANGES; 3 MAJOR, 5 MINOR, 1 NIT — all fixed, gate green (364 tests,
+lint clean, build OK).
+- **M1 — live call escaped the master switch.** `getTransitProvider()` unconditionally built a
+  real `DigitransitProvider`, so a stale `VITE_DIGITRANSIT_KEY` could fire a live call even with
+  `VITE_LIVE_APIS=false`. Fixed: it now returns a keyless provider (throws `'no-key'` → wind-only)
+  unless live APIs are enabled, and hands out a singleton when live so the new cache (m5) persists
+  across plans.
+- **M2 — dishonest distance/ETA pairing.** The card showed crow-flies (arc) distance next to a
+  road-distance ETA — the two didn't correspond to the same trip. Fixed: `DownwindResults` now
+  shows the actual ride distance (`scored.analysis.distanceM`), matching the ETA.
+- **M3 — `departureHour` ignored.** The Now/+3h/+6h selector no-oped in downwind mode — wind
+  direction (which picks the candidate stations) was always "now". Fixed: `departureHour` now
+  threads into `runDownwindPlan` → wind is read from `hourly[departureHour]`,
+  `scoreCandidates`'s `startHourIndex` is set accordingly, and the ETA is offset by
+  `departureHour` so the return is caught at the real arrival time.
+- **m4 — ranking inversion.** A station with a single known departure but unknown headway got
+  `frequencyFactor` 0 (same as no service) and sank below stations with worse but "known" headway.
+  Fixed: ≥1 known departure with unknown headway is treated as sparse (a ~120 min cadence) instead
+  of 0; genuinely zero departures still rank 0.
+- **m5 — no caching.** The Digitransit adapter re-fetched on every plan. Fixed: added a
+  per-instance 5-min TTL cache keyed by (lat, lon, 5-min time bucket); failures are not cached.
+  The registry hands out a singleton so repeated "Find downwind rides" clicks reuse it. New
+  tests: cache-hit (one fetch across repeats) and failures-not-cached.
+- **m6 — merge dropped the bus tag.** `fetch_stations.mjs` now unions `modes` on merge, so a
+  curated rail+bus hub isn't downgraded to rail-only by the rail-only query overwriting it.
+- **m7 — wind-hue on non-wind copy.** The return-service line no longer uses `--tail` (green is
+  reserved for an actual wind relationship, per DESIGN §1); it's now a neutral `--text2`.
+- **m8 — stale results.** Downwind results are now cleared on any input change (`setInput`), so a
+  shape/distance tweak can't leave stale cards computed against the old wind.
+- **NIT n9 — coverage gap.** Added a `runDownwindPlan` integration test proving tailwind *share*
+  drives the rank when return frequency is equal (a headwind-dogleg route loses to a straight
+  tailwind one) — the engine-level test already proved wind-dominance in isolation; this closes
+  the integration-level gap.
+- See the DEC-030 review addendum in `docs/DECISIONS.md` for the design-level summary.

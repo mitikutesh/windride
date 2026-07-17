@@ -16,8 +16,9 @@ export function DownwindResults({ results }: { results: DownwindResult[] }) {
           <li key={r.endpoint.station.id} className="wr-downwind__item">
             <div className="wr-downwind__head">
               <span className="wr-downwind__name">{r.endpoint.station.name}</span>
+              {/* Ride (road) distance, so it matches the ETA — not the crow-flies arc distance. */}
               <span className="wr-muted tabular">
-                {(r.endpoint.distanceM / 1000).toFixed(0)} km
+                {(r.scored.analysis.distanceM / 1000).toFixed(0)} km
               </span>
             </div>
             <div className="wr-muted tabular">

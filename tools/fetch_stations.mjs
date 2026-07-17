@@ -80,10 +80,15 @@ async function main() {
       modes: ['rail'],
     }));
 
-  // Merge: keep existing hand-curated bus-only entries that the rail query won't return.
+  // Merge: keep existing hand-curated bus-only entries that the rail query won't return, and UNION
+  // modes so a curated rail+bus hub isn't downgraded to rail-only by the rail-only query.
   const existing = JSON.parse(readFileSync(OUT, 'utf8'));
   const byId = new Map(existing.map((s) => [s.id, s]));
-  for (const s of rail) byId.set(s.id, { ...byId.get(s.id), ...s });
+  for (const s of rail) {
+    const prev = byId.get(s.id);
+    const modes = [...new Set([...(prev?.modes ?? []), ...s.modes])];
+    byId.set(s.id, { ...prev, ...s, modes });
+  }
 
   const merged = [...byId.values()].sort((a, b) => a.name.localeCompare(b.name));
   writeFileSync(OUT, JSON.stringify(merged, null, 2) + '\n');

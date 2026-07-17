@@ -69,7 +69,8 @@ export const usePlanStore = create<PlanState>()(
       error: null,
       downwind: [],
 
-      setInput: (patch) => set((s) => ({ inputs: { ...s.inputs, ...patch } })),
+      // Any input change invalidates the shown downwind results (they were for the old wind/distance).
+      setInput: (patch) => set((s) => ({ inputs: { ...s.inputs, ...patch }, downwind: [] })),
 
       locate: () =>
         new Promise<void>((resolve) => {
@@ -134,10 +135,10 @@ export const usePlanStore = create<PlanState>()(
             downwind: [],
           });
           try {
-            const { start, distanceKm, surface } = get().inputs;
+            const { start, distanceKm, surface, departureHour } = get().inputs;
             const results = await runDownwindPlan(
               getProviders(),
-              { start, distanceKm, surface },
+              { start, distanceKm, surface, departureHour },
               { now: Date.now(), transit: getTransitProvider() },
             );
             if (results.length === 0) {

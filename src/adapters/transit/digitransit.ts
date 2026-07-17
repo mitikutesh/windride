@@ -64,12 +64,19 @@ export interface DigitransitOptions {
 }
 
 const DEFAULT_ENDPOINT = 'https://api.digitransit.fi/routing/v2/hsl/gtfs/v1';
+/** Cache window for identical station+time lookups — repeated "Find downwind rides" clicks reuse it. */
+const CACHE_TTL_MS = 5 * 60 * 1000;
+/** Bucket the query time to 5-minute blocks so near-identical requests share a cache key. */
+const TIME_BUCKET_S = 300;
 
 export class DigitransitProvider implements TransitProvider {
   private readonly apiKey: string;
   private readonly fetchFn: typeof fetch;
   private readonly endpoint: string;
   private readonly radiusM: number;
+  // Per-instance cache (ARCHITECTURE §3: adapters own caching). Registry hands out a singleton so
+  // repeated plans reuse it; tests get their own instance and so stay isolated.
+  private readonly cache = new Map<string, { expiresAt: number; value: Promise<ReturnService> }>();
 
   constructor(opts: DigitransitOptions = {}) {
     this.apiKey = opts.apiKey ?? import.meta.env.VITE_DIGITRANSIT_KEY ?? '';
@@ -91,6 +98,20 @@ export class DigitransitProvider implements TransitProvider {
       throw new ProviderError('badResponse', 'Digitransit key missing', 'no-key');
     }
     const afterS = Math.floor(afterMs / 1000);
+    const key = `${station.lat.toFixed(3)},${station.lon.toFixed(3)},${Math.floor(afterS / TIME_BUCKET_S)}`;
+    const hit = this.cache.get(key);
+    if (hit && hit.expiresAt > Date.now()) return hit.value;
+
+    const value = this.fetchReturnService(station, afterS);
+    this.cache.set(key, { expiresAt: Date.now() + CACHE_TTL_MS, value });
+    value.catch(() => this.cache.delete(key)); // never cache a failure
+    return value;
+  }
+
+  private async fetchReturnService(
+    station: { lat: number; lon: number },
+    afterS: number,
+  ): Promise<ReturnService> {
     const query = `{ stopsByRadius(lat: ${station.lat}, lon: ${station.lon}, radius: ${this.radiusM}, first: 4) { edges { node { stop { stoptimesWithoutPatterns(startTime: ${afterS}, numberOfDepartures: 8, omitCanceled: true) { serviceDay scheduledDeparture realtimeDeparture } } } } } }`;
 
     let res: Response;

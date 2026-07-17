@@ -26,10 +26,15 @@ export function getProviders(): Providers {
 }
 
 /**
- * Return-service provider for downwind endpoints (WR-026). Always the real Digitransit adapter — it
- * self-degrades to a typed 'no-key' error when VITE_DIGITRANSIT_KEY is unset, and the planner then
- * ranks by wind alone. There is no mock: without a key the downwind planner simply omits return copy.
+ * Return-service provider for downwind endpoints (WR-026). Honours the VITE_LIVE_APIS master switch
+ * (API_NOTES §6): only when live APIs are enabled does this hit Digitransit. With the switch off it
+ * returns a keyless provider that throws a typed 'no-key' error, so the planner degrades to wind-only
+ * ranking and never fires a live call while the app is meant to be running fully mocked/offline.
  */
+let transitSingleton: DigitransitProvider | undefined;
 export function getTransitProvider(): TransitProvider {
-  return new DigitransitProvider();
+  // Keyless (throws 'no-key' → wind-only ranking) when live APIs are off, so a stale key in .env
+  // can't fire real calls in mock mode. Live: a singleton, so its cache survives repeated plans.
+  if (!liveApisEnabled()) return new DigitransitProvider({ apiKey: '' });
+  return (transitSingleton ??= new DigitransitProvider());
 }

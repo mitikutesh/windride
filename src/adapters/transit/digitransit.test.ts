@@ -87,4 +87,39 @@ describe('DigitransitProvider', () => {
     const err = await p.returnService(RIIHIMAKI, Date.now()).catch((e) => e);
     expect(isProviderError(err) && err.kind).toBe('network');
   });
+
+  it('caches identical lookups within the TTL (one fetch for repeat calls)', async () => {
+    let calls = 0;
+    const counting = (() => {
+      calls++;
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve(riihimaki),
+      } as Response);
+    }) as unknown as typeof fetch;
+    const p = new DigitransitProvider({ apiKey: 'k', fetchFn: counting });
+    const t = (SERVICE_DAY + 66_000) * 1000;
+    await p.returnService(RIIHIMAKI, t);
+    await p.returnService(RIIHIMAKI, t);
+    expect(calls).toBe(1);
+  });
+
+  it('does not cache failures (a later call retries)', async () => {
+    let calls = 0;
+    const flaky = (() => {
+      calls++;
+      return Promise.resolve({
+        ok: calls > 1, // first call fails, second succeeds
+        status: calls > 1 ? 200 : 500,
+        json: () => Promise.resolve(riihimaki),
+      } as Response);
+    }) as unknown as typeof fetch;
+    const p = new DigitransitProvider({ apiKey: 'k', fetchFn: flaky });
+    const t = (SERVICE_DAY + 66_000) * 1000;
+    await p.returnService(RIIHIMAKI, t).catch(() => {});
+    const svc = await p.returnService(RIIHIMAKI, t); // retried, not a cached failure
+    expect(calls).toBe(2);
+    expect(svc.departuresMs.length).toBeGreaterThan(0);
+  });
 });

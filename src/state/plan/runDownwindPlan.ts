@@ -27,6 +27,8 @@ export interface DownwindInputs {
   start: LatLon;
   distanceKm: number;
   surface: 'road' | 'gravel';
+  /** Departure hour offset from now (0 = now). The wind at THIS hour picks the downwind stations. */
+  departureHour?: number;
 }
 
 export interface ReturnInfo {
@@ -83,10 +85,13 @@ export async function runDownwindPlan(
   const profile = inputs.surface === 'road' ? 'cycling-road' : 'cycling-regular';
   const stations = opts.stations ?? loadStations();
 
-  // Wind at the start fixes the downwind direction (wind_to = wind_from + 180).
+  // Wind at the DEPARTURE hour fixes the downwind direction (wind_to = wind_from + 180) — an evening
+  // ride is planned against the evening wind, not now's.
+  const departureHour = Math.max(0, inputs.departureHour ?? 0);
   const hours = forecastHours(inputs.distanceKm);
   const hourly = (await providers.weather.windAlong([inputs.start], hours))[0] ?? [];
-  const windFromDeg = hourly[0]?.windFromDeg ?? 0;
+  const startHour = Math.min(departureHour, Math.max(0, hourly.length - 1));
+  const windFromDeg = hourly[startHour]?.windFromDeg ?? 0;
   const windToDeg = (windFromDeg + 180) % 360;
 
   const endpoints = downwindEndpoints(inputs.start, stations, { targetM: lengthM, windToDeg });
@@ -120,8 +125,12 @@ export async function runDownwindPlan(
       weights: { ...DEFAULT_WEIGHTS, sequencing: 0 },
       distanceTolerancePct: 0.4,
       speed: activeSpeedSettings(),
+      startHourIndex: startHour, // sample wind from the departure hour, as the arc selection did
     },
   );
+
+  // The ride departs at the chosen hour and takes totalTimeS — the return is caught at that ETA.
+  const departAtMs = opts.now + departureHour * 3_600_000;
 
   const endpointByCandidate = new Map(routed.map((r) => [r.candidate.id, r.endpoint]));
   const results: DownwindResult[] = [];
@@ -129,13 +138,20 @@ export async function runDownwindPlan(
     const endpoint = endpointByCandidate.get(scored.candidate.id);
     if (!endpoint) continue;
     const tailwindShare = tailwindTimeShare(scored.analysis);
-    const etaMs = opts.now + scored.analysis.totalTimeS * 1000;
+    const etaMs = departAtMs + scored.analysis.totalTimeS * 1000;
 
     let ret: ReturnInfo | null = null;
     if (opts.transit) {
       try {
         const svc = await opts.transit.returnService(endpoint.station, etaMs);
-        const ff = frequencyFactor(svc.headwayMin);
+        // A single known departure has an unknown headway but still IS a return — treat it as sparse
+        // (freq of a ~2 h cadence) rather than 0, so it doesn't sink below a no-service station.
+        const ff =
+          svc.headwayMin !== null
+            ? frequencyFactor(svc.headwayMin)
+            : svc.departuresMs.length > 0
+              ? frequencyFactor(120)
+              : 0;
         ret = {
           departuresMs: svc.departuresMs,
           headwayMin: svc.headwayMin,
