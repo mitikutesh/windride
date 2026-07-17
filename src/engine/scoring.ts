@@ -500,6 +500,10 @@ export function scoreMatrix(
   hours: number[],
   opts: ScoreOptions,
 ): StartTimeMatrix {
+  // Same loud guard as scoreCandidates — never silently skip the daylight safety constraint.
+  if (opts.homeBeforeDark && opts.minutesUntilSunset === undefined) {
+    throw new Error('scoring: homeBeforeDark requires minutesUntilSunset');
+  }
   const weights = opts.weights ?? DEFAULT_WEIGHTS;
   interface Cell {
     ci: number;

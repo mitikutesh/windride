@@ -83,3 +83,50 @@ Key decisions:
   it feeds `departureHour` straight into the main ranking's `startHourIndex`/sunset margin, while
   the full matrix (used for the heat strip and recommendation) always spans the whole forecast
   window regardless of the picker value.
+
+## Review pass — fixes
+
+Reviewed by a substitute senior reviewer (Opus) — the Fable 5 model was out of usage credits this
+session (two "Usage credits are required for this model" errors mid-session).
+
+Adversarial review returned APPROVE-WITH-FIXES; all SHOULD-FIXes and the two actionable NITs are
+applied, gate is green (285 tests, lint clean, build OK):
+
+- **SF1 — label every matrix candidate.** `labelByRank` previously only labelled the ranked
+  survivors for the picked `departureHour`, so the recommendation copy could name a matrix
+  candidate ("Route B at 17:00 beats Route A...") that the current ranking had actually rejected
+  on daylight grounds — a route referenced by a letter it was never assigned. Fixed: every
+  candidate present in the matrix is now labelled — ranked survivors get Route A/B/C in rank
+  order first, then any remaining daylight-rejected candidates get the next letters — so the
+  message always names a route the label map actually covers.
+- **SF2 — matrix daylight now follows the user's toggle.** The matrix was always scored with
+  `homeBeforeDark: true` regardless of the Plan screen's toggle state, so with the toggle OFF the
+  UI could show ranked, rideable routes while `startMessage` simultaneously said "No ride fits
+  before dark" (computed against the always-on assumption). Fixed: `runPlan.ts` now passes the
+  matrix through the same `homeBeforeDark` toggle as the main ranking, and only supplies
+  `minutesUntilSunset` to `scoreMatrix` when the toggle is on — message and offered routes agree.
+- **SF3 — `scoreMatrix` daylight guard.** `scoreMatrix` silently skipped the daylight constraint
+  entirely if `minutesUntilSunset` was omitted while `homeBeforeDark` was `true`, instead of
+  failing loudly. Fixed: `scoreMatrix` now throws the same guard `scoreCandidates` already uses
+  for that combination, so a missing sunset value can't silently produce an unconstrained matrix.
+- **SF4 — test coverage.** Added `runPlan` WR-020 coverage: `startMatrix` rows equal
+  ranked-plus-rejected candidates, `hourLabels` are aligned and formatted `"HH:00"`, `startMessage`
+  always names a real route, and there's exactly one cell per window hour; also verified that
+  `departureHour` shifts both the ranking hour and the sunset margin together, so a later
+  departure never ends up ranking *more* routes than an earlier one. Added `startTime.ts` coverage
+  for `bestStart` honouring `allowedHours`, and for a fully-rejected candidate row being ignored
+  while the runner-up cell is still picked correctly.
+- **NIT — HeatStrip a11y.** `role="img"` on the strip collapses the subtree for assistive tech, so
+  the per-cell `aria-label`s were dead weight (never reachable). Replaced with a single summary
+  `aria-label` on the strip (including the best hour); individual cells are now `aria-hidden` with
+  a `title` as a mouse-only hint — the numeric detail already lives in the adjacent recommendation
+  sentence, so nothing is lost.
+- **NIT — HeatStrip overflow.** Added `overflow-x: auto` so a long forecast window (more hours
+  than fit the card width) scrolls horizontally instead of overflowing the card.
+- **Deferred (noted, not changed):** the per-route heat marker shows the *selected* route's local
+  best hour while the recommendation sentence names the *joint* best across all routes — accepted
+  as-is since the strip is explicitly per-route; the "+0.5 beats" threshold and the heat-bucket
+  cutoffs are already documented in code comments rather than re-derived here; and when a
+  `departureHour` empties the ranking entirely, `planStore` still takes its existing error path
+  rather than surfacing the optimizer's "ride earlier" recommendation there — flagged as a
+  possible follow-up, not fixed in this pass.

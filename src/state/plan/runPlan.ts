@@ -158,21 +158,28 @@ export async function runPlan(
     startHourIndex: departureHour,
   });
 
-  // Start-time matrix over the whole window (WR-020) — always daylight-constrained so late cells
-  // drop out, regardless of the ranking's home-before-dark toggle.
+  // Start-time matrix over the whole window (WR-020). Daylight follows the ranking's toggle so we
+  // never show "no ride before dark" next to offered routes (or vice-versa).
   const windowHours = Array.from({ length: Math.max(1, hourly.length) }, (_v, i) => i);
   const startMatrix = scoreMatrix(windInputs, windowHours, {
     ...baseOpts,
-    homeBeforeDark: true,
-    minutesUntilSunset: minutesUntilSunsetNow,
+    homeBeforeDark: inputs.homeBeforeDark,
+    minutesUntilSunset: inputs.homeBeforeDark ? minutesUntilSunsetNow : undefined,
   });
   const hourLabels = windowHours.map((h) => {
     const d = new Date(opts.now + h * 3_600_000);
     return `${String(d.getHours()).padStart(2, '0')}:00`;
   });
-  const labelByRank = new Map(
-    ranked.map((r, i) => [r.candidate.id, `Route ${String.fromCharCode(65 + i)}`]),
-  );
+  // Label EVERY matrix candidate (ranked first as Route A/B/C, then any rejected-by-daylight ones)
+  // so the recommendation copy never degrades to a generic "a route".
+  const labelByRank = new Map<string, string>();
+  ranked.forEach((r, i) => labelByRank.set(r.candidate.id, `Route ${String.fromCharCode(65 + i)}`));
+  let nextLetter = ranked.length;
+  for (const row of startMatrix.rows) {
+    if (!labelByRank.has(row.candidate.id)) {
+      labelByRank.set(row.candidate.id, `Route ${String.fromCharCode(65 + nextLetter++)}`);
+    }
+  }
   const startMessage = startTimeMessage(startMatrix, {
     label: (id) => labelByRank.get(id) ?? 'a route',
     hourLabel: (h) => hourLabels[h] ?? `+${h}h`,

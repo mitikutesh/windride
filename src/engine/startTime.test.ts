@@ -101,6 +101,31 @@ describe('bestStart + startTimeMessage', () => {
     expect(bestStart(matrix)).toMatchObject({ candidateId: 'B', hourIndex: 3, total: 72 });
   });
 
+  it('bestStart honours allowedHours (restricting the window)', () => {
+    expect(bestStart(matrix, [0])).toMatchObject({ candidateId: 'A', hourIndex: 0, total: 60 });
+  });
+
+  it('ignores a fully-rejected candidate row', () => {
+    const withDeadRow: StartTimeMatrix = {
+      hours: [0, 3],
+      rows: [
+        ...matrix.rows,
+        {
+          candidate: candidate('C', 135),
+          cells: [
+            { hourIndex: 0, total: null },
+            { hourIndex: 3, total: null },
+          ],
+        },
+      ],
+    };
+    expect(bestStart(withDeadRow)).toMatchObject({ candidateId: 'B', hourIndex: 3 });
+    // C contributes nothing, so the runner-up is still A.
+    expect(startTimeMessage(withDeadRow, { label, hourLabel })).toBe(
+      'Route B at 20:00 beats Route A at any time in your window.',
+    );
+  });
+
   it('phrases a cross-route win ("Route B at 20:00 beats Route A ...")', () => {
     expect(startTimeMessage(matrix, { label, hourLabel })).toBe(
       'Route B at 20:00 beats Route A at any time in your window.',

@@ -451,6 +451,7 @@
   gap: 2px;
   align-items: stretch;
   height: 16px;
+  overflow-x: auto; /* a long forecast window scrolls rather than overflowing the card */
 }
 .wr-heat__cell {
   flex: 1 1 0;

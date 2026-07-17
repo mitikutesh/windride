@@ -29,8 +29,15 @@ export function HeatStrip({
   hourLabel,
   ariaLabel = 'Score by departure hour',
 }: HeatStripProps) {
+  // role=img collapses the a11y subtree, so a single summary label carries the meaning; the numeric
+  // detail also lives in the recommendation sentence next to the strip. `title` stays a mouse hint.
+  const bestLabel = bestHourIndex !== undefined ? ` Best at ${hourLabel(bestHourIndex)}.` : '';
   return (
-    <div className="wr-heat" role="img" aria-label={ariaLabel}>
+    <div
+      className="wr-heat"
+      role="img"
+      aria-label={`${ariaLabel} (${HEAT_BUCKETS} levels).${bestLabel}`}
+    >
       {cells.map((c) => {
         const off = c.total === null;
         const bucket = off ? -1 : heatBucket(c.total as number, min, max);
@@ -45,9 +52,8 @@ export function HeatStrip({
         const title = off
           ? `${hourLabel(c.hourIndex)}: unavailable`
           : `${hourLabel(c.hourIndex)}: ${Math.round(c.total as number)}`;
-        return <span key={c.hourIndex} className={classes} title={title} aria-label={title} />;
+        return <span key={c.hourIndex} className={classes} title={title} aria-hidden="true" />;
       })}
-      <span className="wr-visually-hidden">{`${HEAT_BUCKETS}-level score by hour`}</span>
     </div>
   );
 }

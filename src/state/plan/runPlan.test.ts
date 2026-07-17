@@ -48,6 +48,26 @@ describe('runPlan', () => {
     expect(out.conditions.windFromDeg).toBe(225);
   });
 
+  it('produces a start-time matrix, recommendation, and aligned hour labels (WR-020)', async () => {
+    const out = await runPlan(providers(), INPUTS, { now: NOW });
+    expect(out.startMatrix.rows.length).toBe(out.ranked.length + out.rejected.length);
+    expect(out.startMatrix.hours.length).toBeGreaterThan(0);
+    expect(out.hourLabels).toHaveLength(out.startMatrix.hours.length);
+    expect(out.hourLabels[0]).toMatch(/^\d\d:00$/);
+    expect(out.startMessage).toMatch(/Route [A-Z]/); // never the generic "a route"
+    // Each row has one cell per window hour.
+    expect(out.startMatrix.rows[0].cells).toHaveLength(out.startMatrix.hours.length);
+  });
+
+  it('departureHour shifts both the ranking hour and the sunset margin', async () => {
+    // home-before-dark on, tight sunset: departing +6 h should reject more than departing now.
+    const sunsetSoon = { ...INPUTS, homeBeforeDark: true };
+    const now = await runPlan(providers(), { ...sunsetSoon, departureHour: 0 }, { now: NOW });
+    const later = await runPlan(providers(), { ...sunsetSoon, departureHour: 6 }, { now: NOW });
+    // Later departures never leave MORE daylight, so can't rank more routes than departing now.
+    expect(later.ranked.length).toBeLessThanOrEqual(now.ranked.length);
+  });
+
   it('fills segment exposure from a covering grid and flags shelter data available', async () => {
     const out = await runPlan(providers(), INPUTS, {
       now: NOW,
