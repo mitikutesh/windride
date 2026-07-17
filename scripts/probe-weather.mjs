@@ -8,11 +8,18 @@
  * parser is verified against the true shape, then frozen (fixtures/README.md). Open-Meteo is
  * keyless and free for non-commercial use (API_NOTES §1); attribution is wired into the UI.
  */
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 
 if (process.env.VITE_LIVE_APIS !== 'true') {
   console.error('Refusing to hit the live API: set VITE_LIVE_APIS=true to run the probe.');
+  process.exit(1);
+}
+
+const OUT = 'fixtures/openmeteo/real-espoo.json';
+const force = process.argv.includes('--force');
+if (existsSync(OUT) && !force) {
+  console.error(`${OUT} already exists and fixtures are frozen. Re-capture with --force.`);
   process.exit(1);
 }
 
@@ -28,7 +35,8 @@ const url =
   'https://api.open-meteo.com/v1/forecast' +
   `?latitude=${points.map((p) => p.lat).join(',')}` +
   `&longitude=${points.map((p) => p.lon).join(',')}` +
-  `&hourly=${HOURLY}&daily=sunrise,sunset&wind_speed_unit=ms&timezone=auto&forecast_days=2`;
+  // forecast_hours: slot 0 is the current hour, so the adapter returns the NEXT hours (WR-004).
+  `&hourly=${HOURLY}&daily=sunrise,sunset&wind_speed_unit=ms&timezone=auto&forecast_hours=48`;
 
 const res = await fetch(url);
 if (!res.ok) {
@@ -36,7 +44,7 @@ if (!res.ok) {
   process.exit(1);
 }
 const body = await res.json();
-const out = 'fixtures/openmeteo/real-espoo.json';
+const out = OUT;
 mkdirSync(dirname(out), { recursive: true });
 writeFileSync(out, JSON.stringify(body, null, 2) + '\n');
 

@@ -1,6 +1,7 @@
 // adapters/weather/openMeteo.ts — real Open-Meteo WeatherProvider (WR-004).
-// One multipoint call -> WindGrid[pointIdx][hourIdx]. Keyless, CC-BY 4.0 (attribution in the UI
-// footer, WR-002). wind_direction is meteorological (FROM) — see CLAUDE.md domain warnings.
+// One multipoint call -> WindGrid[pointIdx][hourIdx], starting at the CURRENT hour. Keyless,
+// CC-BY 4.0 (attribution in the UI footer, WR-002). wind_direction is meteorological (FROM) —
+// see CLAUDE.md domain warnings.
 import type { Daylight, LatLon, WindGrid, WindSample } from '../../domain';
 import { ProviderError } from '../errors';
 import { createWeatherCache, type WeatherCache } from './cache';
@@ -12,7 +13,7 @@ const HOURLY =
 const TTL_MS = 30 * 60 * 1000;
 
 // Real multipoint responses are a top-level ARRAY (one object per requested point, in order);
-// a single-point response is a bare object. Parsers below accept either.
+// a single-point response (e.g. daily-only) is a bare object. Both are normalised here.
 type OpenMeteoHourly = {
   time: string[];
   wind_speed_10m: number[];
@@ -21,22 +22,31 @@ type OpenMeteoHourly = {
   temperature_2m: number[];
   precipitation_probability: Array<number | null>;
 };
-type OpenMeteoPoint = { hourly: OpenMeteoHourly; daily: { sunrise: string[]; sunset: string[] } };
+type OpenMeteoPoint = { hourly?: OpenMeteoHourly; daily?: { sunrise: string[]; sunset: string[] } };
 
 function asPointArray(body: unknown): OpenMeteoPoint[] {
   const arr = (Array.isArray(body) ? body : [body]) as OpenMeteoPoint[];
-  if (arr.length === 0 || !arr[0]?.hourly) throw new ProviderError('badResponse', 'no forecast');
+  if (arr.length === 0 || arr[0] == null) throw new ProviderError('badResponse', 'empty response');
   return arr;
 }
+
+const HOURLY_FIELDS: Array<keyof OpenMeteoHourly> = [
+  'time',
+  'wind_speed_10m',
+  'wind_direction_10m',
+  'wind_gusts_10m',
+  'temperature_2m',
+  'precipitation_probability',
+];
 
 export function parseWindGrid(body: unknown, pointCount: number, hours: number): WindGrid {
   const arr = asPointArray(body);
   const grid: WindGrid = [];
   for (let p = 0; p < pointCount; p++) {
-    const point = arr[p];
-    const h = point?.hourly;
-    if (!h || h.time.length < hours) {
-      throw new ProviderError('badResponse', `point ${p} missing ${hours}h of data`);
+    const h = arr[p]?.hourly;
+    // Guard the param-rename risk (API_NOTES §1): every required array must exist and be long enough.
+    if (!h || HOURLY_FIELDS.some((f) => !Array.isArray(h[f]) || h[f].length < hours)) {
+      throw new ProviderError('badResponse', `point ${p} missing ${hours}h of hourly data`);
     }
     const perPoint: WindSample[] = [];
     for (let i = 0; i < hours; i++) {
@@ -55,8 +65,7 @@ export function parseWindGrid(body: unknown, pointCount: number, hours: number):
 }
 
 export function parseDaylight(body: unknown): Daylight {
-  const [first] = asPointArray(body);
-  const d = first.daily;
+  const d = asPointArray(body)[0].daily;
   if (!d?.sunrise?.[0] || !d?.sunset?.[0]) throw new ProviderError('badResponse', 'no daylight');
   return { sunrise: d.sunrise[0], sunset: d.sunset[0] };
 }
@@ -92,7 +101,6 @@ export class OpenMeteoProvider implements WeatherProvider {
   }
 
   private buildUrl(points: LatLon[], hours: number): string {
-    const days = Math.max(1, Math.ceil(hours / 24));
     const params = new URLSearchParams({
       latitude: points.map((p) => p.lat).join(','),
       longitude: points.map((p) => p.lon).join(','),
@@ -100,7 +108,8 @@ export class OpenMeteoProvider implements WeatherProvider {
       daily: 'sunrise,sunset',
       wind_speed_unit: 'ms',
       timezone: 'auto',
-      forecast_days: String(days),
+      // Slot 0 is the CURRENT hour, so windAlong returns the NEXT `hours` hours (not from midnight).
+      forecast_hours: String(hours),
     });
     return `${ENDPOINT}?${params.toString()}`;
   }

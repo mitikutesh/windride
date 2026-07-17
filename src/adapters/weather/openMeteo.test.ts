@@ -3,7 +3,7 @@ import realEspooRaw from '../../../fixtures/openmeteo/real-espoo.json?raw';
 import type { LatLon } from '../../domain';
 import type { ProviderErrorKind } from '../errors';
 import { describeWeatherProviderContract } from '../providerContract';
-import { OpenMeteoProvider } from './openMeteo';
+import { OpenMeteoProvider, parseDaylight, parseWindGrid } from './openMeteo';
 
 const FIXTURE = JSON.parse(realEspooRaw);
 const FIXED_NOW = 1_700_000_000_000;
@@ -39,18 +39,18 @@ describeWeatherProviderContract(
 );
 
 describe('OpenMeteoProvider parsing (captured fixture)', () => {
-  it('parses point0 hour0 with hand-checked values (wind FROM 134°)', async () => {
+  it('parses point0 hour0 with hand-checked values (wind FROM 166°, current-hour slot)', async () => {
     const grid = await new OpenMeteoProvider({
       fetchFn: okFetch(),
       now: () => FIXED_NOW,
     }).windAlong(POINTS, 6);
     expect(grid[0][0]).toEqual({
-      windMs: 1.7,
-      windFromDeg: 134,
-      gustMs: 3.2,
+      windMs: 3.5,
+      windFromDeg: 166,
+      gustMs: 8.3,
       precipProb: 0,
-      tempC: 16.8,
-      time: '2026-07-17T00:00',
+      tempC: 22.4,
+      time: '2026-07-17T12:00',
     });
   });
 
@@ -80,6 +80,20 @@ describe('OpenMeteoProvider parsing (captured fixture)', () => {
     expect(seen).toContain('timezone=auto');
     expect(seen).toContain('wind_speed_10m');
     expect(seen).toContain('latitude=60.17');
+    expect(seen).toContain('forecast_hours=6'); // next-N-hours window, slot 0 = current hour
+  });
+
+  it('parses daylight from a daily-only response (no hourly key)', () => {
+    const d = parseDaylight({
+      daily: { sunrise: ['2026-07-17T04:26'], sunset: ['2026-07-17T22:27'] },
+    });
+    expect(d).toEqual({ sunrise: '2026-07-17T04:26', sunset: '2026-07-17T22:27' });
+  });
+
+  it('throws badResponse when an hourly field is missing (param-rename guard)', () => {
+    expect(() => parseWindGrid([{ hourly: { time: ['2026-07-17T12:00'] } }], 1, 1)).toThrow(
+      /missing/,
+    );
   });
 });
 
@@ -93,5 +107,18 @@ describe('OpenMeteoProvider cache', () => {
     await provider.windAlong(POINTS, 6);
     await provider.windAlong(POINTS, 6);
     expect(calls).toBe(1);
+  });
+
+  it('re-fetches after the TTL / date-hour bucket rolls over', async () => {
+    let calls = 0;
+    let clock = FIXED_NOW;
+    const counting = okFetch(() => {
+      calls++;
+    });
+    const provider = new OpenMeteoProvider({ fetchFn: counting, now: () => clock });
+    await provider.windAlong(POINTS, 6);
+    clock += 31 * 60 * 1000; // past the 30 min TTL (and into the next hour bucket)
+    await provider.windAlong(POINTS, 6);
+    expect(calls).toBe(2);
   });
 });

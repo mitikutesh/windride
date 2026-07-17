@@ -77,3 +77,55 @@ Follow-ups for later stories: WR-020 (start-time optimizer) will consume the ful
 already returned by this one call at zero extra API cost; WR-019 (shelter-aware effective wind)
 will apply its exposure adjustment on top of these raw `WindSample`s without touching this
 adapter.
+
+### Fable 5 review pass — fixes
+
+A Fable 5 review of this story found two BLOCKERs and several SHOULD-FIXes. All are fixed; gate
+is green (`npm test` = 54 passing, `npm run lint`, `npm run build`).
+
+**BLOCKER — time window.** `windAlong` was requesting `forecast_days` starting from local
+midnight, so hour-indexed samples covered the day so far plus tomorrow rather than "the next N
+hours from now" — meaning WR-007 would have scored last night's wind instead of current/future
+wind. Fixed to request `forecast_hours=hours` instead; verified live that Open-Meteo's
+`forecast_hours` slot 0 is the current hour, so the response now correctly returns the next
+`hours` hours. The fixture was re-captured against this corrected param
+(`npm run probe:weather -- --force`), and the hand spot-check in this Log is superseded: for
+`fixtures/openmeteo/real-espoo.json`, point0/hour0 is now time `2026-07-17T12:00`, windMs `3.5`,
+windFromDeg `166`, gustMs `8.3`, tempC `22.4`, precipProb `0`. `MockWeatherProvider`'s `fixture`
+scenario test values were updated to match.
+
+**BLOCKER — daylight parsing.** `parseDaylight` incorrectly required an `hourly` key to be
+present on the response, but a daily-only Open-Meteo request returns a bare object containing
+only `daily` (confirmed against a live call). `asPointArray` now just normalises the response
+shape to a non-empty array; `parseWindGrid` alone owns the hourly-field validation, so
+daylight-only responses parse correctly. Added a regression test that parses a daily-only
+response object.
+
+**SHOULD-FIX — typed errors on malformed hourly data.** `parseWindGrid` now explicitly validates
+that every required hourly array is present and at least `hours` long, throwing
+`ProviderError('badResponse')` instead of letting a raw `TypeError` escape — this is the
+param-rename failure mode flagged in API_NOTES §1. Added a test covering a truncated/missing
+hourly array.
+
+**SHOULD-FIX — live registry wiring.** `getProviders()` previously threw when
+`VITE_LIVE_APIS=true` was set, even though this story's `OpenMeteoProvider` was ready. It now
+returns the live `OpenMeteoProvider` for weather in that mode (routing still returns
+`MockRouteProvider` until WR-005 lands); registry test updated to assert this.
+
+**SHOULD-FIX — cache resilience.** IndexedDB failures (unavailable, blocked, or throwing) are
+now caught so the cache degrades to memory-only instead of leaking an unmapped `DOMException` as
+a provider error or memoizing a rejected connection promise (which would have wedged the cache
+for the rest of the session). Expired idb rows are also deleted on read, so the store can't grow
+unbounded across TTL rollovers.
+
+**SHOULD-FIX — probe safety.** `scripts/probe-weather.mjs` now refuses to overwrite the frozen
+`fixtures/openmeteo/real-espoo.json` unless invoked with `--force`, preventing an accidental
+re-run from silently drifting the golden fixture (and the hand-checked values that document it).
+
+**Added:** a cache test proving a re-fetch occurs after the 30 min TTL / hour-bucket rollover
+(previously only the zero-fetch cache-hit path was covered).
+
+**Deferred (documented, not changed) — NITs:** `daylight()` remains a separate, uncached fetch
+from `windAlong`; there is no in-flight request de-duplication (two concurrent identical calls
+before the first resolves will both hit the network/idb). Neither is required for current
+consumers; revisit if a future story calls this adapter at higher frequency.

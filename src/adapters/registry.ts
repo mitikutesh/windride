@@ -4,6 +4,7 @@ import type { RouteProvider } from './routing';
 import type { WeatherProvider } from './weather';
 import { MockRouteProvider } from './routing/mock';
 import { MockWeatherProvider } from './weather/mock';
+import { OpenMeteoProvider } from './weather/openMeteo';
 
 export interface Providers {
   weather: WeatherProvider;
@@ -16,11 +17,8 @@ export function liveApisEnabled(): boolean {
 
 export function getProviders(): Providers {
   if (liveApisEnabled()) {
-    // Live weather (WR-004) and routing (WR-005) adapters are not built yet. Fail loudly rather
-    // than silently returning mocks so a misconfigured live run is obvious.
-    throw new Error(
-      'Live providers are not available yet (WR-004/WR-005). Set VITE_LIVE_APIS=false to use mocks.',
-    );
+    // Live weather is wired in WR-004; live routing (ORS) lands in WR-005, so routing stays mock.
+    return { weather: new OpenMeteoProvider(), routing: new MockRouteProvider() };
   }
   return { weather: new MockWeatherProvider(), routing: new MockRouteProvider() };
 }

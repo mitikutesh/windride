@@ -34,8 +34,8 @@ describe('MockWeatherProvider scenarios', () => {
       3,
     );
     // Values unique to the captured fixtures/openmeteo/real-espoo.json (sw-steady is 8/17/225 flat).
-    expect(grid[0][0].tempC).toBe(16.8);
-    expect(grid[0][1].windMs).toBe(1.6);
-    expect(grid[0][2].windFromDeg).toBe(139);
+    expect(grid[0][0].tempC).toBe(22.4);
+    expect(grid[0][1].windMs).toBe(3.8);
+    expect(grid[0][2].windFromDeg).toBe(171);
   });
 });
