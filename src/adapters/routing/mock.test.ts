@@ -18,9 +18,11 @@ const params: RoundTripParams = {
 };
 
 describe('MockRouteProvider', () => {
-  it('honours the requested round-trip length', async () => {
+  it('produces a closed loop roughly the requested length', async () => {
     const r = await new MockRouteProvider().roundTrip(params);
-    expect(r.distanceM).toBe(50_000);
+    expect(r.distanceM).toBeGreaterThan(params.lengthM * 0.6);
+    expect(r.distanceM).toBeLessThan(params.lengthM * 1.3);
+    expect(r.polyline[0]).toEqual(r.polyline.at(-1));
   });
 
   it('keeps the provider turn steps for later navigation', async () => {

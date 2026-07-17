@@ -28,12 +28,14 @@ describe('MockWeatherProvider scenarios', () => {
     expect(grid[0][0].windFromDeg).not.toBe(grid[0][3].windFromDeg);
   });
 
-  it('fixture scenario is fed by the captured sample', async () => {
+  it('fixture scenario is fed by the captured sample (not the sw-steady defaults)', async () => {
     const grid = await new MockWeatherProvider({ scenario: 'fixture' }).windAlong(
       [{ lat: 60, lon: 24 }],
       3,
     );
-    expect(grid[0][0].windMs).toBeCloseTo(8.0);
-    expect(grid[0][0].windFromDeg).toBe(225);
+    // Values unique to fixtures/openmeteo-sample.json (sw-steady would give 8/17/12 flat).
+    expect(grid[0][0].tempC).toBe(17.8);
+    expect(grid[0][1].windMs).toBe(7.5);
+    expect(grid[0][2].windFromDeg).toBe(240);
   });
 });

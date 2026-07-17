@@ -55,3 +55,44 @@ Any real HTTP.
 - Tests: 39 total (19 new for adapters), all green; lint + build green.
 - Follow-ups: WR-004 (Open-Meteo adapter) and WR-005 (ORS adapter) reuse the contract suite
   as-is; WR-006 (geometry engine) is the first consumer to fill in real `segments`.
+
+## Fable 5 review pass — fixes
+A Fable 5 review flagged issues in the mock routing adapter and the contract suite; fixes are
+applied and the gate is green (`npm test` 40 passing, lint clean, build clean; adapters coverage
+83.5%).
+
+- **Mock routing geometry (`src/adapters/routing/mock.ts`):** `roundTrip` now synthesizes a
+  genuinely CLOSED loop that starts exactly at the requested `start` point, sized to ~`lengthM`
+  (seed-varied ellipse aspect + rotation, so different seeds are geometrically distinct, not just
+  relabeled). `distanceM` is now derived from the generated polyline itself, so it stays
+  consistent with the returned geometry. Previously the mock ignored `start`, returned an open
+  ~3.5 km line regardless of the requested length, and reported a `distanceM` ~14x larger than
+  the actual polyline — any of which would have silently corrupted WR-006/WR-007 segment
+  building, ETA math, or distance sanity checks downstream. Turn steps and ascent are still
+  sourced from the ORS fixture (unchanged).
+- **Contract hardening (`src/adapters/providerContract.ts`):** added explicit round-trip
+  semantics assertions (polyline starts at the requested start; polyline is closed within a
+  tolerance). Error-kind mapping is now exercised on *both* methods of each provider (weather:
+  `windAlong` + `daylight`; routing: `roundTrip` + `pointToPoint`), not just one. Replaced a
+  self-caught-throw pattern with an `expectProviderError` helper, so a provider that fails to
+  reject on a simulated error now fails the test with a clear message instead of passing
+  vacuously. Both suites are now parameterized — `WeatherContractOptions {points, hours}` and
+  `RouteContractOptions {expectSeedDistinct, toleranceM}` — so WR-004/WR-005 can run the same
+  suites against real-adapter fixture replays without forking them.
+- **De-tautologized fixture test (`src/adapters/weather/mock.test.ts`):** the fixture-scenario
+  test now asserts values unique to `fixtures/openmeteo-sample.json` (tempC 17.8, hour-1 windMs
+  7.5, hour-2 windFromDeg 240) instead of values that happened to match the `sw-steady` defaults,
+  which meant it would have passed even if the fixture path were wired up wrong.
+
+**Deferred (documented follow-ups, not changed in this pass):**
+- Registry (`src/adapters/registry.ts`) statically imports both mocks, so fixture data currently
+  lands in the production bundle — switch to dynamic import in WR-004/WR-005.
+- `WindSample.time` UTC-vs-local convention is still unpinned; decide it in WR-004.
+- Coverage thresholds are not yet enforced in CI config, and empty stub files aren't excluded
+  from coverage.
+- Keep `providerContract.ts` out of any app bundle (naming convention and/or lint rule TBD).
+- **WR-004/WR-005 fixture-dimension note:** real-adapter fixtures used with the shared contract
+  suites must cover >=3 points x >=6 hours for the weather contract (or explicitly override
+  `WeatherContractOptions`), and routing fixtures that replay a single captured polyline must
+  pass `expectSeedDistinct: false` to `RouteContractOptions` (a single fixture can't demonstrate
+  seed-distinct geometry).

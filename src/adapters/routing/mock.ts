@@ -1,5 +1,7 @@
 // adapters/routing/mock.ts — deterministic, zero-network RouteProvider (WR-003).
-// Fixture-fed from the ORS round-trip sample; varies geometry by seed so candidates differ.
+// Turn steps + ascent come from the ORS fixture; the polyline is synthesized as a CLOSED loop
+// that starts at the requested start, is sized to the requested length, and varies by seed so
+// candidates are geometrically distinct (real ORS geometry arrives in WR-005).
 import orsSampleRaw from '../../../fixtures/ors-roundtrip-sample.geojson?raw';
 import type { CandidateRoute, LatLon, RoundTripParams, TurnStep } from '../../domain';
 import { ProviderError, type ProviderErrorKind } from '../errors';
@@ -44,18 +46,44 @@ function stepsFromFixture(): TurnStep[] {
   );
 }
 
-// Deterministic seed jitter so different seeds yield geometrically distinct polylines.
-function jitter(seed: number, i: number, axis: number): number {
-  return Math.sin(seed * 1.3 + i * 0.21 + axis * 1.7) * 0.002;
-}
+const M_PER_DEG_LAT = 111_320;
 
 /** Rough great-circle distance (equirectangular approx) — adapters may do their own light math. */
 function roughMeters(a: LatLon, b: LatLon): number {
-  const R = 6_371_000;
   const meanLat = ((a.lat + b.lat) / 2) * (Math.PI / 180);
-  const x = (b.lon - a.lon) * (Math.PI / 180) * Math.cos(meanLat);
-  const y = (b.lat - a.lat) * (Math.PI / 180);
-  return Math.sqrt(x * x + y * y) * R;
+  const x = (b.lon - a.lon) * (Math.PI / 180) * Math.cos(meanLat) * 6_371_000;
+  const y = (b.lat - a.lat) * (Math.PI / 180) * 6_371_000;
+  return Math.hypot(x, y);
+}
+
+function polylineLengthM(pts: LatLon[]): number {
+  let sum = 0;
+  for (let i = 1; i < pts.length; i++) sum += roughMeters(pts[i - 1], pts[i]);
+  return sum;
+}
+
+/**
+ * A closed loop of ~`lengthM` circumference whose first (and last) vertex is exactly `start`.
+ * Ellipse aspect + rotation are seed-derived so different seeds give distinct shapes.
+ */
+function loopPolyline(start: LatLon, lengthM: number, seed: number): LatLon[] {
+  const N = 24;
+  const radiusM = lengthM / (2 * Math.PI);
+  const mPerDegLon = M_PER_DEG_LAT * Math.cos((start.lat * Math.PI) / 180);
+  const aspect = 1 + 0.35 * Math.sin(seed * 1.7);
+  const rot = seed * 0.9;
+
+  const raw = Array.from({ length: N + 1 }, (_v, i) => {
+    const t = (i / N) * 2 * Math.PI;
+    return { x: radiusM * aspect * Math.cos(t + rot), y: radiusM * Math.sin(t + rot) };
+  });
+  // Translate so vertex 0 lands on `start`; vertex N == vertex 0, so the loop is closed.
+  const dx = raw[0].x;
+  const dy = raw[0].y;
+  return raw.map((p) => ({
+    lat: start.lat + (p.y - dy) / M_PER_DEG_LAT,
+    lon: start.lon + (p.x - dx) / mPerDegLon,
+  }));
 }
 
 export class MockRouteProvider implements RouteProvider {
@@ -67,16 +95,12 @@ export class MockRouteProvider implements RouteProvider {
 
   async roundTrip(p: RoundTripParams): Promise<CandidateRoute> {
     if (this.failWith) throw new ProviderError(this.failWith);
-    const coords = baseFeature().geometry.coordinates;
-    const polyline: LatLon[] = coords.map(([lon, lat], i) => ({
-      lat: lat + jitter(p.seed, i, 0),
-      lon: lon + jitter(p.seed, i, 1),
-    }));
+    const polyline = loopPolyline(p.start, p.lengthM, p.seed);
     return {
       id: `mock-rt-${p.seed}-${p.points}`,
       polyline,
       segments: [], // geometry engine (WR-006) resamples the polyline into segments
-      distanceM: p.lengthM, // mock honours the requested length; real geometry lands in WR-005
+      distanceM: polylineLengthM(polyline), // consistent with the polyline (≈ requested length)
       ascentM: baseFeature().properties.summary.ascent,
       steps: stepsFromFixture(),
     };
