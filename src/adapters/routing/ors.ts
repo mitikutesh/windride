@@ -274,6 +274,8 @@ export interface GenerateOptions {
   /** Absolute bearings for out-and-back variants (WR-008 will make these wind-relative). */
   bearings?: number[];
   overlapThreshold?: number;
+  /** Progress callback fired as each candidate task settles (for the Plan screen's progress). */
+  onSettled?: (done: number, total: number) => void;
 }
 
 /** Turn a one-way leg into a there-and-back CandidateRoute (segments mirrored, bearings +180). */
@@ -335,7 +337,15 @@ export async function generateCandidates(
     );
   }
 
-  const settled = await Promise.allSettled(tasks);
+  const total = tasks.length;
+  let done = 0;
+  const tracked = tasks.map((t) =>
+    t.finally(() => {
+      done++;
+      opts.onSettled?.(done, total);
+    }),
+  );
+  const settled = await Promise.allSettled(tracked);
   const ok = settled
     .filter((s): s is PromiseFulfilledResult<CandidateRoute> => s.status === 'fulfilled')
     .map((s) => s.value);

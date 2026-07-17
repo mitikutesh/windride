@@ -168,3 +168,68 @@
   font-size: var(--fs-glance);
   fill: var(--text);
 }
+
+/* --- Toggle disabled (WR-008) ------------------------------------------------------------- */
+.wr-toggle.is-disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* --- Segmented control (WR-008) ---------------------------------------------------------- */
+.wr-segmented {
+  display: inline-flex;
+  gap: var(--space-1);
+  padding: var(--space-1);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+}
+.wr-segmented__btn {
+  min-height: var(--hit-min);
+  padding: 0 var(--space-4);
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: none;
+  color: var(--text2);
+  font-size: var(--fs-body);
+  cursor: pointer;
+}
+.wr-segmented__btn.is-active {
+  color: var(--on-aurora);
+  background: var(--aurora);
+}
+.wr-segmented__btn:focus-visible {
+  outline: 2px solid var(--sky);
+  outline-offset: 2px;
+}
+
+/* --- Distance slider (WR-008) ------------------------------------------------------------ */
+.wr-slider {
+  width: 100%;
+  height: var(--hit-min);
+  accent-color: var(--sky);
+  cursor: pointer;
+}
+
+/* --- Conditions strip (WR-008) ----------------------------------------------------------- */
+.wr-conditions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-5);
+  padding: var(--space-3) var(--space-4);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+}
+.wr-conditions__wind {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.wr-windarrow {
+  transform-origin: center;
+}
+.wr-windarrow__glyph {
+  fill: var(--sky);
+}

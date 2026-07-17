@@ -148,3 +148,47 @@ button {
   align-items: center;
   gap: var(--space-4);
 }
+
+/* --- Plan screen (WR-008) ---------------------------------------------------------------- */
+.wr-plan {
+  gap: var(--space-4);
+}
+.wr-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.wr-field__label {
+  font-size: var(--fs-label);
+  color: var(--text2);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.wr-field__row {
+  display: flex;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+.wr-field__row input,
+.wr-plan__start input {
+  min-height: var(--hit-min);
+  padding: 0 var(--space-2);
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  font: inherit;
+}
+.wr-plan__toggles {
+  gap: var(--space-2);
+}
+.wr-plan__start summary {
+  cursor: pointer;
+  color: var(--text2);
+  min-height: var(--hit-min);
+  display: flex;
+  align-items: center;
+}
+.wr-plan__error {
+  color: var(--head);
+}
