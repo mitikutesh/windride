@@ -46,6 +46,7 @@ export function FeelsChart({ points }: FeelsChartProps) {
 
   const onMove = (e: React.PointerEvent<SVGSVGElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
+    if (!rect.width) return; // detached / hidden SVG — avoid NaN pinning to the start
     const px = ((e.clientX - rect.left) / rect.width) * W;
     const d = ((px - PAD) / (W - 2 * PAD)) * total;
     let nearest = 0;
@@ -86,6 +87,16 @@ export function FeelsChart({ points }: FeelsChartProps) {
         ))}
         <path className="wr-feels__actual" d={actualArea} />
         <path className="wr-feels__feels" d={feelsLine} fill="none" />
+        {/* Distance axis: baseline + ticks at 0/25/50/75/100% of the route. */}
+        <line className="wr-feels__axis" x1={PAD} y1={H - PAD} x2={W - PAD} y2={H - PAD} />
+        {[0, 0.25, 0.5, 0.75, 1].map((f) => {
+          const d = f * total;
+          return (
+            <text key={f} className="wr-feels__tick" x={x(d)} y={H - 8} textAnchor="middle">
+              {metresToKm(d)}
+            </text>
+          );
+        })}
         {active ? (
           <line
             className="wr-feels__cursor"

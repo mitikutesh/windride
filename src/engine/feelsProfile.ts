@@ -15,9 +15,14 @@ export const FEEL_K_PCT = 2.5;
 /** Reference headwind speed (m/s) at which the feel equals FEEL_K_PCT. */
 export const FEEL_REF_WIND_MS = 8;
 
+/** Grade-equivalent "feel" of the wind alone (headwind ⇒ +, tailwind ⇒ −). */
+export function windExtraGrade(vParMs: number): number {
+  return (FEEL_K_PCT * -vParMs) / FEEL_REF_WIND_MS;
+}
+
 /** Wind-equivalent grade: actual grade plus a headwind penalty (tailwind ⇒ negative). */
 export function equivalentGrade(gradePct: number, vParMs: number): number {
-  return gradePct + (FEEL_K_PCT * -vParMs) / FEEL_REF_WIND_MS;
+  return gradePct + windExtraGrade(vParMs);
 }
 
 export interface FeelsPoint {
@@ -40,7 +45,7 @@ export function buildFeelsProfile(segments: SegmentAnalysis[], maxPoints = 200):
 
   // Smooth ONLY the wind contribution over a 3-segment window (kills single-segment spikes) — not
   // the base grade, so still air yields a feels-like profile identical to the actual one.
-  const windExtra = segments.map((sa) => (FEEL_K_PCT * -sa.wind.vParMs) / FEEL_REF_WIND_MS);
+  const windExtra = segments.map((sa) => windExtraGrade(sa.wind.vParMs));
   const feelsGrade = segments.map((sa, i) => {
     const lo = Math.max(0, i - 1);
     const hi = Math.min(windExtra.length - 1, i + 1);

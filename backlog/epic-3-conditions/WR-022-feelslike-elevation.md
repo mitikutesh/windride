@@ -49,3 +49,39 @@ Interactive route editing.
   profile). Full suite: 303 tests, lint clean, build OK.
 - Test contract satisfied: transform unit tests (tailwind ⇒ feels below actual on flats; still
   air ⇒ identical) plus a snapshot of profile/path generation on a golden route.
+
+## Review pass — fixes
+Reviewed by a substitute senior reviewer (Opus) — the Fable 5 model was out of usage credits this
+session. Verdict was REQUEST-CHANGES; all findings below are now addressed.
+
+- **BLOCKER B1 — distance axis ticked but not implemented.** The acceptance box claimed a
+  distance axis, but the chart only had a caption — no axis was actually rendered. Fixed:
+  `FeelsChart` now renders a distance-axis baseline plus tick labels at 0/25/50/75/100% of the
+  route (in km) in the reserved bottom margin. A new test asserts the axis line and ≥ 3 tick
+  labels are present.
+- **SHOULD-FIX S1 — unit-tested `equivalentGrade` wasn't the code that shipped.**
+  `buildFeelsProfile` re-implemented the wind-grade formula inline, so the calibration tests on
+  `equivalentGrade` didn't actually guard the shipping path. Fixed: extracted
+  `windExtraGrade(vPar)`; `equivalentGrade = grade + windExtraGrade(vPar)`, and
+  `buildFeelsProfile`'s wind term now calls the same `windExtraGrade` — one formula, shared, so
+  the existing calibration test now guards what actually ships.
+- **SHOULD-FIX S2 — scrubbing (the primary interaction) had no coverage.** Added a scrub test
+  that stubs `getBoundingClientRect` width and dispatches a `MouseEvent` typed `'pointermove'`
+  (jsdom's native `PointerEvent` drops `clientX`), asserting the readout (distance / elevation /
+  feels-grade / wind kind) updates and the cursor line is drawn.
+- **SHOULD-FIX S3 — `onMove` divided by `rect.width` with no guard.** A zero-width or detached
+  SVG produced `NaN`, which pinned the scrub position to the start. Fixed: early-return when
+  `rect.width` is 0.
+- **Deferred NITs (noted honestly, not fixed this pass):**
+  - N1 — the wind-kind strip loses fidelity after the ≤ 200-point downsample on very long routes;
+    a majority-kind pass per bucket is a possible later refinement.
+  - N2 — the strip uses `classifyWindKind` (tail/head/cross), so it never shows the shelter hue;
+    shelter is unreachable in this chart (the dashed feels-line already reflects exposure via
+    `v_par`).
+  - N3 — the synthetic start point's kind is hardcoded `'cross'`; only affects the scrub readout
+    at distance 0.
+  - N4 — the no-pointer fallback labels peak height as "climb", not total ascent.
+  - N5 — `buildFeelsProfile` could be `useMemo`'d.
+  - N6 — reduced-motion is satisfied by the static default (no animations) rather than an
+    explicit `prefers-reduced-motion` branch.
+- Gate after fixes: **305 tests**, lint clean, build OK.

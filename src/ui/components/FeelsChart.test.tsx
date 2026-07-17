@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { render } from '@testing-library/react';
+import { fireEvent, render } from '@testing-library/react';
 import type { FeelsPoint } from '../../engine/feelsProfile';
 import { FeelsChart } from './FeelsChart';
 
@@ -18,6 +18,37 @@ describe('<FeelsChart />', () => {
     expect(container.querySelectorAll('rect')).toHaveLength(points.length - 1);
     // Static fallback readout (no pointer) mentions the distance range.
     expect(container.querySelector('.wr-feels__readout')?.textContent).toMatch(/km/);
+  });
+
+  it('renders a distance axis with tick labels', () => {
+    const { container } = render(<FeelsChart points={points} />);
+    expect(container.querySelector('.wr-feels__axis')).not.toBeNull();
+    expect(container.querySelectorAll('.wr-feels__tick').length).toBeGreaterThanOrEqual(3);
+  });
+
+  it('scrubbing shows a readout (distance, ele, feels-grade, kind) + cursor', () => {
+    const { container } = render(<FeelsChart points={points} />);
+    const svg = container.querySelector('svg') as SVGSVGElement;
+    // jsdom returns a 0-width rect; stub a real width so the scrub math resolves.
+    svg.getBoundingClientRect = () =>
+      ({
+        left: 0,
+        top: 0,
+        width: 1000,
+        height: 280,
+        right: 1000,
+        bottom: 280,
+        x: 0,
+        y: 0,
+        toJSON() {},
+      }) as DOMRect;
+    // jsdom's PointerEvent drops clientX; a MouseEvent typed 'pointermove' carries it and still
+    // fires React's onPointerMove. ~mid-route → the head point at 1000 m.
+    fireEvent(svg, new MouseEvent('pointermove', { clientX: 500, bubbles: true }));
+    expect(container.querySelector('.wr-feels__readout')?.textContent).toMatch(
+      /feels \+4\.5% · headwind/,
+    );
+    expect(container.querySelector('.wr-feels__cursor')).not.toBeNull();
   });
 
   it('renders nothing for a degenerate (<2 point) profile', () => {

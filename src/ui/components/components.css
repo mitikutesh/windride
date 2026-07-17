@@ -536,6 +536,17 @@
   stroke-width: 1;
   stroke-dasharray: 2 2;
 }
+.wr-feels__axis {
+  stroke: var(--line);
+  stroke-width: 1;
+}
+.wr-feels__tick {
+  fill: var(--text2);
+  font-size: var(--fs-small);
+}
+.wr-results__detail {
+  margin-top: var(--space-2);
+}
 .wr-feels__readout {
   display: block;
   margin-top: var(--space-1);
