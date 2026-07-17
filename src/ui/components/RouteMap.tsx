@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import type { ScoredCandidate } from '../../engine/scoring';
@@ -24,8 +24,15 @@ export function RouteMap({ candidates, selectedId, onSelect }: RouteMapProps) {
   const mapRef = useRef<maplibregl.Map | null>(null);
   const markerRef = useRef<maplibregl.Marker | null>(null);
   const readyRef = useRef(false);
+  const [failed, setFailed] = useState(false);
+
+  // Mirror latest props into refs so the async 'load' handler always draws the current selection.
   const onSelectRef = useRef(onSelect);
+  const candidatesRef = useRef(candidates);
+  const selectedRef = useRef(selectedId);
   onSelectRef.current = onSelect;
+  candidatesRef.current = candidates;
+  selectedRef.current = selectedId;
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
@@ -39,7 +46,8 @@ export function RouteMap({ candidates, selectedId, onSelect }: RouteMapProps) {
         attributionControl: { compact: false },
       });
     } catch {
-      return; // no WebGL (tests / battery saver) — the fallback text stays visible
+      setFailed(true); // no WebGL (tests / battery saver) — show the fallback
+      return;
     }
     mapRef.current = map;
     map.on('load', () => {
@@ -65,14 +73,13 @@ export function RouteMap({ candidates, selectedId, onSelect }: RouteMapProps) {
       });
       map.on('mouseenter', 'wr-ghosts', () => (map.getCanvas().style.cursor = 'pointer'));
       map.on('mouseleave', 'wr-ghosts', () => (map.getCanvas().style.cursor = ''));
-      draw(map, markerRef, candidates, selectedId);
+      draw(map, markerRef, candidatesRef.current, selectedRef.current);
     });
     return () => {
       map.remove();
       mapRef.current = null;
       readyRef.current = false;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -82,7 +89,7 @@ export function RouteMap({ candidates, selectedId, onSelect }: RouteMapProps) {
 
   return (
     <div className="wr-map" ref={containerRef} data-testid="route-map">
-      <span className="wr-map__fallback wr-muted">Map unavailable</span>
+      {failed ? <span className="wr-map__fallback wr-muted">Map unavailable</span> : null}
     </div>
   );
 }
@@ -112,11 +119,15 @@ function draw(
   };
   (map.getSource('wr-ghosts') as maplibregl.GeoJSONSource | undefined)?.setData(ghosts);
 
+  const selectedSource = map.getSource('wr-selected') as maplibregl.GeoJSONSource | undefined;
   const selected = candidates.find((c) => c.candidate.id === selectedId);
-  if (!selected) return;
-  (map.getSource('wr-selected') as maplibregl.GeoJSONSource | undefined)?.setData(
-    routeToWindGeoJSON(selected),
-  );
+  if (!selected) {
+    selectedSource?.setData(emptyFC());
+    markerRef.current?.remove();
+    markerRef.current = null;
+    return;
+  }
+  selectedSource?.setData(routeToWindGeoJSON(selected));
 
   const start = selected.candidate.polyline[0];
   if (start) {

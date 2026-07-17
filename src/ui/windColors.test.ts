@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { WIND_COLORS } from './windColors';
+import { MAP_COLORS, WIND_COLORS } from './windColors';
 
 const css = readFileSync('src/ui/tokens.css', 'utf8');
 function tokenHex(name: string): string {
@@ -15,5 +15,10 @@ describe('windColors mirror (WR-009 technical note)', () => {
     expect(WIND_COLORS.cross).toBe(tokenHex('cross'));
     expect(WIND_COLORS.head).toBe(tokenHex('head'));
     expect(WIND_COLORS.shelter).toBe(tokenHex('shelter'));
+  });
+
+  it('mirrors the map-chrome colours (ghost = --text2, start = --sky)', () => {
+    expect(MAP_COLORS.ghost).toBe(tokenHex('text2'));
+    expect(MAP_COLORS.start).toBe(tokenHex('sky'));
   });
 });

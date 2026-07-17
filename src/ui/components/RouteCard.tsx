@@ -46,7 +46,7 @@ export function RouteCard({ scored, rank, selected, onSelect }: RouteCardProps) 
         <StatCell label="Distance" value={e.distanceKm.toFixed(1)} unit="km" />
         <StatCell label="Wind-aware ETA" value={formatDurationHM(e.timeS)} />
         <StatCell label="Ascent" value={Math.round(e.ascentM)} unit="m" />
-        <StatCell label="Headwind" value={e.directHeadwindKm.toFixed(1)} unit="km" />
+        <StatCell label="Direct headwind" value={e.directHeadwindKm.toFixed(1)} unit="km" />
       </div>
 
       <WindRibbon segments={routeToRibbon(scored)} height={12} />

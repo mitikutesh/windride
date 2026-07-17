@@ -55,3 +55,33 @@ Key decisions:
   cover card rendering, select-to-sync, and the empty state. `vitest.setup.ts` now stubs
   `window.URL.createObjectURL` so `maplibre-gl` imports cleanly under jsdom.
 - 147 tests passing; lint and build green.
+
+### Fable 5 review pass — fixes
+
+A Fable 5 review found one BLOCKER and several SHOULD-FIX/NITs, all addressed; gate
+(`npm test` = 149 passing, `npm run lint`, `npm run build`) green.
+
+- **BLOCKER:** `ResultsScreen` passed *all* ranked candidates to `RouteMap` but only the top 3 to
+  the cards, so tapping a rank-4+ ghost selected a candidate with no card — breaking the
+  card↔map "vice versa" sync and risking a GPX export (WR-010) of a route never shown as a card.
+  Fixed: the same top-3 slice is now passed to both the map and the cards.
+- **SHOULD-FIX:** `RouteMap`'s async `'load'` handler captured `candidates`/`selectedId` at mount,
+  so a selection change during the 1–2 s style load was silently dropped. It now mirrors
+  `candidates`/`selectedId`/`onSelect` into refs and reads them from the load handler, removing
+  the exhaustive-deps eslint-disable that had been hiding the bug.
+- **SHOULD-FIX:** `routeToWindGeoJSON` drew each segment as a straight a→b chord between
+  resampled endpoints, cutting corners by up to ~100 m and disagreeing with the ghost line (full
+  polyline). It now includes the original intermediate polyline vertices that fall within each
+  segment's distance range.
+- **SHOULD-FIX:** the `RouteCard` "Headwind" stat is relabelled "Direct headwind" — it shows
+  `evidence.directHeadwindKm` (delta > 150°), matching `explain.ts` wording, so it no longer reads
+  "0.0 km" beside a red (≥120°) ribbon segment.
+- **SHOULD-FIX:** `windColors.test.ts` now also asserts `MAP_COLORS.ghost === --text2` and
+  `MAP_COLORS.start === --sky`, so the map-chrome mirror can't silently desync on a skin swap.
+- **SHOULD-FIX:** the `ResultsScreen` test now proves *both* sync directions — card→map (the
+  mocked map captures its props and its `selectedId` flips after a card click) and map→card
+  (driving the captured `onSelect` marks the matching card `aria-pressed`).
+- **NITs:** `routeGeo` test asserts `[lon, lat]` order (catches axis transposition); `RouteMap`
+  clears the selected source and removes the marker when nothing is selected; the "Map
+  unavailable" fallback now renders only on a genuine WebGL-construction failure (a state flag),
+  not underneath the canvas during load.

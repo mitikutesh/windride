@@ -60,8 +60,10 @@ describe('routeToWindGeoJSON', () => {
     expect(fc.features).toHaveLength(sc.analysis.segments.length);
     for (const f of fc.features) {
       expect(f.properties.color).toBe(WIND_COLORS[f.properties.kind]);
-      expect(f.geometry.coordinates).toHaveLength(2);
+      expect(f.geometry.coordinates.length).toBeGreaterThanOrEqual(2);
     }
+    // Coordinates are [lon, lat] (GeoJSON order), not transposed.
+    expect(fc.features[0].geometry.coordinates[0]).toEqual([24, 60]);
     expect(fc.features[0].properties.kind).toBe('tail');
   });
 

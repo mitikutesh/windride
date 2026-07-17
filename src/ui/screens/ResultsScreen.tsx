@@ -17,12 +17,14 @@ export function ResultsScreen() {
     );
   }
 
+  // The map and the cards must show the SAME set, so a ghost tap always maps to a visible card.
+  const top3 = ranked.slice(0, 3);
   return (
     <section className="wr-results">
-      <RouteMap candidates={ranked} selectedId={selectedId} onSelect={select} />
+      <RouteMap candidates={top3} selectedId={selectedId} onSelect={select} />
       <div className="wr-results__cards">
         <h1>Your routes</h1>
-        {ranked.slice(0, 3).map((sc) => (
+        {top3.map((sc) => (
           <RouteCard
             key={sc.candidate.id}
             scored={sc}

@@ -1,11 +1,18 @@
 import { describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import type { CandidateRoute, Segment, WindSample } from '../../domain';
 
 // The MapLibre map needs WebGL (unavailable in jsdom) and isn't unit-tested (testing policy);
-// mock it so the Results test focuses on the cards + selection sync.
+// mock it, but capture its props so we can assert the map receives the selection (card->map) and
+// drive its onSelect to prove a ghost tap re-syncs the cards (map->card).
+const mapProps = vi.hoisted(() => ({
+  current: null as null | { selectedId: string | null; onSelect: (id: string) => void },
+}));
 vi.mock('../components/RouteMap', () => ({
-  RouteMap: () => <div data-testid="route-map-mock" />,
+  RouteMap: (props: { selectedId: string | null; onSelect: (id: string) => void }) => {
+    mapProps.current = props;
+    return <div data-testid="route-map-mock" />;
+  },
 }));
 import { scoreCandidates } from '../../engine/scoring';
 import { useResultsStore } from '../../state/resultsStore';
@@ -68,12 +75,21 @@ describe('<ResultsScreen />', () => {
     expect(screen.getAllByText('Wind-aware ETA').length).toBeGreaterThan(0);
   });
 
-  it('selecting a card updates the results store selection (map syncs off it)', () => {
+  it('card -> map: selecting a card updates the store and the map props', () => {
     const ranked = seed();
     render(<ResultsScreen />);
-    expect(useResultsStore.getState().selectedId).toBe(ranked[0].candidate.id);
+    expect(mapProps.current?.selectedId).toBe(ranked[0].candidate.id);
     fireEvent.click(screen.getByRole('button', { name: /Route B/ }));
     expect(useResultsStore.getState().selectedId).toBe(ranked[1].candidate.id);
+    expect(mapProps.current?.selectedId).toBe(ranked[1].candidate.id); // map synced
+  });
+
+  it('map -> card: a ghost tap (map onSelect) marks the matching card selected', () => {
+    const ranked = seed();
+    render(<ResultsScreen />);
+    act(() => mapProps.current?.onSelect(ranked[2].candidate.id));
+    const cardC = screen.getByRole('button', { name: /Route C/ });
+    expect(cardC).toHaveAttribute('aria-pressed', 'true');
   });
 
   it('shows an empty state when there are no results', () => {
