@@ -40,7 +40,7 @@ Test contract · Technical notes · Out of scope · Log.
 | WR-020 | Start-time optimizer + heat strip UI | 011 | M | DONE |
 | WR-021 | Gust-exposure safety flags | 019 | S | DONE |
 | WR-022 | Feels-like elevation chart | 009 | M | DONE |
-| WR-023 | Strava upload (single-player OAuth, GPX push) | 017 | M | TODO |
+| WR-023 | Strava upload (single-player OAuth, GPX push) | 017 | M | DONE |
 | WR-024 | Speed-model calibration from recorded rides | 017 | M | TODO |
 
 ## Epic 4 · Signature (v0.4)

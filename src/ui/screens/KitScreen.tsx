@@ -8,6 +8,7 @@ import {
   WindRibbon,
   type RibbonSegment,
 } from '../components';
+import { StravaSettings } from '../components/StravaSettings';
 
 // Dev-only replay panel (WR-012). The conditional dynamic import is dead-code-eliminated from
 // production builds (import.meta.env.DEV is statically false), so its bundled traces never ship.
@@ -71,6 +72,9 @@ export function KitScreen() {
 
       <h2>Toggle</h2>
       <Toggle checked={dark} onChange={setDark} label="Home before dark" />
+
+      <h2>Strava (upload-only)</h2>
+      <StravaSettings />
 
       {DevReplayPanel ? (
         <Suspense fallback={null}>

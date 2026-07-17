@@ -39,3 +39,6 @@ pnpm-debug.log*
 __pycache__/
 .pytest_cache/
 *.pyc
+
+# Strava local OAuth config (client secret + refresh token)
+tools/.strava.json

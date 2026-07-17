@@ -25,11 +25,11 @@ describe('routes store (idb)', () => {
     expect(all.map((r) => r.id)).toEqual(['b']);
   });
 
-  it('v2 schema smoke: a second connection sees routes + ride stores and the persisted record', async () => {
+  it('v3 schema smoke: a second connection sees routes + ride + strava stores and the record', async () => {
     await saveRoute(route('smoke', 3000));
-    await openWindrideDb(); // first open (via the app helper) creates v2
-    // A genuinely separate second connection at v2 sees every store and the persisted record.
-    const again = await openDB('windride', 2, {
+    await openWindrideDb(); // first open (via the app helper) creates v3
+    // A genuinely separate second connection at v3 sees every store and the persisted record.
+    const again = await openDB('windride', 3, {
       upgrade(db) {
         if (!db.objectStoreNames.contains('routes'))
           db.createObjectStore('routes', { keyPath: 'id' });
@@ -39,11 +39,14 @@ describe('routes store (idb)', () => {
           const s = db.createObjectStore('ridePoints', { keyPath: ['rideId', 'seq'] });
           s.createIndex('byRide', 'rideId');
         }
+        if (!db.objectStoreNames.contains('strava'))
+          db.createObjectStore('strava', { keyPath: 'key' });
       },
     });
     expect(again.objectStoreNames.contains('routes')).toBe(true);
     expect(again.objectStoreNames.contains('rides')).toBe(true);
     expect(again.objectStoreNames.contains('ridePoints')).toBe(true);
+    expect(again.objectStoreNames.contains('strava')).toBe(true);
     expect(((await again.get('routes', 'smoke')) as SavedRoute).id).toBe('smoke');
     again.close();
   });

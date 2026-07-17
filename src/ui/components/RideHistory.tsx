@@ -6,10 +6,19 @@ import { formatDurationHM, localYMD, metresToKm, msToKmh } from '../../utils/uni
 import { downloadText } from '../download';
 
 /** Recorded ride history (WR-017): date, name, stats, with delete + GPX re-export. */
+const STRAVA_LABEL: Record<string, string> = {
+  pending: 'Sending…',
+  duplicate: 'Already on Strava',
+  error: 'Strava failed — retry',
+  'no-creds': 'Set up Strava in Kit',
+};
+
 export function RideHistory() {
   const rides = useRidesStore((s) => s.rides);
   const refresh = useRidesStore((s) => s.refresh);
   const remove = useRidesStore((s) => s.remove);
+  const strava = useRidesStore((s) => s.strava);
+  const sendToStrava = useRidesStore((s) => s.sendToStrava);
 
   useEffect(() => {
     void refresh();
@@ -46,6 +55,18 @@ export function RideHistory() {
               >
                 GPX
               </button>
+              {r.stravaActivityId ? (
+                <span className="wr-muted">On Strava ✓</span>
+              ) : (
+                <button
+                  type="button"
+                  className="wr-navlink"
+                  disabled={strava[r.id] === 'pending'}
+                  onClick={() => void sendToStrava(r.id)}
+                >
+                  {STRAVA_LABEL[strava[r.id] ?? ''] ?? 'Send to Strava'}
+                </button>
+              )}
               <button type="button" className="wr-navlink" onClick={() => void remove(r.id)}>
                 Delete
               </button>

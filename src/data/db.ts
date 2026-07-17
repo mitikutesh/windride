@@ -1,6 +1,6 @@
 // data/db.ts — IndexedDB schema for WindRide (WR-010, ARCHITECTURE §6).
 // v1 holds the `routes` store (planned routes). v2 adds `rides` + `ridePoints` (WR-017 recorder).
-// `settings`/`riddenEdges` arrive with their stories. Weather/route caches live in separate DBs.
+// v3 adds `strava` (owner OAuth creds, WR-023). `riddenEdges` arrives with WR-028.
 import { openDB, type IDBPDatabase } from 'idb';
 import type { RideSummary } from '../domain';
 import type { GpxTrack } from '../utils/gpx';
@@ -25,6 +25,16 @@ export interface RecordedRide {
   status: 'recording' | 'finished';
   finishedAt?: number;
   summary?: RideSummary;
+  /** Strava activity id once uploaded (WR-023) — makes re-send a no-op. */
+  stravaActivityId?: number;
+}
+
+/** Owner Strava OAuth credentials (WR-023). Stored in idb at runtime, NEVER bundled in Vite env. */
+export interface StravaCredsRecord {
+  key: 'creds';
+  clientId: string;
+  clientSecret: string;
+  refreshToken: string;
 }
 
 /** One recorded fix, keyed [rideId, seq] so appends never rewrite the whole ride. */
@@ -41,11 +51,12 @@ const DB_NAME = 'windride';
 const ROUTES = 'routes';
 const RIDES = 'rides';
 const RIDE_POINTS = 'ridePoints';
+const STRAVA = 'strava';
 
 let dbPromise: Promise<IDBPDatabase> | undefined;
 export function openWindrideDb(): Promise<IDBPDatabase> {
   if (!dbPromise) {
-    dbPromise = openDB(DB_NAME, 2, {
+    dbPromise = openDB(DB_NAME, 3, {
       upgrade(db) {
         if (!db.objectStoreNames.contains(ROUTES)) db.createObjectStore(ROUTES, { keyPath: 'id' });
         if (!db.objectStoreNames.contains(RIDES)) db.createObjectStore(RIDES, { keyPath: 'id' });
@@ -53,6 +64,7 @@ export function openWindrideDb(): Promise<IDBPDatabase> {
           const store = db.createObjectStore(RIDE_POINTS, { keyPath: ['rideId', 'seq'] });
           store.createIndex('byRide', 'rideId');
         }
+        if (!db.objectStoreNames.contains(STRAVA)) db.createObjectStore(STRAVA, { keyPath: 'key' });
       },
     }).catch((e) => {
       dbPromise = undefined; // don't cache a rejection — allow a later retry
@@ -125,4 +137,13 @@ export async function deleteRide(id: string): Promise<void> {
   const idx = tx.objectStore(RIDE_POINTS).index('byRide');
   for (const key of await idx.getAllKeys(id)) void tx.objectStore(RIDE_POINTS).delete(key);
   await tx.done;
+}
+
+// --- Strava creds (WR-023) -----------------------------------------------------------------
+export async function getStravaCreds(): Promise<StravaCredsRecord | undefined> {
+  return (await openWindrideDb()).get(STRAVA, 'creds') as Promise<StravaCredsRecord | undefined>;
+}
+
+export async function setStravaCreds(creds: Omit<StravaCredsRecord, 'key'>): Promise<void> {
+  await (await openWindrideDb()).put(STRAVA, { key: 'creds', ...creds });
 }

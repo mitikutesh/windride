@@ -46,5 +46,26 @@ quality gate (lint, tests, build, CI) are in place — and every later story bui
 - **Epic 3 · Conditions Brain (v0.3)** — WR-018…024: shelter grid, start-time optimizer, Strava
 - **Epic 4 · Signature (v0.4)** — WR-025…028: robustness, downwind one-ways, winter, novelty
 
+## Strava upload (optional, 5-minute setup)
+
+Finished rides can be sent to your own Strava with one tap — upload-only, nothing is ever read
+back (see `docs/API_NOTES.md` §4 and `docs/DECISIONS.md` DEC-027).
+
+1. Create a Strava API app at https://www.strava.com/settings/api (Authorization Callback Domain:
+   `localhost`). Note its Client ID and Client Secret.
+2. Run the one-time local OAuth helper (never in CI, never checked in):
+
+   ```
+   STRAVA_CLIENT_ID=... STRAVA_CLIENT_SECRET=... node tools/strava-auth.mjs
+   ```
+
+3. Authorise the `activity:write` scope in the browser tab it opens. The script prints (and
+   saves to gitignored `tools/.strava.json`) a `clientId` / `clientSecret` / `refreshToken` set.
+4. Paste those three values into the app's **Kit → Strava settings** panel. They're stored in
+   idb on your device only — never in `.env`/Vite env, never bundled, never sent anywhere but
+   Strava's own API.
+
+Once set up, finished rides in Ride History get a "Send to Strava" button.
+
 License: private personal project (no license granted). Map data © OpenStreetMap contributors
 (ODbL). Weather by Open-Meteo (CC-BY 4.0) — attribution is wired into the UI by WR-002.
