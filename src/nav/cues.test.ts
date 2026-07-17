@@ -79,6 +79,18 @@ describe('CueScheduler — one-shot firing + templates', () => {
     expect(out.map((c) => c.kind)).toEqual(['turn']);
   });
 
+  it('stays silent for a turn already ridden well past (stale progress jump)', () => {
+    const s = new CueScheduler([cp]); // turn at 1000 m
+    expect(s.update(1300, CUE_NOMINAL_SPEED_MS)).toEqual([]); // 300 m past -> no stale "turn now"
+    expect(s.update(1400, CUE_NOMINAL_SPEED_MS)).toEqual([]); // and never re-fires
+  });
+
+  it('formats distances in imperial when requested', () => {
+    const s = new CueScheduler([cp], 'imperial');
+    const prep = s.update(820, CUE_NOMINAL_SPEED_MS); // 180 m ~= 591 ft
+    expect(prep[0].text).toBe('In 600 feet, left onto Rantaraitti');
+  });
+
   it('speaks arrival cues', () => {
     const arrival: CuePoint = {
       stepIndex: 2,

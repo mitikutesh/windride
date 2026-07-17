@@ -17,6 +17,8 @@ export const CUE_PREPARE_M = 200;
 export const CUE_TURN_M = 40;
 export const CUE_SPEED_SCALE = 0.4; // ±40%
 export const CUE_NOMINAL_SPEED_MS = 5.5; // ~20 km/h reference cadence
+/** A turn already this far behind us is marked done silently, never announced (stale after a jump). */
+export const CUE_STALE_SLACK_M = 25;
 
 /** A maneuver bound to a progress distance along the route. */
 export interface CuePoint {
@@ -112,12 +114,16 @@ export class CueScheduler {
       if (!this.turned.has(cue.stepIndex) && progressM >= cue.turnDistanceM - turnTrigger) {
         this.turned.add(cue.stepIndex);
         this.prepared.add(cue.stepIndex);
-        out.push({
-          stepIndex: cue.stepIndex,
-          kind: 'turn',
-          text: turnPhrase(cue),
-          turnDistanceM: cue.turnDistanceM,
-        });
+        // Silently skip a turn we've already ridden well past (e.g. a +300 m progress jump after a
+        // GPS dropout) — announcing "Turn left now" for a passed maneuver would mislead.
+        if (progressM <= cue.turnDistanceM + CUE_STALE_SLACK_M) {
+          out.push({
+            stepIndex: cue.stepIndex,
+            kind: 'turn',
+            text: turnPhrase(cue),
+            turnDistanceM: cue.turnDistanceM,
+          });
+        }
         continue;
       }
       if (!this.prepared.has(cue.stepIndex) && progressM >= cue.turnDistanceM - prepareTrigger) {
@@ -139,7 +145,10 @@ export class CueScheduler {
     return out;
   }
 
-  /** Replace the cue set after a reroute; cues already behind `progressM` are marked done. */
+  /**
+   * Replace the cue set after a reroute; cues already behind `progressM` are marked done.
+   * WR-015 should also call `announcer.stop()` so a cue queued for the OLD route isn't spoken.
+   */
   rearm(cues: CuePoint[], progressM: number): void {
     this.cues = cues;
     this.prepared = new Set();

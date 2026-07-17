@@ -84,3 +84,50 @@ queues the second cue with no overlap; same-step collapse; beep distinct pattern
 "In N metres, left onto Metsapolku", turn text "Turn left now"; speed-scaling unit tests
 pass; debounce test confirms two cues fired under 3 s apart never overlap. Full gate green: 204
 tests, lint clean, build OK.
+
+## Fable 5 review pass — fixes
+
+A Fable 5 review of the initial cut returned APPROVE-WITH-FIXES. All SHOULD-FIX items and the
+selected NITs are now applied; the gate is green again.
+
+- **SHOULD-FIX 1 (on-road impact, the key fix)** — `CueScheduler.update` had no upper bound on
+  how far behind progress a "turn" cue could still fire, so a GPS-dropout progress jump past the
+  maneuver point would announce "Turn left now" for a turn already ridden past — a burst of
+  misleading present-tense commands. Fixed with a new constant `CUE_STALE_SLACK_M = 25` (metres):
+  a turn whose trigger point is more than 25 m behind current progress is marked done silently
+  and never announced, instead of firing late. Added a test driving `update()` with a progress
+  jump 300 m past the turn, asserting no utterance is produced and the cue never re-fires.
+- **SHOULD-FIX 2** — the scheduler→announcer seam had no test coverage; scheduler and announcer
+  were each unit-tested in isolation only. Added an integration test wiring a real `CueScheduler`
+  to a real `Announcer` (fake clock following simulated ride time), ticked step-by-step over two
+  cue points 60 m apart; asserts all four utterances (prepare/turn × 2) dispatch in ride order
+  and are never less than 3 s apart.
+- **SHOULD-FIX 3** — the same-step queue collapse removed the superseded cue but re-pushed the
+  replacement onto the back of the queue, so an imminent "turn" replacing a still-queued "prepare"
+  lost its place and waited an extra debounce cycle before speaking. Fixed to replace in place
+  (`queue.splice(dup, 1, cue)`) so the replacement keeps the original's queue position.
+- **NIT 6** — added an imperial-units formatting test asserting the feet-based template
+  ("In 600 feet, left onto Rantaraitti").
+- **NIT 7** — extended the `stop()` test to also fire the pending stale debounce timer *after*
+  `stop()` has run, re-asserting nothing further is spoken — exercises the stale-callback path
+  (a timer callback firing after teardown).
+- **NIT 8** — added a code comment on `createSpeechPort` documenting Web Speech device quirks to
+  confirm during WR-016 device testing: Chrome can garbage-collect an unreferenced utterance
+  mid-speech (must hold a reference), and iOS requires `speak()` to be called at gesture time to
+  unlock voice output (handled today via `armAudio()` on the Start-ride tap, but still needs
+  on-device confirmation).
+- **NIT 9b** — `rearm()`'s doc comment now notes that WR-015 must also call `announcer.stop()`
+  on reroute, so a cue already queued for the old route isn't spoken after the route changes.
+- **Deferred (recorded as NITs, not blocking)**:
+  - #4 — the replay-contract integration test hand-maps the fixture steps into `CuePoint`s rather
+    than importing the real ORS adapter parser; kept as-is to avoid introducing a nav→adapters
+    test dependency.
+  - #5 — the arrival "You have arrived" utterance fires up to ~40 m early since it shares the
+    turn-cue trigger distance; acceptable and consistent with common turn-by-turn nav behaviour.
+  - #8 (residual) — the Web Speech quirks themselves (Chrome GC, iOS gesture unlock) are
+    documented but only actually verified during WR-016 on-device testing.
+  - #9c — out-and-back routes currently carry only outbound steps (a WR-005 provider limitation),
+    relevant when WR-016 builds return-leg cues.
+
+Gate after fixes: 207 tests total (`src/nav/cues.test.ts` now 9, `src/nav/announcer.test.ts` now
+7), lint clean, build OK.

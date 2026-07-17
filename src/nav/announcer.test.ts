@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Announcer, type BeepPort, type SpeechPort } from './announcer';
-import type { Cue, CueKind } from './cues';
+import { CueScheduler, type Cue, type CueKind, type CuePoint } from './cues';
 
 const cue = (text: string, stepIndex: number, kind: CueKind = 'prepare'): Cue => ({
   stepIndex,
@@ -98,11 +98,65 @@ describe('Announcer', () => {
     });
     a.announce(cue('A', 1)); // dispatched
     h.setTime(500);
-    a.announce(cue('B', 2)); // queued
+    a.announce(cue('B', 2)); // queued behind the debounce
     a.stop();
     expect(cancelled).toBe(1);
     h.setTime(3000);
-    // Nothing further should dispatch after stop cleared the queue.
+    h.fireLast(); // the stale debounce timer must be harmless after stop()
     expect(h.spoken).toEqual(['A']);
+  });
+});
+
+describe('CueScheduler → Announcer integration', () => {
+  it('two turns 60 m apart dispatch in ride order, never < 3 s apart', () => {
+    const cps: CuePoint[] = [
+      { stepIndex: 1, turnDistanceM: 1000, instruction: 'Turn left onto A', type: 0 },
+      { stepIndex: 2, turnDistanceM: 1060, instruction: 'Turn right onto B', type: 1 },
+    ];
+    const scheduler = new CueScheduler(cps);
+    const events: { text: string; at: number }[] = [];
+    let t = 0;
+    const timers: { due: number; cb: () => void; done: boolean }[] = [];
+    const announcer = new Announcer('voice', {
+      speech: { speak: (s) => events.push({ text: s, at: t }), cancel: () => {} },
+      now: () => t,
+      setTimeoutFn: (cb, ms) => {
+        timers.push({ due: t + ms, cb, done: false });
+        return timers.length as unknown as ReturnType<typeof setTimeout>;
+      },
+      clearTimeoutFn: () => {},
+      debounceMs: 3000,
+    });
+
+    // Ride the segment at nominal 5.5 m/s, 1 Hz, starting 100 m before the first turn.
+    for (let tick = 0; tick < 60; tick += 1) {
+      t = tick * 1000;
+      for (const timer of timers) {
+        if (!timer.done && timer.due <= t) {
+          timer.done = true;
+          timer.cb();
+        }
+      }
+      const progressM = 900 + tick * 5.5;
+      for (const c of scheduler.update(progressM, 5.5)) announcer.announce(c);
+    }
+    // Drain any still-pending debounce timers.
+    let guard = 0;
+    while (timers.some((x) => !x.done) && guard++ < 20) {
+      const next = timers.filter((x) => !x.done).sort((a, b) => a.due - b.due)[0];
+      t = next.due;
+      next.done = true;
+      next.cb();
+    }
+
+    expect(events.map((e) => e.text)).toEqual([
+      'In 100 metres, left onto A',
+      'In 150 metres, right onto B',
+      'Turn left now',
+      'Turn right now',
+    ]);
+    for (let i = 1; i < events.length; i += 1) {
+      expect(events[i].at - events[i - 1].at).toBeGreaterThanOrEqual(3000);
+    }
   });
 });

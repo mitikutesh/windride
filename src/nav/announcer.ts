@@ -63,10 +63,11 @@ export class Announcer {
   /** Enqueue a cue for announcement; the queue drains with >= debounce spacing. */
   announce(cue: Cue): void {
     if (this.mode === 'silent') return;
-    // Collapse: a fresh cue for the same step supersedes a queued (older) one.
+    // Collapse: a fresh cue for the same step supersedes a queued (older) one, in place — so an
+    // imminent "turn" replacing a queued "prepare" keeps its position rather than going to the back.
     const dup = this.queue.findIndex((q) => q.stepIndex === cue.stepIndex);
-    if (dup >= 0) this.queue.splice(dup, 1);
-    this.queue.push(cue);
+    if (dup >= 0) this.queue.splice(dup, 1, cue);
+    else this.queue.push(cue);
     this.pump();
   }
 
@@ -109,7 +110,12 @@ export class Announcer {
 
 // ── Production ports (thin wrappers; not exercised in jsdom, guarded for absence) ──────────────
 
-/** Web Speech synthesis port. Returns a no-op if the API is unavailable. */
+/**
+ * Web Speech synthesis port. Returns a no-op if the API is unavailable.
+ * Device quirks to confirm in WR-016 testing: Chrome can GC an unreferenced utterance mid-speech
+ * (hold a reference), and iOS needs a gesture-time speak() to unlock voice output (armAudio only
+ * unlocks the AudioContext for beep mode).
+ */
 export function createSpeechPort(): SpeechPort {
   const synth = typeof window !== 'undefined' ? window.speechSynthesis : undefined;
   if (!synth) return { speak: () => {}, cancel: () => {} };
