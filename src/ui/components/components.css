@@ -510,3 +510,35 @@
   font-size: var(--fs-small);
   font-weight: 600;
 }
+
+/* --- FeelsChart (WR-022) -------------------------------------------------------------- */
+.wr-feels {
+  margin: 0;
+}
+.wr-feels__svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  touch-action: none; /* let drag-scrub work without the page panning */
+}
+.wr-feels__actual {
+  fill: var(--surface-2);
+  stroke: var(--text2);
+  stroke-width: 1;
+}
+.wr-feels__feels {
+  stroke: var(--sky);
+  stroke-width: 2.5;
+  stroke-dasharray: 8 6;
+}
+.wr-feels__cursor {
+  stroke: var(--text);
+  stroke-width: 1;
+  stroke-dasharray: 2 2;
+}
+.wr-feels__readout {
+  display: block;
+  margin-top: var(--space-1);
+  color: var(--text2);
+  font-size: var(--fs-small);
+}

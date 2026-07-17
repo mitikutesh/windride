@@ -1,0 +1,30 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`buildFeelsProfile > golden profile snapshot 1`] = `
+[
+  {
+    "d": 0,
+    "ele": 0,
+    "feels": 0,
+    "kind": "cross",
+  },
+  {
+    "d": 1000,
+    "ele": 20,
+    "feels": 33,
+    "kind": "head",
+  },
+  {
+    "d": 2000,
+    "ele": 20,
+    "feels": 33,
+    "kind": "cross",
+  },
+  {
+    "d": 3000,
+    "ele": 0,
+    "feels": 0,
+    "kind": "tail",
+  },
+]
+`;

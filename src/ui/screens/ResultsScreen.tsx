@@ -1,6 +1,8 @@
+import { buildFeelsProfile } from '../../engine/feelsProfile';
 import { RouteCard } from '../components/RouteCard';
 import { RouteMap } from '../components/RouteMap';
 import { HeatStrip } from '../components/HeatStrip';
+import { FeelsChart } from '../components/FeelsChart';
 import { PrimaryButton } from '../components';
 import { useResultsStore } from '../../state/resultsStore';
 import { useSavedRoutesStore } from '../../state/savedRoutesStore';
@@ -102,6 +104,11 @@ export function ResultsScreen() {
             onSelect={() => select(sc.candidate.id)}
           />
         ))}
+
+        <details className="wr-results__detail">
+          <summary>Elevation & feels-like — {selected.evidence.distanceKm.toFixed(1)} km</summary>
+          <FeelsChart points={buildFeelsProfile(selected.analysis.segments)} />
+        </details>
       </div>
     </section>
   );
