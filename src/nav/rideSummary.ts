@@ -29,6 +29,10 @@ export interface RideSummaryOptions {
 const tMs = (p: GpxPoint): number => (p.time ? Date.parse(p.time) : NaN);
 
 export function summarizeRide(points: GpxPoint[], opts: RideSummaryOptions = {}): RideSummary {
+  // A ride killed before its first batch persisted recovers as zero points — must not throw
+  // (the crash-recovery "Save it" path depends on this).
+  if (points.length === 0) return { distanceM: 0, elapsedS: 0, movingS: 0, avgSpeedMs: 0 };
+
   let distanceM = 0;
   let movingS = 0;
   for (let i = 1; i < points.length; i++) {

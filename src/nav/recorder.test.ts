@@ -24,7 +24,7 @@ describe('IdbRideRecorder', () => {
     rec.start();
     const fixes = parseTraceToFixes(cleanLoopGpx);
     for (const f of fixes) rec.addFix(f);
-    const gpx = await rec.finish();
+    const { gpx } = await rec.finish();
 
     const points = fromGpx(gpx);
     expect(points).toHaveLength(fixes.length); // every fix recorded
@@ -45,14 +45,18 @@ describe('IdbRideRecorder', () => {
     expect(saved.summary?.distanceM).toBeGreaterThan(0);
   });
 
-  it('appends points in batches of 10', async () => {
+  it('auto-flushes each batch of 10 without an explicit flush', async () => {
     const id = nextId();
     const rec = new IdbRideRecorder({ rideId: id, name: 'Batches', startedAt: 1e12 });
     rec.start();
     for (let i = 0; i < 25; i++) {
       rec.addFix({ lat: 60 + i * 1e-4, lon: 24, time: new Date(1e12 + i * 1000).toISOString() });
     }
-    await rec.flush(); // settle the write chain (20 auto-flushed, 5 buffered)
+    // Await ONLY the auto-flushed writes (no explicit flush): 2 batches = 20 points persisted,
+    // the trailing 5 still buffered. Proves the incremental crash-safety mechanism.
+    await rec.whenSettled();
+    expect(await loadRidePoints(id)).toHaveLength(20);
+    await rec.flush(); // now the buffered tail lands too
     expect(await loadRidePoints(id)).toHaveLength(25);
   });
 
@@ -79,7 +83,7 @@ describe('IdbRideRecorder', () => {
       resumePoints: points,
     });
     resumed.addFix({ lat: 61, lon: 24, time: new Date(1e12 + 23_000).toISOString() });
-    const gpx = await resumed.finish();
+    const { gpx } = await resumed.finish();
     expect(fromGpx(gpx)).toHaveLength(24);
     expect(await getRecordingRide()).toBeUndefined(); // finished
   });
@@ -93,8 +97,20 @@ describe('IdbRideRecorder', () => {
     }
     await rec.flush();
     const recording = (await getRecordingRide())!;
-    const gpx = await saveUnfinishedRide(recording);
+    const { gpx } = await saveUnfinishedRide(recording);
     expect(fromGpx(gpx)).toHaveLength(12);
+    expect(await getRecordingRide()).toBeUndefined();
+  });
+
+  it('saveUnfinishedRide handles a ride killed before its first batch (zero points)', async () => {
+    const id = nextId();
+    const rec = new IdbRideRecorder({ rideId: id, name: 'Empty', startedAt: 1e12 });
+    rec.start(); // creates the recording row; crash before any point persists
+    await rec.whenSettled();
+    const recording = (await getRecordingRide())!;
+    const { gpx, summary } = await saveUnfinishedRide(recording); // must not throw
+    expect(summary.distanceM).toBe(0);
+    expect(fromGpx(gpx)).toHaveLength(0);
     expect(await getRecordingRide()).toBeUndefined();
   });
 });

@@ -25,7 +25,7 @@ describe('routes store (idb)', () => {
     expect(all.map((r) => r.id)).toEqual(['b']);
   });
 
-  it('reopening v2 keeps the routes store + data and adds the ride stores (migration smoke)', async () => {
+  it('v2 schema smoke: a second connection sees routes + ride stores and the persisted record', async () => {
     await saveRoute(route('smoke', 3000));
     await openWindrideDb(); // first open (via the app helper) creates v2
     // A genuinely separate second connection at v2 sees every store and the persisted record.

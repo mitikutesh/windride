@@ -29,6 +29,10 @@ function stopAndGo(): GpxPoint[] {
 }
 
 describe('summarizeRide', () => {
+  it('returns a zero summary for an empty ride (crash before the first batch)', () => {
+    expect(summarizeRide([])).toEqual({ distanceM: 0, elapsedS: 0, movingS: 0, avgSpeedMs: 0 });
+  });
+
   it('records distance within 1% of the trace length', () => {
     const points = parseTraceToFixes(cleanLoopGpx);
     const { distanceM } = summarizeRide(points);

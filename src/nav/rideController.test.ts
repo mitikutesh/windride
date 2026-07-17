@@ -149,4 +149,26 @@ describe('RideController', () => {
     );
     expect(offRouteSays).toHaveLength(1);
   });
+
+  it('auto-pauses after a sustained stop and resumes on movement', () => {
+    const controller = new RideController({ analysis, announcer: fakeAnnouncer() });
+    const p = analysis.candidate.polyline[0];
+    // Stationary for 25 s at the start point.
+    let last;
+    for (let i = 0; i < 26; i++) {
+      last = controller.onFix({
+        lat: p.lat,
+        lon: p.lon,
+        time: new Date(1e12 + i * 1000).toISOString(),
+      });
+    }
+    expect(last!.autoPaused).toBe(true);
+    // Move ~10 m/s — auto-pause clears.
+    const moved = controller.onFix({
+      lat: p.lat + 10 / 111_320,
+      lon: p.lon,
+      time: new Date(1e12 + 26_000).toISOString(),
+    });
+    expect(moved.autoPaused).toBe(false);
+  });
 });

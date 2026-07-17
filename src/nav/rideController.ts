@@ -15,6 +15,7 @@ import { EtaEstimator } from './eta';
 import { HeadingSmoother } from './heading';
 import { classifyWindKind, type WindKind } from '../engine/wind';
 import { bearingToTrack, OffRouteMonitor, type OffRouteState } from './offRoute';
+import { AUTO_PAUSE_S, MOVING_SPEED_MS } from './rideSummary';
 import { prepareTrack, Snapper, type Track } from './snap';
 import { nextWindTransition, toWindHudSegments, type WindTransition } from './windHud';
 
@@ -48,6 +49,8 @@ export interface RideState {
   toTrack: { bearingDeg: number; distanceM: number } | null;
   /** Modelled elapsed-time fraction 0..1 — positions the time-weighted ribbon dot. */
   timeFraction: number;
+  /** Auto-pause: rider stopped (< 1.2 km/h) for > 20 s (NAVIGATION_SPEC §6). */
+  autoPaused: boolean;
   snapped: LatLon;
   paused: boolean;
 }
@@ -77,6 +80,7 @@ export class RideController {
   private pausedFlag = false;
   private lastFix: { p: LatLon; tMs: number } | null = null;
   private lastOffRoute: OffRouteState = 'on-route';
+  private trailingStoppedS = 0;
 
   constructor(opts: RideControllerOptions) {
     this.analysis = opts.analysis;
@@ -112,9 +116,17 @@ export class RideController {
 
   onFix(fix: Fix): RideState {
     const snap = this.snapper.update(fix);
+    const prevTMs = this.lastFix?.tMs;
     const measuredMs = this.speedOf(fix); // null when unknown (don't poison the EMA)
     const speedMs = measuredMs ?? 0;
     const headingDeg = this.heading.update(fix);
+
+    // Auto-pause: accumulate trailing sub-threshold time, reset on movement (NAVIGATION_SPEC §6).
+    const dtS = prevTMs !== undefined ? (Date.parse(fix.time) - prevTMs) / 1000 : 0;
+    if (measuredMs !== null && dtS > 0) {
+      this.trailingStoppedS = measuredMs < MOVING_SPEED_MS ? this.trailingStoppedS + dtS : 0;
+    }
+    const autoPaused = this.trailingStoppedS > AUTO_PAUSE_S;
 
     // ETA: fold actual vs modelled speed (skip while paused / when speed is unknown), then correct
     // the remaining MODELLED TIME (never distance/speed math — CLAUDE.md).
@@ -165,6 +177,7 @@ export class RideController {
       toTrack:
         offRoute === 'alert' ? bearingToTrack({ lat: fix.lat, lon: fix.lon }, snap.snapped) : null,
       timeFraction,
+      autoPaused,
       snapped: snap.snapped,
       paused: this.pausedFlag,
     };

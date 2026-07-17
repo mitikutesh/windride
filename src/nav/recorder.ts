@@ -20,6 +20,13 @@ import type { GpxPoint } from '../utils/gpx';
 import type { Fix } from './fixSource';
 import { summarizeRide } from './rideSummary';
 
+export interface RideFinish {
+  gpx: string;
+  summary: RideSummary;
+}
+
+const EMPTY_SUMMARY: RideSummary = { distanceM: 0, elapsedS: 0, movingS: 0, avgSpeedMs: 0 };
+
 export interface RideRecorder {
   start(): void;
   addFix(fix: Fix): void;
@@ -27,8 +34,10 @@ export interface RideRecorder {
   resume(): void;
   /** Persist buffered points now (visibility change / backgrounding). */
   flush(): Promise<void>;
-  /** Finish and return the recorded GPX. */
-  finish(): Promise<string>;
+  /** Finish and return the recorded GPX + summary. */
+  finish(): Promise<RideFinish>;
+  /** Last persistence error, or null — the UI surfaces this as a "not saving" warning. */
+  readonly lastError: unknown;
 }
 
 /** No-op recorder — a safe default before a ride starts. */
@@ -38,7 +47,8 @@ export const nullRecorder: RideRecorder = {
   pause: () => {},
   resume: () => {},
   flush: () => Promise.resolve(),
-  finish: () => Promise.resolve(''),
+  finish: () => Promise.resolve({ gpx: '', summary: EMPTY_SUMMARY }),
+  lastError: null,
 };
 
 export const RIDE_BATCH_SIZE = 10;
@@ -110,7 +120,12 @@ export class IdbRideRecorder implements RideRecorder {
     return this.writeChain;
   }
 
-  async finish(): Promise<string> {
+  /** Await all pending writes (test/diagnostic hook). */
+  whenSettled(): Promise<void> {
+    return this.writeChain;
+  }
+
+  async finish(): Promise<RideFinish> {
     await this.flush();
     const summary: RideSummary = summarizeRide(this.all, {
       analysis: this.opts.analysis,
@@ -120,7 +135,7 @@ export class IdbRideRecorder implements RideRecorder {
     const finishedAt = this.lastPointMs() ?? this.opts.startedAt;
     this.enqueue(() => updateRide(this.opts.rideId, { status: 'finished', finishedAt, summary }));
     await this.writeChain;
-    return toGpx({ name: this.opts.name, points: this.all });
+    return { gpx: toGpx({ name: this.opts.name, points: this.all }), summary };
   }
 
   private lastPointMs(): number | undefined {
@@ -143,7 +158,7 @@ export async function loadRidePoints(rideId: string): Promise<GpxPoint[]> {
 }
 
 /** Finalise an unfinished ride from idb without resuming it (the "save" branch of the prompt). */
-export async function saveUnfinishedRide(ride: RecordedRide): Promise<string> {
+export async function saveUnfinishedRide(ride: RecordedRide): Promise<RideFinish> {
   const points = await loadRidePoints(ride.id);
   const summary = summarizeRide(points);
   const finishedAt = points.length
@@ -154,5 +169,5 @@ export async function saveUnfinishedRide(ride: RecordedRide): Promise<string> {
     finishedAt: Number.isFinite(finishedAt) ? finishedAt : ride.startedAt,
     summary,
   });
-  return toGpx({ name: ride.name, points });
+  return { gpx: toGpx({ name: ride.name, points }), summary };
 }

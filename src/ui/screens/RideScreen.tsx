@@ -5,6 +5,7 @@ import type { Fix } from '../../nav/fixSource';
 import { GeolocationSource } from '../../nav/locationService';
 import {
   IdbRideRecorder,
+  loadRidePoints,
   nullRecorder,
   saveUnfinishedRide,
   type RideRecorder,
@@ -48,6 +49,7 @@ export function RideScreen() {
   const [cueMode, setCueMode] = useState<CueMode>('voice');
   const [batterySaver, setBatterySaver] = useState(false);
   const [gpsError, setGpsError] = useState<string | null>(null);
+  const [recError, setRecError] = useState(false);
   const [unfinished, setUnfinished] = useState<RecordedRide | null>(null);
 
   const controllerRef = useRef<RideController | null>(null);
@@ -92,6 +94,7 @@ export function RideScreen() {
     const controller = controllerRef.current;
     if (!controller) return;
     recorderRef.current.addFix(fix);
+    if (recorderRef.current.lastError) setRecError(true); // recording stopped persisting
     setRideState(controller.onFix(fix));
   }, []);
 
@@ -130,11 +133,16 @@ export function RideScreen() {
     setStatus('riding');
   }, []);
 
+  const downloadGpx = (gpx: string, distanceM: number) => {
+    if (gpx)
+      downloadText(gpxFilename(distanceM / 1000, localYMD(new Date())), 'application/gpx+xml', gpx);
+  };
+
   const end = useCallback(() => {
     sourceRef.current?.stop();
     controllerRef.current?.pause();
-    void recorderRef.current.finish().then((gpx) => {
-      if (gpx) downloadText(gpxFilename(0, localYMD(new Date())), 'application/gpx+xml', gpx);
+    void recorderRef.current.finish().then(({ gpx, summary }) => {
+      downloadGpx(gpx, summary.distanceM);
       void refreshRides();
     });
     setStatus('ended');
@@ -142,8 +150,8 @@ export function RideScreen() {
 
   const saveUnfinished = useCallback(() => {
     if (!unfinished) return;
-    void saveUnfinishedRide(unfinished).then((gpx) => {
-      if (gpx) downloadText(gpxFilename(0, localYMD(new Date())), 'application/gpx+xml', gpx);
+    void saveUnfinishedRide(unfinished).then(({ gpx, summary }) => {
+      downloadGpx(gpx, summary.distanceM);
       setUnfinished(null);
       void refreshRides();
     });
@@ -154,11 +162,40 @@ export function RideScreen() {
     void deleteRide(unfinished.id).then(() => setUnfinished(null));
   }, [unfinished]);
 
+  // Resume a crash-interrupted ride — only when its planned route is still loaded this session
+  // (after a reload the analysis is gone, so the prompt offers Save instead).
+  const canResume = !!unfinished && !!scored && unfinished.routeId === scored.candidate.id;
+  const resumeUnfinished = useCallback(() => {
+    if (!unfinished || !scored) return;
+    void loadRidePoints(unfinished.id).then((resumePoints) => {
+      const announcer = armAudio(cueMode);
+      controllerRef.current = new RideController({ analysis: scored.analysis, announcer });
+      recorderRef.current = new IdbRideRecorder({
+        rideId: unfinished.id, // keep the existing recording row — do NOT call start()
+        name: unfinished.name,
+        startedAt: unfinished.startedAt,
+        routeId: scored.candidate.id,
+        analysis: scored.analysis,
+        medianHeadwindKm: median(ranked.map((r) => r.evidence.headwindKm)),
+        chosenHeadwindKm: scored.evidence.headwindKm,
+        resumePoints,
+      });
+      setUnfinished(null);
+      setStatus('riding');
+      const source = new GeolocationSource();
+      sourceRef.current = source;
+      source.start(handleFix, (err) => setGpsError(err.message || 'Location unavailable'));
+    });
+  }, [unfinished, scored, ranked, cueMode, handleFix]);
+
   const unfinishedPrompt = unfinished ? (
     <div className="wr-ride__resume" role="alertdialog" aria-label="Unfinished ride">
       <span>Unfinished ride from {localYMD(new Date(unfinished.startedAt))} found.</span>
       <div className="wr-ride__controls">
-        <PrimaryButton onClick={saveUnfinished}>Save it</PrimaryButton>
+        {canResume ? <PrimaryButton onClick={resumeUnfinished}>Resume</PrimaryButton> : null}
+        <button type="button" className="wr-btn-secondary" onClick={saveUnfinished}>
+          Save it
+        </button>
         <button type="button" className="wr-btn-secondary" onClick={discardUnfinished}>
           Discard
         </button>
@@ -210,6 +247,11 @@ export function RideScreen() {
         {gpsError ? (
           <div className="wr-ride__alert" role="alert">
             {gpsError}
+          </div>
+        ) : null}
+        {recError ? (
+          <div className="wr-ride__alert" role="alert">
+            Ride isn’t being saved — storage error
           </div>
         ) : null}
       </div>

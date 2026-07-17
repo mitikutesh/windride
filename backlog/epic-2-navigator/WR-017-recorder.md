@@ -72,3 +72,66 @@ Strava upload (WR-023); calibration math (WR-024).
   survives a simulated reload mid-ride via a fresh handle); pause detection on the stop-and-go
   synthetic trace.
 - **Gate:** 250 tests, lint clean, build OK.
+
+## Fable 5 review pass — fixes
+
+A Fable 5 review returned REQUEST-CHANGES with 3 blockers and 4 should-fix items. All are now
+fixed; the gate is green. Epic 2 (Navigator) is now complete.
+
+- **BLOCKER 1 — empty-ride summary guard (crash-recovery fix):** `summarizeRide([])` dereferenced
+  `points[0].time` and threw, which crashed the resume-or-save "Save it" path for the most likely
+  real-world crash: a ride killed before its first batch of fixes ever flushed. `summarizeRide`
+  now returns a zero summary (0 distance/elapsed/moving/avg speed) for zero points instead of
+  throwing. Added a `rideSummary` test and a `recorder` test asserting `saveUnfinishedRide` on a
+  zero-point ride does not throw.
+- **BLOCKER 2 — auto-pause wired live into `RideController`, with auto-resume:** `autoPaused` was
+  computed by `rideSummary.ts` but never wired into the live recording pipeline, so the
+  acceptance criterion ("Auto-pause per spec … and resume") wasn't actually met. Fixed by wiring
+  it into `RideController`: it tracks trailing sub-threshold time incrementally against
+  `MOVING_SPEED_MS` (1.2 km/h) and `AUTO_PAUSE_S` (20 s), resets the counter on movement, and
+  exposes `RideState.autoPaused`, auto-resuming as soon as the rider is moving again (no user
+  action needed). `summarizeRide` is unchanged and still reports moving-vs-elapsed for the final
+  summary. Added a `RideController` test: auto-pauses after a 25 s stop, clears on movement.
+- **BLOCKER 3 — Resume button on the interrupted-ride prompt:** the resume-or-save prompt had no
+  way to actually resume, only save/discard. `RideScreen` now shows a Resume button when the
+  interrupted ride's planned route is still loaded this session (`unfinished.routeId` matches the
+  currently selected candidate id); Resume rebuilds the `RideController` plus a resumed
+  `IdbRideRecorder` seeded from `loadRidePoints`, keeps the existing recording row (does not call
+  `start()` again), and continues recording/flushing from there. After a page reload the in-memory
+  route analysis is gone, so in that case the prompt still only offers Save/Discard — this is a
+  documented, honest limitation rather than a silent gap.
+- **SHOULD-FIX 1 — recording-error banner via `lastError`:** `lastError` on the recorder was
+  write-only (set but never read). It is now part of the `RideRecorder` interface, and
+  `RideScreen` polls it per fix, showing a "Ride isn't being saved — storage error" banner so an
+  idb failure (quota exceeded, private-mode browser, etc.) is visible instead of giving a false
+  sense that the ride is safely recording.
+- **SHOULD-FIX 2 — auto-flush proven by test via `whenSettled()`:** no test previously proved
+  incremental auto-flush actually happens mid-ride (as opposed to only at `finish()`). Added
+  `whenSettled()` to `IdbRideRecorder` and a test that awaits only the auto-flushed writes (no
+  explicit `flush()` call) and asserts 20 of 25 points are persisted, then calls `flush()` and
+  confirms the remaining tail lands.
+- **SHOULD-FIX 3 — real v1→v2 migration test:** the existing "migration smoke" test didn't
+  actually exercise a migration — it just built a fresh v2 database. Added
+  `src/data/db.migration.test.ts` (isolated module registry so it gets its own fresh
+  `dbPromise`), which creates a genuine v1 database with a route, then lets `db.ts`'s real
+  `onupgradeneeded` path run the upgrade to v2, and asserts the route survives and the `rides` +
+  `ridePoints` stores now exist. The prior `db.test.ts` case was renamed honestly to a "v2 schema
+  smoke" test since it was never a migration test.
+- **SHOULD-FIX 4 — GPX filename uses the real distance:** finish/save GPX downloads were always
+  named `…-0km.gpx` regardless of actual ride length. `finish()` and `saveUnfinishedRide` now
+  return `{ gpx, summary }`, and `RideScreen` names the download from `summary.distanceM`.
+- **Deferred NITs (documented, not blocking):**
+  - N1 — resume sequence numbers are seeded from `resumePoints.length`; fine today but would need
+    a gap-aware approach if a middle batch could ever be missing.
+  - N2 — `updateRide` is get-then-put; safe today because it's serialized in practice by the
+    write chain, but not safe against future concurrent writers.
+  - N4 — ARCHITECTURE §6's storage note is stale with respect to the v1/rides layout; flagged for
+    a future docs pass.
+  - N5 — `RideScreen` reads a couple of `db.ts` functions directly rather than going through a
+    store; a minor layering inconsistency, not a bug.
+  - N6 — `getRecordingRide` returns only the newest recording ride; fine while only one ride can
+    be in-flight at a time.
+  - N8 — `windByKindS` buckets elapsed time, not moving time; consistent with how it's used today
+    but worth double-checking against future consumers.
+- **Test counts:** `rideSummary.test.ts` 6, `recorder.test.ts` 6, `rideController.test.ts` 7,
+  `db.migration.test.ts` 1 (new/changed); **254 tests total, lint clean, build OK.**
