@@ -1,0 +1,147 @@
+/* ui/global.css — base element styles built only from tokens (WR-002). */
+@import './tokens.css';
+@import './fonts.css';
+@import './components/components.css';
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: var(--fs-body);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  line-height: 1.15;
+  margin: 0;
+}
+
+a {
+  color: var(--sky);
+}
+
+button {
+  font-family: inherit;
+}
+
+/* Numerals that must align use tabular figures (DESIGN §3). */
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Motion lives only where wind lives — and is disabled on request (DESIGN §5). */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* --- App shell ----------------------------------------------------------------------- */
+.wr-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+}
+.wr-shell__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--line);
+  position: sticky;
+  top: 0;
+  background: var(--overlay);
+  backdrop-filter: blur(8px);
+  z-index: 1;
+}
+.wr-shell__brand {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: var(--fs-display);
+  background: var(--aurora);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.wr-shell__nav {
+  display: flex;
+  gap: var(--space-1);
+}
+.wr-navlink {
+  min-height: var(--hit-min);
+  padding: 0 var(--space-3);
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: none;
+  color: var(--text2);
+  font-size: var(--fs-body);
+  cursor: pointer;
+}
+.wr-navlink:hover {
+  color: var(--text);
+}
+.wr-navlink.is-active {
+  color: var(--text);
+  background: var(--surface);
+}
+.wr-navlink:focus-visible {
+  outline: 2px solid var(--sky);
+  outline-offset: 2px;
+}
+.wr-shell__main {
+  flex: 1 1 auto;
+  padding: var(--space-4);
+}
+.wr-shell__footer {
+  padding: var(--space-3) var(--space-4);
+  border-top: 1px solid var(--line);
+  color: var(--text2);
+  font-size: var(--fs-small);
+  text-align: center;
+}
+
+/* --- Screens & kit ------------------------------------------------------------------- */
+.wr-screen {
+  max-width: 720px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.wr-muted {
+  color: var(--text2);
+}
+.wr-kit h2 {
+  margin-top: var(--space-4);
+  font-size: var(--fs-body);
+  color: var(--text2);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.wr-kit__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-4);
+}

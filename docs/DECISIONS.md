@@ -14,3 +14,4 @@ status (DECIDED / DEFAULT-open), date, story that triggered it.
 | DEC-007 | No backend of any kind before the commercial gate (PRODUCT_SPEC). Anything needing a server is out of scope or redesigned client-side. | DECIDED |
 | DEC-008 | Units: SI internally; degrees clockwise from true north; UI converts at the edge. | DECIDED |
 | DEC-009 | Module boundaries enforced via ESLint `no-restricted-imports`/`no-restricted-properties` in `eslint.config.js` (no separate boundaries plugin); `engine/constants.ts` is the one file beyond the exact ARCHITECTURE §2 list, holding shared SCORING_SPEC constants. | DECIDED |
+| DEC-010 | App shell routing (WR-002): default to a minimal dependency-free hash router (`src/ui/useHashRoute.ts`) over adding `react-router` for the plan/results/kit shell. Revisit if routing needs grow in WR-008/WR-009. | DEFAULT-open |

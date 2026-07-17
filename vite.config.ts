@@ -41,7 +41,7 @@ export default defineConfig({
     // Engine/adapter tests run under node; UI render tests (WR-008/009) get jsdom.
     environment: 'node',
     environmentMatchGlobs: [['src/ui/**', 'jsdom']],
-    setupFiles: [],
+    setupFiles: ['./vitest.setup.ts'],
     include: ['src/**/*.{test,spec}.{ts,tsx}'],
     coverage: {
       provider: 'v8',

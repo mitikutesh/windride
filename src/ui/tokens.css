@@ -1,2 +1,52 @@
-/* ui/tokens.css — Baltic Dusk design tokens (DEC-005). Implemented in WR-002.
-   Semantic wind hues (--tail/--cross/--head/--shelter) are permanent (DESIGN.md §1). */
+/* ui/tokens.css — Baltic Dusk design tokens (DEC-005, DESIGN §1–3).
+   THIS IS THE ONLY FILE ALLOWED TO CONTAIN RAW COLOUR HEX (enforced by scripts/check-tokens.mjs).
+   Every component composes these variables — never raw hex. A skin swap is this one file. */
+
+:root {
+  /* --- Semantic wind colours (DESIGN §1 — permanent, non-negotiable) ------------------ */
+  --tail: #2ee6a8; /* tailwind / flow */
+  --cross: #f5b84c; /* crosswind / caution */
+  --head: #f26d5b; /* headwind / resistance */
+  --shelter: #3e8763; /* forest shelter */
+
+  /* --- Baltic Dusk core (DESIGN §2) --------------------------------------------------- */
+  --bg: #0a1220;
+  --surface: #111c30;
+  --line: #1e2c46;
+  --text: #edf3fb;
+  --text2: #8ca1c0;
+  --sky: #4da3ff;
+  --on-aurora: #05131d; /* ink on the aurora gradient */
+  --aurora: linear-gradient(100deg, var(--tail), var(--sky));
+
+  /* Derived surfaces (composed from core hues, no new hex) */
+  --surface-2: color-mix(in srgb, var(--surface) 70%, var(--bg));
+  --overlay: color-mix(in srgb, var(--bg) 55%, transparent);
+
+  /* --- Radii (DESIGN §2) -------------------------------------------------------------- */
+  --radius-card: 20px;
+  --radius-pill: 999px;
+
+  /* --- Spacing: 8-pt grid (DESIGN §2) ------------------------------------------------- */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 16px;
+  --space-4: 24px;
+  --space-5: 32px;
+  --space-6: 48px;
+
+  /* --- Type (DESIGN §3) --------------------------------------------------------------- */
+  --font-display: 'Space Grotesk', system-ui, sans-serif; /* display + numerals, 700 */
+  --font-body: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --fs-body: 16px;
+  --fs-small: 13px;
+  --fs-label: 12px;
+  --fs-glance: 27px; /* glance-zone numerals >= 27px */
+  --fs-display: 34px;
+
+  /* --- Ergonomics & motion (DESIGN §5) ----------------------------------------------- */
+  --hit-min: 44px; /* glove-first hit targets */
+  --motion-fast: 150ms;
+  --motion-med: 300ms;
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+}

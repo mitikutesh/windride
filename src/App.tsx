@@ -1,17 +1,17 @@
-/**
- * WindRide app root (WR-001 scaffold).
- *
- * This is the placeholder shell only. Design tokens and the real app shell land in WR-002;
- * the Plan and Results screens arrive in WR-008/009. Keep this intentionally minimal.
- */
+import { AppShell } from './ui/AppShell';
+import { useHashRoute } from './ui/useHashRoute';
+import { PlanScreen } from './ui/screens/PlanScreen';
+import { ResultsScreen } from './ui/screens/ResultsScreen';
+import { KitScreen } from './ui/screens/KitScreen';
+
+/** WindRide app root (WR-002): design-token shell + hash-routed screens. */
 export function App() {
+  const [route, navigate] = useHashRoute();
+  const screen =
+    route === 'results' ? <ResultsScreen /> : route === 'kit' ? <KitScreen /> : <PlanScreen />;
   return (
-    <main className="app-placeholder">
-      <h1>WindRide</h1>
-      <p>Wind-aware cycling route planner.</p>
-      <p className="app-placeholder__hint">
-        Scaffold ready. The planner UI arrives in later stories.
-      </p>
-    </main>
+    <AppShell route={route} onNavigate={navigate}>
+      {screen}
+    </AppShell>
   );
 }
