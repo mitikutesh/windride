@@ -19,7 +19,12 @@ type TraceName = keyof typeof TRACES;
  * through the real ReplaySource so navigation can be exercised at the desk. Lazy-loaded only in
  * dev builds (see KitScreen), so its bundled traces never ship to production.
  */
-export default function DevReplayPanel() {
+interface DevReplayPanelProps {
+  /** When set, each replayed fix is forwarded here (WR-016: drive the Ride screen from replay). */
+  onFix?: (fix: Fix) => void;
+}
+
+export default function DevReplayPanel({ onFix }: DevReplayPanelProps = {}) {
   const [trace, setTrace] = useState<TraceName>('clean-loop');
   const [speed, setSpeed] = useState(10);
   const [fix, setFix] = useState<Fix | null>(null);
@@ -42,6 +47,7 @@ export default function DevReplayPanel() {
       n += 1;
       setFix(f);
       setCount(n);
+      onFix?.(f);
       if (n === fixes.length) setRunning(false);
     });
   };

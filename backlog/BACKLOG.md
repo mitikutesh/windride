@@ -29,7 +29,7 @@ Test contract · Technical notes · Out of scope · Log.
 | WR-013 | Location service + windowed snap + progress | 012 | M | DONE |
 | WR-014 | Turn cue engine + TTS/beep | 013 | M | DONE |
 | WR-015 | Off-route detect + rejoin-track reroute | 013 | M | DONE |
-| WR-016 | Ride screen: glance zone, wind HUD, wake lock | 014,015 | L | TODO |
+| WR-016 | Ride screen: glance zone, wind HUD, wake lock | 014,015 | L | DONE |
 | WR-017 | Recorder: crash-safe idb, pause, GPX out | 013 | M | TODO |
 
 ## Epic 3 · Conditions Brain (v0.3)

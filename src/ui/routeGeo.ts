@@ -3,16 +3,14 @@
  */
 import { haversineM } from '../engine/geometry';
 import type { ScoredCandidate } from '../engine/scoring';
+import { classifyWindKind, type WindKind } from '../engine/wind';
 import type { GpxPoint, GpxTrack } from '../utils/gpx';
-import type { RibbonSegment, WindKind } from './components/ribbon';
+import type { RibbonSegment } from './components/ribbon';
 import { windColor } from './windColors';
 
-/** Classify a segment's wind relationship from the along/cross angle (delta 0..180). */
-export function classifyWindKind(deltaDeg: number): WindKind {
-  if (deltaDeg <= 60) return 'tail';
-  if (deltaDeg >= 120) return 'head';
-  return 'cross';
-}
+// classifyWindKind now lives in engine/wind (shared with the WR-016 wind HUD); re-export for
+// existing WR-009 importers.
+export { classifyWindKind };
 
 export interface WindLineFeature {
   type: 'Feature';

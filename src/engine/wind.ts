@@ -42,3 +42,13 @@ export function decompose(
     gustEffMs: gustMs * exposure,
   };
 }
+
+/** Wind relationship for a segment, classified from the travel/wind angle (delta 0..180). */
+export type WindKind = 'tail' | 'head' | 'cross';
+
+/** tail if delta <= 60°, head if >= 120°, cross in between (WR-009 colours, WR-016 HUD). */
+export function classifyWindKind(deltaDeg: number): WindKind {
+  if (deltaDeg <= 60) return 'tail';
+  if (deltaDeg >= 120) return 'head';
+  return 'cross';
+}

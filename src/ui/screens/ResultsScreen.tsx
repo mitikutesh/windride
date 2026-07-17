@@ -53,6 +53,9 @@ export function ResultsScreen() {
         <h1>Your routes</h1>
         <div className="wr-results__actions">
           <PrimaryButton onClick={exportGpx}>Export GPX</PrimaryButton>
+          <a className="wr-navlink" href="#/ride">
+            Ride this route →
+          </a>
           <button type="button" className="wr-navlink" onClick={saveRoute}>
             Save route
           </button>
