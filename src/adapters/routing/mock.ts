@@ -2,7 +2,7 @@
 // Turn steps + ascent come from the ORS fixture; the polyline is synthesized as a CLOSED loop
 // that starts at the requested start, is sized to the requested length, and varies by seed so
 // candidates are geometrically distinct (real ORS geometry arrives in WR-005).
-import orsSampleRaw from '../../../fixtures/ors-roundtrip-sample.geojson?raw';
+import orsSampleRaw from '../../../fixtures/ors/roundtrip-sample.geojson?raw';
 import type { CandidateRoute, LatLon, RoundTripParams, TurnStep } from '../../domain';
 import { ProviderError, type ProviderErrorKind } from '../errors';
 import type { RouteProvider } from './index';

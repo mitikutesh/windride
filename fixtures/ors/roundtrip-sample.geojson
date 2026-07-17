@@ -1,0 +1,41 @@
+{
+  "note": "Hand-crafted CLOSED round-trip loop (WR-005). Illustrative shape until a live probe:ors run (needs VITE_ORS_API_KEY) replaces it. Starts and ends at the same point; elevation in the 3rd coordinate; surface extras change from asphalt to gravel across the loop.",
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "summary": { "distance": 4004.0, "duration": 620.0, "ascent": 10.0, "descent": 10.0 },
+        "segments": [
+          {
+            "distance": 4004.0,
+            "duration": 620.0,
+            "steps": [
+              { "distance": 667.0, "duration": 96.0, "type": 11, "instruction": "Head east on Rantatie", "way_points": [0, 2] },
+              { "distance": 1335.0, "duration": 200.0, "type": 1, "instruction": "Turn left onto Metsapolku", "way_points": [2, 4] }
+            ]
+          }
+        ],
+        "extras": {
+          "surface": { "values": [[0, 4, 3], [4, 8, 10]] },
+          "waytypes": { "values": [[0, 8, 6]] },
+          "steepness": { "values": [[0, 8, 0]] }
+        }
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [24.650, 60.150, 10.0],
+          [24.656, 60.150, 13.0],
+          [24.662, 60.150, 16.0],
+          [24.662, 60.156, 20.0],
+          [24.662, 60.162, 18.0],
+          [24.656, 60.162, 15.0],
+          [24.650, 60.162, 13.0],
+          [24.650, 60.156, 11.0],
+          [24.650, 60.150, 10.0]
+        ]
+      }
+    }
+  ]
+}

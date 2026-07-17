@@ -9,6 +9,11 @@ After capture, fixtures are frozen: adapter parsers change only together with fi
   shape is a top-level JSON array (one object per point, in request order), not the illustrative
   `{responses:[...]}` wrapper — parser and MockWeatherProvider fixture scenario both updated to
   match.
-- ors-roundtrip-sample.geojson — minimal round-trip directions shape (geometry + summary + steps)
+- ors/roundtrip-sample.geojson — replaces the old non-closed `ors-roundtrip-sample.geojson`; a
+  hand-crafted **closed** round-trip loop (start == end coordinate) with elevation in the 3rd
+  coordinate and surface extras switching asphalt→gravel across the loop (cycleway waytype), used
+  by `parseOrsRoute` tests and `MockRouteProvider`. Real captures (`ors/real-small.json` /
+  `ors/real-medium.json`) are pending a `npm run probe:ors` run with a live `VITE_ORS_API_KEY`
+  (see DEC-013) — once captured they replace/augment this fixture per the freeze policy below.
 - golden/ — created by WR-007/011: hand-computed scoring cases and the acceptance scenario
 - traces/ — created by WR-012: synthetic GPX traces (clean loop, off-route, figure-eight)

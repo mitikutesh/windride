@@ -14,7 +14,7 @@ Test contract · Technical notes · Out of scope · Log.
 | WR-002 | Design tokens + app shell + attribution footer | 001 | M | DONE |
 | WR-003 | Domain types + adapter interfaces + mock providers | 001 | M | DONE |
 | WR-004 | Open-Meteo weather adapter (multipoint, hourly) | 003 | M | DONE |
-| WR-005 | ORS routing adapter (round-trip diversity + dedupe) | 003 | L | TODO |
+| WR-005 | ORS routing adapter (round-trip diversity + dedupe) | 003 | L | DONE |
 | WR-006 | Geometry engine: resample, bearings, grades, overlap | 003 | M | DONE |
 | WR-007 | Scoring engine v1 + explanations | 006 | L | TODO |
 | WR-008 | Plan screen (inputs → generate flow) | 002,003 | M | TODO |

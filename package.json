@@ -16,7 +16,8 @@
     "coverage": "vitest run --coverage",
     "lint": "eslint . && prettier --check . && node scripts/check-tokens.mjs",
     "format": "prettier --write .",
-    "probe:weather": "node scripts/probe-weather.mjs"
+    "probe:weather": "node scripts/probe-weather.mjs",
+    "probe:ors": "node scripts/probe-ors.mjs"
   },
   "dependencies": {
     "@turf/turf": "^7.1.0",
