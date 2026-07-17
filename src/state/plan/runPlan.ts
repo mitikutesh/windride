@@ -72,7 +72,8 @@ export async function runPlan(
   const genOpts =
     inputs.routeType === 'out-and-back'
       ? { seeds: [], bearings: [0, 90, 180, 270] }
-      : { bearings: [] }; // loop mode: round trips only, no out-and-back variants
+      : // loop mode: round trips only (4 seeds x 2 points => 8 candidates, PRODUCT_SPEC §3 "6-8")
+        { seeds: [10, 20, 30, 40], bearings: [] };
   const raw = await generateCandidates(providers.routing, inputs.start, lengthM, profile, {
     ...genOpts,
     onSettled: (done, total) => opts.onProgress?.({ phase: 'candidates', done, total }),

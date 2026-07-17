@@ -14,16 +14,20 @@ lines.push(
   `Wall-clock: **${report.elapsedMs.toFixed(0)} ms** — overall: **${report.pass ? 'PASS' : 'FAIL'}**\n`,
 );
 lines.push(
-  '| Distance | Candidates | Max overlap | Winner headwind (s) | Median (s) | Margin | Result |',
+  '| Distance | Candidates | Top-3 overlap | Winner hw penalty | Median | Margin | Result |',
 );
 lines.push('|---|---|---|---|---|---|---|');
 for (const r of report.results) {
   lines.push(
-    `| ${r.distanceKm} km | ${r.candidateCount} | ${r.maxMutualOverlap.toFixed(2)} | ` +
-      `${r.winnerHeadwindS.toFixed(0)} | ${r.medianHeadwindS.toFixed(0)} | ` +
+    `| ${r.distanceKm} km | ${r.candidateCount} | ${r.top3Overlap.toFixed(2)} | ` +
+      `${r.winnerHeadwind.toFixed(0)} | ${r.medianHeadwind.toFixed(0)} | ` +
       `${(r.marginPct * 100).toFixed(0)}% | ${r.pass ? '✅' : '❌'} |`,
   );
 }
+lines.push(
+  `\n_Wall-clock ${report.elapsedMs.toFixed(0)} ms (< 10000 ms): ${report.elapsedMs < 10000 ? '✅' : '❌'}. ` +
+    `Headwind penalty is the time-weighted WindComfort penalty (SCORING_SPEC §4), not seconds._`,
+);
 lines.push('\n## Winning route explanations\n');
 for (const r of report.results) {
   lines.push(`- **${r.distanceKm} km:** ${r.winnerExplanation}`);
