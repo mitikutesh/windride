@@ -14,11 +14,11 @@ describe('getProviders', () => {
     expect(providers.routing).toBeDefined();
   });
 
-  it('returns the live weather adapter (routing stays mock until WR-005) when live APIs are on', () => {
+  it('returns the live weather + ORS routing adapters when live APIs are on', () => {
     vi.stubEnv('VITE_LIVE_APIS', 'true');
     expect(liveApisEnabled()).toBe(true);
     const providers = getProviders();
     expect(providers.weather.constructor.name).toBe('OpenMeteoProvider');
-    expect(providers.routing.constructor.name).toBe('MockRouteProvider');
+    expect(providers.routing.constructor.name).toBe('OrsRouteProvider');
   });
 });

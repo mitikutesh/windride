@@ -31,6 +31,7 @@ type OpenMeteoPoint = {
     wind_direction_10m: number[];
     wind_gusts_10m: number[];
     temperature_2m: number[];
+    apparent_temperature?: number[];
     precipitation_probability: Array<number | null>;
   };
   daily: { sunrise: string[]; sunset: string[] };
@@ -41,7 +42,7 @@ function sampleFor(scenario: WeatherScenario, pointIdx: number, hour: number): W
   const time = isoHour(hour);
   if (scenario === 'sw-steady') {
     // Wind FROM the south-west (225°), steady 8 m/s — the WR-011 acceptance fixture.
-    return { windMs: 8, windFromDeg: 225, gustMs: 12, precipProb: 10, tempC: 17, time };
+    return { windMs: 8, windFromDeg: 225, gustMs: 12, precipProb: 10, tempC: 17, feelsC: 15, time };
   }
   if (scenario === 'shifting') {
     // Direction veers with the forecast; speed and temperature drift. Deterministic per hour.
@@ -66,6 +67,7 @@ function sampleFor(scenario: WeatherScenario, pointIdx: number, hour: number): W
     gustMs: r.hourly.wind_gusts_10m[i],
     precipProb: r.hourly.precipitation_probability[i] ?? 0,
     tempC: r.hourly.temperature_2m[i],
+    feelsC: r.hourly.apparent_temperature?.[i],
     time,
   };
 }
@@ -90,6 +92,13 @@ export class MockWeatherProvider implements WeatherProvider {
   async daylight(_p: LatLon): Promise<Daylight> {
     if (this.failWith) throw new ProviderError(this.failWith);
     const r = FIXTURE[0];
-    return { sunrise: r.daily.sunrise[0], sunset: r.daily.sunset[0] };
+    // Keep the fixture's local time-of-day but on TODAY's date so "home before dark" is realistic
+    // when demoing on mocks (an adapter may read the clock; the engine may not).
+    const today = new Date().toISOString().slice(0, 10);
+    const timeOf = (iso: string) => iso.slice(11, 16);
+    return {
+      sunrise: `${today}T${timeOf(r.daily.sunrise[0])}`,
+      sunset: `${today}T${timeOf(r.daily.sunset[0])}`,
+    };
   }
 }

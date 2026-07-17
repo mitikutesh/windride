@@ -77,13 +77,16 @@ function loopPolyline(start: LatLon, lengthM: number, seed: number): LatLon[] {
     const t = (i / N) * 2 * Math.PI;
     return { x: radiusM * aspect * Math.cos(t + rot), y: radiusM * Math.sin(t + rot) };
   });
-  // Translate so vertex 0 lands on `start`; vertex N == vertex 0, so the loop is closed.
+  // Translate so vertex 0 lands on `start`.
   const dx = raw[0].x;
   const dy = raw[0].y;
-  return raw.map((p) => ({
+  const pts = raw.map((p) => ({
     lat: start.lat + (p.y - dy) / M_PER_DEG_LAT,
     lon: start.lon + (p.x - dx) / mPerDegLon,
   }));
+  // Force exact closure (cos(2π+rot) drifts from cos(rot) in floating point for large rot).
+  pts[pts.length - 1] = pts[0];
+  return pts;
 }
 
 export class MockRouteProvider implements RouteProvider {
@@ -95,7 +98,8 @@ export class MockRouteProvider implements RouteProvider {
 
   async roundTrip(p: RoundTripParams): Promise<CandidateRoute> {
     if (this.failWith) throw new ProviderError(this.failWith);
-    const polyline = loopPolyline(p.start, p.lengthM, p.seed);
+    // Fold `points` into the seed so seed×points variants are geometrically distinct too.
+    const polyline = loopPolyline(p.start, p.lengthM, p.seed + p.points * 100);
     return {
       id: `mock-rt-${p.seed}-${p.points}`,
       polyline,
@@ -108,13 +112,34 @@ export class MockRouteProvider implements RouteProvider {
 
   async pointToPoint(a: LatLon, b: LatLon, _profile: string): Promise<CandidateRoute> {
     if (this.failWith) throw new ProviderError(this.failWith);
-    const polyline: LatLon[] = [a, b];
+    const polyline = windingLeg(a, b);
     return {
       id: `mock-p2p-${a.lat.toFixed(4)},${a.lon.toFixed(4)}-${b.lat.toFixed(4)},${b.lon.toFixed(4)}`,
       polyline,
       segments: [],
-      distanceM: roughMeters(a, b),
+      distanceM: polylineLengthM(polyline),
       ascentM: 0,
     };
   }
+}
+
+/**
+ * A gently winding leg a->b whose path length is ~1.34x the crow-flies distance — real roads
+ * wind, and generateCandidates shrinks the out-and-back radius by 0.75x to compensate, so this
+ * keeps mock out-and-backs near the requested length instead of ~0.75x it.
+ */
+function windingLeg(a: LatLon, b: LatLon): LatLon[] {
+  const mPerDegLon = M_PER_DEG_LAT * Math.cos((a.lat * Math.PI) / 180);
+  const dx = (b.lon - a.lon) * mPerDegLon;
+  const dy = (b.lat - a.lat) * M_PER_DEG_LAT;
+  const d = Math.hypot(dx, dy);
+  if (d < 1) return [a, b];
+  const h = 0.446 * d; // bump height giving a ~1.34x path
+  const px = -dy / d;
+  const py = dx / d;
+  const bump: LatLon = {
+    lat: (a.lat + b.lat) / 2 + (py * h) / M_PER_DEG_LAT,
+    lon: (a.lon + b.lon) / 2 + (px * h) / mPerDegLon,
+  };
+  return [a, bump, b];
 }

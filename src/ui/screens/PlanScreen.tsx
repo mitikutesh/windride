@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { ConditionsStrip, DistanceSlider, PrimaryButton, Segmented, Toggle } from '../components';
-import { usePlanStore } from '../../state/planStore';
+import { DEFAULT_START, usePlanStore } from '../../state/planStore';
 
 /** Plan screen (WR-008): inputs -> "Find today's route" -> pipeline (mocks or live per env). */
 export function PlanScreen() {
@@ -12,11 +12,31 @@ export function PlanScreen() {
   const setInput = usePlanStore((s) => s.setInput);
   const generate = usePlanStore((s) => s.generate);
 
-  // Resolve start (geolocation, else the default) and load the conditions strip once.
+  // After idb hydration: geolocate ONLY if the start is still the default (never clobber a
+  // persisted/manual start), then load the conditions strip.
   useEffect(() => {
-    const store = usePlanStore.getState();
-    void store.locate().then(() => usePlanStore.getState().loadConditions());
+    const run = () => {
+      const s = usePlanStore.getState();
+      const atDefault =
+        s.inputs.start.lat === DEFAULT_START.lat && s.inputs.start.lon === DEFAULT_START.lon;
+      const located = atDefault ? s.locate() : Promise.resolve();
+      void located.then(() => usePlanStore.getState().loadConditions());
+    };
+    if (usePlanStore.persist.hasHydrated()) {
+      run();
+      return;
+    }
+    return usePlanStore.persist.onFinishHydration(run);
   }, []);
+
+  const setStartCoord = (axis: 'lat' | 'lon', raw: string) => {
+    if (raw === '') return;
+    const n = Number(raw);
+    if (!Number.isFinite(n)) return;
+    const limit = axis === 'lat' ? 90 : 180;
+    if (Math.abs(n) > limit) return;
+    setInput({ start: { ...inputs.start, [axis]: n } });
+  };
 
   const busy = status === 'loading' || status === 'locating';
 
@@ -84,9 +104,7 @@ export function PlanScreen() {
               type="number"
               step="0.0001"
               value={inputs.start.lat}
-              onChange={(e) =>
-                setInput({ start: { ...inputs.start, lat: Number(e.target.value) } })
-              }
+              onChange={(e) => setStartCoord('lat', e.target.value)}
             />
           </label>
           <label className="wr-field__label">
@@ -95,9 +113,7 @@ export function PlanScreen() {
               type="number"
               step="0.0001"
               value={inputs.start.lon}
-              onChange={(e) =>
-                setInput({ start: { ...inputs.start, lon: Number(e.target.value) } })
-              }
+              onChange={(e) => setStartCoord('lon', e.target.value)}
             />
           </label>
         </div>

@@ -62,3 +62,48 @@ ranks; weather quota error propagates), `units` (arrow rotation, compass, format
 `PlanScreen` interaction (change distance → generate → results store populated; conditions strip
 renders). 136 tests total, all green on mocks (`VITE_LIVE_APIS=false`) — fully demoable offline.
 No open follow-ups beyond the DEC-016 default; WR-009 (Results/map) is next.
+
+## Fable 5 review pass — fixes
+
+A Fable 5 review of WR-008 found two BLOCKERs and several SHOULD-FIX/NITs. All addressed; gate
+(`npm test` = 139 passing, `npm run lint`, `npm run build`) is green.
+
+**BLOCKERs:**
+- *Out-and-back empty on mocks* — `MockRouteProvider.pointToPoint` now returns a gently winding
+  leg (~1.34x crow-flies distance) so out-and-back totals land near the requested length
+  (`generateCandidates` shrinks the radius 0.75x to compensate for road winding). The mock round
+  trip also now varies its geometry by both seed and points, and loop closure is forced exactly
+  to eliminate float drift. `runPlan` gained an out-and-back test.
+- *Total routing failure swallowed* — `generateCandidates` now rethrows the first rejection when
+  **every** candidate task fails, so an ORS quota/outage error surfaces its `ProviderError` kind
+  instead of silently producing zero routes. `planStore.generate` treats a zero-ranked result as
+  a visible error message (previous results are preserved rather than clobbered) instead of a
+  silent `'ready'`. `runPlan` gained a total-failure test.
+
+**SHOULD-FIX:**
+- Loop mode now passes `bearings: []` so it only produces round-trip candidates — a user who
+  picked "Loop" no longer sees out-and-back variants mixed in.
+- The provider registry's live mode now wires `OrsRouteProvider` (WR-005 is done) alongside
+  `OpenMeteoProvider`; the live-mode test asserts both are used.
+- `MockWeatherProvider.daylight` now uses today's date with the fixture's time-of-day, so
+  "Home before dark" behaves sensibly when demoing on mocks regardless of the calendar date.
+- `PlanScreen` now initialises *after* idb hydration (`persist.onFinishHydration`) and only
+  geolocates when the start is still the default — a persisted or manually-entered start is
+  never clobbered on remount/reload.
+- The manual lat/lon inputs guard empty/NaN/out-of-range values so they can no longer snap the
+  start to `0,0`.
+- Feels-like temperature is plumbed end to end: `WindSample.feelsC` (from Open-Meteo
+  `apparent_temperature`, already fetched) flows through `Conditions` to a new "Feels" cell in
+  `ConditionsStrip`; the mock weather provider supplies it too.
+- The disabled "Shelter me" `Toggle` stays focusable via `aria-disabled` with an
+  `aria-describedby` pointing at visually-hidden reason text, so it's keyboard/screen-reader
+  accessible instead of a dead `disabled` control.
+- Tests added: `runPlan` out-and-back + total-failure cases; `idbStateStorage` round-trip test
+  (using `fake-indexeddb`); the ORS parsing test expectation updated for `feelsC`; the
+  live-registry test updated to assert both providers.
+
+**Deferred NITs** (documented, not changed):
+- `Segmented` lacks the ARIA radio roving-tabindex pattern.
+- `loadConditions` failure leaves the conditions strip stuck on "Loading…".
+- Conditions could stay `null` instead of showing zeros when the hourly array is empty.
+- Navigation-on-generate remains a store side-effect rather than a screen-level concern.

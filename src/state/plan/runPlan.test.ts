@@ -55,4 +55,17 @@ describe('runPlan', () => {
       }),
     ).rejects.toMatchObject({ kind: 'quota' });
   });
+
+  it('produces routes for out-and-back mode (winding legs land near target length)', async () => {
+    const out = await runPlan(providers(), { ...INPUTS, routeType: 'out-and-back' }, { now: NOW });
+    expect(out.ranked.length).toBeGreaterThan(0);
+  });
+
+  it('surfaces total routing failure rather than resolving empty', async () => {
+    await expect(
+      runPlan(providers({ routing: new MockRouteProvider({ failWith: 'quota' }) }), INPUTS, {
+        now: NOW,
+      }),
+    ).rejects.toMatchObject({ kind: 'quota' });
+  });
 });

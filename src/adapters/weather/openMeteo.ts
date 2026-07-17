@@ -20,6 +20,7 @@ type OpenMeteoHourly = {
   wind_direction_10m: number[];
   wind_gusts_10m: number[];
   temperature_2m: number[];
+  apparent_temperature?: number[];
   precipitation_probability: Array<number | null>;
 };
 type OpenMeteoPoint = { hourly?: OpenMeteoHourly; daily?: { sunrise: string[]; sunset: string[] } };
@@ -56,6 +57,7 @@ export function parseWindGrid(body: unknown, pointCount: number, hours: number):
         gustMs: h.wind_gusts_10m[i],
         precipProb: h.precipitation_probability[i] ?? 0,
         tempC: h.temperature_2m[i],
+        feelsC: h.apparent_temperature?.[i],
         time: h.time[i],
       });
     }

@@ -27,7 +27,7 @@ interface PlanState {
 }
 
 // Default start: central Espoo, so the app is demoable offline before geolocation resolves.
-const DEFAULT_START = { lat: 60.17, lon: 24.65 };
+export const DEFAULT_START = { lat: 60.17, lon: 24.65 };
 const DEFAULT_INPUTS: PlanInputs = {
   distanceKm: 50,
   routeType: 'loop',
@@ -107,6 +107,7 @@ export const usePlanStore = create<PlanState>()(
                 windFromDeg: c.windFromDeg,
                 gustMs: c.gustMs,
                 tempC: c.tempC,
+                feelsC: c.feelsC,
                 precipProb: c.precipProb,
                 sunset: daylight.sunset,
                 sunrise: daylight.sunrise,
@@ -125,9 +126,24 @@ export const usePlanStore = create<PlanState>()(
             now: Date.now(),
             onProgress: (p) => set({ progress: progressText(p) }),
           });
+          if (out.ranked.length === 0) {
+            // Candidates were generated but all failed the hard constraints — surface why, and
+            // keep any previous results rather than wiping them with an empty set.
+            const reason = out.rejected[0]?.reasons[0] ?? 'no routes matched your constraints';
+            set({
+              conditions: out.conditions,
+              status: 'error',
+              progress: '',
+              error: {
+                kind: 'badResponse',
+                message: `No routes met your constraints (${reason}). Try a different distance or turn off Home before dark.`,
+              },
+            });
+            return;
+          }
           useResultsStore.getState().setResults({ ranked: out.ranked, rejected: out.rejected });
           set({ conditions: out.conditions, status: 'ready', progress: '' });
-          if (out.ranked.length > 0 && typeof window !== 'undefined') {
+          if (typeof window !== 'undefined') {
             window.location.hash = '#/results';
           }
         } catch (e) {

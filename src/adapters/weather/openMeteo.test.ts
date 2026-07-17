@@ -50,6 +50,7 @@ describe('OpenMeteoProvider parsing (captured fixture)', () => {
       gustMs: 8.3,
       precipProb: 0,
       tempC: 22.4,
+      feelsC: 22.6,
       time: '2026-07-17T12:00',
     });
   });

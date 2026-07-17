@@ -3,6 +3,7 @@
 import type { RouteProvider } from './routing';
 import type { WeatherProvider } from './weather';
 import { MockRouteProvider } from './routing/mock';
+import { OrsRouteProvider } from './routing/ors';
 import { MockWeatherProvider } from './weather/mock';
 import { OpenMeteoProvider } from './weather/openMeteo';
 
@@ -17,8 +18,8 @@ export function liveApisEnabled(): boolean {
 
 export function getProviders(): Providers {
   if (liveApisEnabled()) {
-    // Live weather is wired in WR-004; live routing (ORS) lands in WR-005, so routing stays mock.
-    return { weather: new OpenMeteoProvider(), routing: new MockRouteProvider() };
+    // Live weather (WR-004) + live openrouteservice routing (WR-005).
+    return { weather: new OpenMeteoProvider(), routing: new OrsRouteProvider() };
   }
   return { weather: new MockWeatherProvider(), routing: new MockRouteProvider() };
 }

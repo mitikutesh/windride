@@ -271,7 +271,7 @@ export class OrsRouteProvider implements RouteProvider {
 export interface GenerateOptions {
   seeds?: number[];
   pointsVariation?: Array<3 | 4 | 5>;
-  /** Absolute bearings for out-and-back variants (WR-008 will make these wind-relative). */
+  /** Absolute bearings for out-and-back variants ([] to disable). Wind-relative bearings later. */
   bearings?: number[];
   overlapThreshold?: number;
   /** Progress callback fired as each candidate task settles (for the Plan screen's progress). */
@@ -349,6 +349,12 @@ export async function generateCandidates(
   const ok = settled
     .filter((s): s is PromiseFulfilledResult<CandidateRoute> => s.status === 'fulfilled')
     .map((s) => s.value);
+  // Total failure must surface (e.g. ORS quota exhausted) rather than resolve to an empty list —
+  // rethrow the first rejection so its ProviderError kind reaches the UI.
+  if (ok.length === 0) {
+    const firstErr = settled.find((s): s is PromiseRejectedResult => s.status === 'rejected');
+    if (firstErr) throw firstErr.reason;
+  }
   return dedupeByOverlap(ok, { threshold: opts.overlapThreshold });
 }
 

@@ -32,6 +32,7 @@ export interface Conditions {
   windFromDeg: number;
   gustMs: number;
   tempC: number;
+  feelsC?: number;
   precipProb: number;
   sunset: string;
   sunrise: string;
@@ -69,7 +70,9 @@ export async function runPlan(
 
   opts.onProgress?.({ phase: 'candidates', done: 0, total: 0 });
   const genOpts =
-    inputs.routeType === 'out-and-back' ? { seeds: [], bearings: [0, 90, 180, 270] } : {};
+    inputs.routeType === 'out-and-back'
+      ? { seeds: [], bearings: [0, 90, 180, 270] }
+      : { bearings: [] }; // loop mode: round trips only, no out-and-back variants
   const raw = await generateCandidates(providers.routing, inputs.start, lengthM, profile, {
     ...genOpts,
     onSettled: (done, total) => opts.onProgress?.({ phase: 'candidates', done, total }),
@@ -91,6 +94,7 @@ export async function runPlan(
     windFromDeg: current?.windFromDeg ?? 0,
     gustMs: current?.gustMs ?? 0,
     tempC: current?.tempC ?? 0,
+    feelsC: current?.feelsC,
     precipProb: current?.precipProb ?? 0,
     sunset: daylight.sunset,
     sunrise: daylight.sunrise,

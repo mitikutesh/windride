@@ -10,7 +10,7 @@ export function ConditionsStrip({ conditions }: { conditions: Conditions | null 
   if (!conditions) {
     return <div className="wr-conditions wr-muted">Loading conditions…</div>;
   }
-  const { windMs, windFromDeg, tempC, precipProb, sunset } = conditions;
+  const { windMs, windFromDeg, tempC, feelsC, precipProb, sunset } = conditions;
   const from = compass8(windFromDeg);
   return (
     <div className="wr-conditions" role="group" aria-label="Current conditions">
@@ -37,6 +37,7 @@ export function ConditionsStrip({ conditions }: { conditions: Conditions | null 
         </div>
       </div>
       <StatCell label="Temp" value={tempC.toFixed(0)} unit="°C" />
+      {feelsC !== undefined ? <StatCell label="Feels" value={feelsC.toFixed(0)} unit="°C" /> : null}
       <StatCell label="Rain" value={precipProb} unit="%" />
       <StatCell label="Sunset" value={timeOfDay(sunset)} />
     </div>

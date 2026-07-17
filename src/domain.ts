@@ -31,6 +31,8 @@ export type WindSample = {
   gustMs: number;
   precipProb: number;
   tempC: number;
+  /** Apparent ("feels like") temperature in °C, when the provider supplies it. */
+  feelsC?: number;
   /** ISO-8601 local hour, e.g. "2026-07-10T17:00". */
   time: string;
 };
