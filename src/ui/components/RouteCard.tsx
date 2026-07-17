@@ -56,8 +56,10 @@ export function RouteCard({ scored, rank, selected, onSelect }: RouteCardProps) 
       ) : null}
 
       {e.noveltyShare < 1 ? (
+        // Floor, not round, so the chip never claims more novelty than there is (99.6% ⇒ "99%",
+        // never "100%"); a truly all-new route (share === 1) hides the chip rather than over-claiming.
         <p className="wr-card__novelty" role="note">
-          {Math.round(e.noveltyShare * 100)}% new roads
+          {Math.floor(e.noveltyShare * 100)}% new roads
         </p>
       ) : null}
 

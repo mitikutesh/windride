@@ -64,3 +64,29 @@ Heatmap visualization (fun later); any sharing.
   uniqueKm-estimate, and empty-history design decisions.
 - Reviewed post-implementation by a substitute senior reviewer (Opus) — Fable 5 was out of usage
   credits this session; see follow-up review commit for findings/fixes.
+
+**2026-07-18 — Substitute review (Opus, standing in for Fable 5 — out of credits) — fixes
+applied.** Verdict: SHIP-ABLE, no blockers/majors — 2 MINOR + 2 NITs; fixes applied, gate green
+(402 tests, lint clean, build OK).
+- **MINOR-1 — crash-recovery path skipped novelty.** The crash-recovery "Save it" flow
+  (`saveUnfinished`) never recorded ridden edges — it destructured only `{ gpx, summary }` from
+  `saveUnfinishedRide`, dropping the points. Fixed: it now also pulls `points` (already returned
+  by `saveUnfinishedRide`) and calls `noveltyStore.recordRide(points)` — a crash-recovered ride is
+  still a real recording and should count.
+- **MINOR-2 — no test proved the record↔score geohash contract.** The candidate side geohashes
+  *segment midpoints*; the ride side geohashes *consecutive-fix midpoints* — different
+  conventions that were never cross-checked. Fixed: added a `novelty.test.ts` case that traces a
+  candidate's line with dense fixes through `trackEdges` and asserts
+  `noveltyShare(candidate, thoseEdges) < 0.1` — a route you literally rode reads as ridden.
+- **NIT — chip could over-claim.** The "% new roads" chip used `Math.round`, so a 99.6% share
+  displayed "100%" (indistinguishable from a truly all-new route, which hides the chip entirely
+  at `share === 1`). Fixed: it now uses `Math.floor` so the displayed number never claims more
+  novelty than there is.
+- **NIT (noted, not changed) — `uniqueKm` leans high at 60°N.** Geohash-7 cells narrow in the
+  east-west direction at high latitude (~76 m E-W at 60°N vs. ~153 m N-S), so `uniqueKm` slightly
+  overestimates. Left as-is: the UI already labels it "≈ … km unique," an honest estimate, not a
+  precise figure.
+- The reviewer also independently verified, with no findings: the geohash encoder is canonical
+  (no lat/lon swap), the golden test genuinely isolates novelty rather than confounding it with
+  another axis, the idb v4 store is idempotent with no migration data loss, and the in-memory
+  ridden-edges set is copied (never mutated) under a running score.

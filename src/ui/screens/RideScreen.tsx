@@ -160,8 +160,10 @@ export function RideScreen() {
 
   const saveUnfinished = useCallback(() => {
     if (!unfinished) return;
-    void saveUnfinishedRide(unfinished).then(({ gpx, summary }) => {
+    void saveUnfinishedRide(unfinished).then(({ gpx, summary, points }) => {
       downloadGpx(gpx, summary.distanceM);
+      // A crash-recovered ride is still a real recording — record its roads for Novelty (WR-028).
+      void useNoveltyStore.getState().recordRide(points);
       setUnfinished(null);
       void refreshRides();
     });

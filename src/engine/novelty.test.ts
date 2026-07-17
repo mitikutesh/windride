@@ -39,6 +39,33 @@ describe('noveltyShare', () => {
   });
 });
 
+describe('record-side ↔ score-side geohash contract', () => {
+  it('a route you literally rode reads as (nearly) fully ridden', () => {
+    // A straight 3 km N-bound route (3 × 1 km segments), scored by segment-midpoint cells...
+    const lat0 = 60.1;
+    const lon0 = 24.9;
+    const per1km = 0.009; // ≈ 1 km of latitude
+    const analysis: CandidateAnalysis = {
+      segments: [0, 1, 2].map(
+        (i) =>
+          ({
+            seg: {
+              a: { lat: lat0 + i * per1km, lon: lon0 },
+              b: { lat: lat0 + (i + 1) * per1km, lon: lon0 },
+              lengthM: 1000,
+            },
+          }) as unknown as SegmentAnalysis,
+      ),
+    } as unknown as CandidateAnalysis;
+    // ...and ridden with dense (~50 m) fixes tracing the same line — a DIFFERENT midpoint convention
+    // (consecutive fixes) than the candidate's segment midpoints, yet it must read as ridden.
+    const points: LatLon[] = [];
+    for (let m = 0; m <= 3000; m += 50) points.push({ lat: lat0 + (m / 1000) * per1km, lon: lon0 });
+    const ridden = trackEdges(points);
+    expect(noveltyShare(analysis, ridden)).toBeLessThan(0.1);
+  });
+});
+
 describe('trackEdges', () => {
   it('merging a re-saved ride adds nothing (idempotent)', () => {
     const track: LatLon[] = [A, { lat: 60.171, lon: 24.941 }, B];
