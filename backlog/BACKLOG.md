@@ -35,7 +35,7 @@ Test contract · Technical notes · Out of scope · Log.
 ## Epic 3 · Conditions Brain (v0.3)
 | ID | Story | Deps | Size | Status |
 |---|---|---|---|---|
-| WR-018 | tools/: exposure-grid preprocessing (Python) | 011 | L | TODO |
+| WR-018 | tools/: exposure-grid preprocessing (Python) | 011 | L | DONE |
 | WR-019 | Shelter-aware effective wind + shelter sub-score | 018 | M | TODO |
 | WR-020 | Start-time optimizer + heat strip UI | 011 | M | TODO |
 | WR-021 | Gust-exposure safety flags | 019 | S | TODO |
