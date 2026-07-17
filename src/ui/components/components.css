@@ -511,16 +511,17 @@
   font-weight: 600;
 }
 
-/* Forecast-robustness marker (WR-025). */
+/* Forecast-robustness marker (WR-025). Quality-neutral: stable is muted (not an endorsement),
+   only the forecast-sensitive case is coloured as a caution. */
 .wr-card__robust {
   margin: var(--space-1) 0 0;
   font-size: var(--fs-small);
   font-weight: 600;
 }
-.wr-card__robust.is-robust {
-  color: var(--tail);
+.wr-card__robust.is-stable {
+  color: var(--text2);
 }
-.wr-card__robust.is-fragile {
+.wr-card__robust.is-sensitive {
   color: var(--head);
 }
 

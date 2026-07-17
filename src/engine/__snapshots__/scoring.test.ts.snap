@@ -1,6 +1,6 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
-exports[`WR-025 forecast robustness (±30°) > demotes a fragile route below a slightly-worse-but-robust one 1`] = `
+exports[`WR-025 forecast robustness (±30°) > demotes a fragile route below a robust one — and robustness is what causes it 1`] = `
 [
   {
     "id": "robust",

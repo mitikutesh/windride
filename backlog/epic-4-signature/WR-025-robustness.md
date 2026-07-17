@@ -55,3 +55,32 @@ True ensemble members (future; API_NOTES note only).
 - See **DEC-029** for the spread-as-m/s, UI threshold, matrix-inclusion, and tie-break decisions.
 - Reviewed post-implementation by a substitute senior reviewer (Opus) — Fable 5 was out of usage
   credits this session; see follow-up review commit for findings/fixes.
+
+**2026-07-18 — Substitute review (Opus, standing in for Fable 5 — out of credits) — fixes
+applied.** Verdict: REQUEST-CHANGES; all six findings below (2 MAJOR, 3 MINOR, 1 NIT) are fixed
+and the gate is green (342 tests, lint clean, build OK).
+- **MAJOR 1 — fragile-demotion test was confounded.** The golden ranking test passed even with
+  the robustness weight zeroed out — the "robust" route was also shorter/faster, so time-weighted
+  traffic+rain favoured it regardless of robustness. Fixed: the test now proves causation via a
+  weight flip — scoring with only `{distance: 0.05, robustness: X}`, the robust route wins with
+  robustness ON and the order flips to the fragile route with robustness OFF. The sub-score/
+  spread assertions and the default-weights golden snapshot are unchanged.
+- **MAJOR 2 — badge conflated "insensitive" with "good".** A uniformly bad route (e.g. pure
+  headwind at every rotation) is insensitive to a ±30° shift, so it showed a reassuring green
+  "✓ robust" — implying quality it doesn't have. Fixed: the `RouteCard` marker is now
+  quality-neutral — "✓ forecast-stable / △ forecast-sensitive · ±30°: +X.X m/s"; stable is muted
+  (`var(--text2)`), only the sensitive case is coloured (`--head`) as a caution. Overall route
+  quality remains the score ring's job, not this marker's.
+- **MINOR 3 — tie-break could throw.** A caller dropping the robustness weight (a documented,
+  supported contract) left `sub.robustness` undefined at tie-break time. Fixed: the tie-break now
+  optional-chains it (`?? 0.5`).
+- **MINOR 4 — matrix cost unguarded.** Added a `scoreMatrix` perf guard test (6 candidates × 12
+  hours, each cell doing the base pass plus two ±30° re-analyses, asserted under 500 ms).
+- **MINOR 5 — base penalty computed two ways.** `computeMetrics` now derives the base headwind
+  penalty via `headwindPenaltyOf(a.segments)` — the same function the ±30° passes use — so the
+  spread's baseline can't silently drift from the rotated passes' baseline.
+- **NIT — spread was emphasis-weighted, not true m/s.** `robustnessSpreadMs` is now the extra
+  *un-emphasised* effective headwind (m/s) at the worst-penalty rotation (new `effHeadwindOf`
+  helper), so the card's "m/s" figure is an honest wind reading; the ranking penalty itself still
+  uses the emphasis-weighted worst-case, unchanged.
+- See the DEC-029 review addendum in `docs/DECISIONS.md` for the design-level summary.

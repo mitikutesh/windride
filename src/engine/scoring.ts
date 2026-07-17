@@ -201,12 +201,21 @@ function gaussian(value: number, target: number, sigma: number): number {
   return Math.exp(-0.5 * d * d);
 }
 
-/** Time-weighted, direction-emphasised headwind penalty — the core of WindComfort (§4). */
+/** Time-weighted, direction-emphasised headwind penalty — the core of WindComfort (§4). This is the
+ *  single source for the base `wind` sub-score AND the ±30° robustness passes, so they can't drift. */
 function headwindPenaltyOf(segments: SegmentAnalysis[]): number {
   let p = 0;
   for (const sa of segments)
     p += sa.timeS * headwindEmphasis(sa.wind.deltaDeg) * Math.max(0, -sa.wind.vParMs);
   return p;
+}
+
+/** Time-weighted headwind WITHOUT the direction emphasis — a true effective-headwind figure (m/s
+ *  once divided by ride time) for the honest spread the card shows (not the ranking penalty). */
+function effHeadwindOf(segments: SegmentAnalysis[]): number {
+  let h = 0;
+  for (const sa of segments) h += sa.timeS * Math.max(0, -sa.wind.vParMs);
+  return h;
 }
 
 /** Copy the wind grid with every sample's meteorological wind_from rotated by `deg` (mod 360). */
@@ -220,22 +229,31 @@ function rotateWindFrom(windBySegment: WindSample[][], deg: number): WindSample[
  * Robustness (SCORING_SPEC §4): re-analyse the candidate with wind_from perturbed ±30° and take the
  * WORST-case headwind penalty (= min WindComfort). Reuses the fixed geometry; only wind decomposition
  * and time-weighting change. `opts` MUST carry the same startHourIndex the base analysis used, so the
- * rotated passes sample the same forecast hours. Returns the worst penalty plus the extra effective
- * headwind (m/s) it costs versus the forecast — the "spread" the results card surfaces.
+ * rotated passes sample the same forecast hours. Returns that worst penalty (for the sub-score) plus
+ * the spread: the extra *un-emphasised* effective headwind (m/s) at the worst rotation versus the
+ * forecast — an honest wind figure for the card, not the emphasis-weighted ranking penalty.
  */
 function computeRobustness(
   candidate: CandidateRoute,
   windBySegment: WindSample[][],
   opts: ScoreOptions,
   basePenalty: number,
+  baseEffHeadwind: number,
   totalTimeS: number,
 ): { worstPenalty: number; spreadMs: number } {
-  let worst = basePenalty;
+  let worstPenalty = basePenalty;
+  let worstEffHeadwind = baseEffHeadwind; // effective headwind at the worst-penalty rotation
   for (const deg of [-ROBUSTNESS_PERTURBATION_DEG, ROBUSTNESS_PERTURBATION_DEG]) {
     const rotated = analyzeCandidate(candidate, rotateWindFrom(windBySegment, deg), opts);
-    worst = Math.max(worst, headwindPenaltyOf(rotated.segments));
+    const penalty = headwindPenaltyOf(rotated.segments);
+    if (penalty > worstPenalty) {
+      worstPenalty = penalty;
+      worstEffHeadwind = effHeadwindOf(rotated.segments);
+    }
   }
-  return { worstPenalty: worst, spreadMs: totalTimeS > 0 ? (worst - basePenalty) / totalTimeS : 0 };
+  const spreadMs =
+    totalTimeS > 0 ? Math.max(0, (worstEffHeadwind - baseEffHeadwind) / totalTimeS) : 0;
+  return { worstPenalty, spreadMs };
 }
 
 export function analyzeCandidate(
@@ -319,7 +337,6 @@ function computeMetrics(
   const half = total / 2;
   let totalDist = 0;
 
-  let headwindPenalty = 0;
   let trafficPenalty = 0;
   let rainPenalty = 0;
   let hwTime = 0;
@@ -338,9 +355,7 @@ function computeMetrics(
   for (const sa of a.segments) {
     const km = sa.seg.lengthM / M_PER_KM;
     totalDist += sa.seg.lengthM;
-    const headwind = Math.max(0, -sa.wind.vParMs);
 
-    headwindPenalty += sa.timeS * headwindEmphasis(sa.wind.deltaDeg) * headwind;
     trafficPenalty += sa.timeS * trafficWeight(sa.seg.wayClass);
     rainPenalty += sa.timeS * (sa.precipProb / 100);
 
@@ -385,8 +400,18 @@ function computeMetrics(
   const seqShare = hwTime > 0 ? hwFirst / hwTime : 0.5;
   // Share of upwind time spent sheltered (0.5 = neutral when there is no headwind to shelter).
   const shelterShare = hwTime > 0 ? shelteredUpwindTime / hwTime : 0.5;
-  // Robustness (§4): worst-case headwind penalty if the forecast direction is ±30° off.
-  const robustness = computeRobustness(a.candidate, windBySegment, opts, headwindPenalty, total);
+  // Base WindComfort penalty — single source shared with the robustness passes (MINOR 5).
+  const headwindPenalty = headwindPenaltyOf(a.segments);
+  // Robustness (§4): worst-case headwind penalty if the forecast direction is ±30° off; the spread
+  // is measured in un-emphasised effective headwind (m/s) for an honest card figure.
+  const robustness = computeRobustness(
+    a.candidate,
+    windBySegment,
+    opts,
+    headwindPenalty,
+    effHeadwindOf(a.segments),
+    total,
+  );
   return {
     headwindPenalty,
     robustnessPenalty: robustness.worstPenalty,
@@ -539,10 +564,12 @@ export function scoreCandidates(inputs: CandidateWindInput[], opts: ScoreOptions
   });
 
   // Deterministic ranking: total desc; ties break toward higher robustness (WR-025), then id.
+  // Optional-chain the robustness sub-score: a caller may drop the weight (documented contract), in
+  // which case `sub.robustness` is absent — fall back to a neutral 0.5 rather than throwing.
   scored.sort(
     (x, y) =>
       y.total - x.total ||
-      y.sub.robustness.normalized - x.sub.robustness.normalized ||
+      (y.sub.robustness?.normalized ?? 0.5) - (x.sub.robustness?.normalized ?? 0.5) ||
       x.candidate.id.localeCompare(y.candidate.id),
   );
   scored.forEach((sc, i) => (sc.rank = i + 1));

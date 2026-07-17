@@ -56,16 +56,19 @@ export function RouteCard({ scored, rank, selected, onSelect }: RouteCardProps) 
       ) : null}
 
       {(() => {
-        // Forecast-robustness marker (WR-025): how much worse the ride gets if the wind is 30° off.
-        const robust = e.robustnessSpreadMs < ROBUST_SPREAD_THRESHOLD_MS;
+        // Forecast-robustness marker (WR-025). Deliberately QUALITY-NEUTRAL: it reports how much a
+        // 30°-wrong forecast would worsen the ride, NOT whether the ride is good. A poor route can be
+        // "forecast-stable" (already bad, a shift barely changes it) — overall quality is the score
+        // ring, not this badge (review MAJOR 2). Only the sensitive case is coloured, as a caution.
+        const stable = e.robustnessSpreadMs < ROBUST_SPREAD_THRESHOLD_MS;
         return (
           <p
-            className={`wr-card__robust ${robust ? 'is-robust' : 'is-fragile'}`}
+            className={`wr-card__robust ${stable ? 'is-stable' : 'is-sensitive'}`}
             role="note"
-            title="How much extra effective headwind if the forecast direction is 30° off"
+            title="Extra effective headwind if the forecast direction is 30° off"
           >
-            {robust ? '✓ robust' : '△ fragile'} · ±30° forecast: +{e.robustnessSpreadMs.toFixed(1)}{' '}
-            m/s
+            {stable ? '✓ forecast-stable' : '△ forecast-sensitive'} · ±30°: +
+            {e.robustnessSpreadMs.toFixed(1)} m/s
           </p>
         );
       })()}

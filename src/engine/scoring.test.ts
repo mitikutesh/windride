@@ -5,8 +5,10 @@ import { decompose } from './wind';
 import {
   analyzeCandidate,
   scoreCandidates,
+  scoreMatrix,
   type CandidateWindInput,
   type ScoreOptions,
+  type ScoringWeights,
 } from './scoring';
 
 function seg(
@@ -204,21 +206,19 @@ describe('WR-025 forecast robustness (±30°)', () => {
     expect(loop.evidence.robustnessSpreadMs).toBeCloseTo(0, 5);
   });
 
-  it('demotes a fragile route below a slightly-worse-but-robust one', () => {
+  it('demotes a fragile route below a robust one — and robustness is what causes it', () => {
     // fragile: bearing 135 into a SW wind ⇒ pure crosswind at forecast (zero headwind, "great"),
-    //          but a −30° shift swings it to a 120° headwind — it collapses.
-    // robust: bearing 100 ⇒ tailwind at forecast and still headwind-free at ±30°, but it's a touch
-    //          short of target (9 km vs 10 km) so its DISTANCE score is slightly worse.
-    const fragile = candidate('fragile', 135, 10); // 10 km, on target
-    const robust = candidate('robust', 100, 9); // 9 km, slightly short
-    const { ranked } = scoreCandidates(
-      [
-        { candidate: fragile, windBySegment: steadyWind(10, 3, 225) },
-        { candidate: robust, windBySegment: steadyWind(9, 3, 225) },
-      ],
-      OPTS,
-    );
+    //          but a −30° shift swings it to a 120° headwind — it collapses. On-target 10 km.
+    // robust: bearing 100 ⇒ tailwind at forecast and still headwind-free at ±30°, but 9 km (a touch
+    //          short) so its DISTANCE score is slightly worse — the axis that favours fragile.
+    const fragile = candidate('fragile', 135, 10);
+    const robust = candidate('robust', 100, 9);
+    const inputs: CandidateWindInput[] = [
+      { candidate: fragile, windBySegment: steadyWind(10, 3, 225) },
+      { candidate: robust, windBySegment: steadyWind(9, 3, 225) },
+    ];
 
+    const { ranked } = scoreCandidates(inputs, OPTS);
     const f = ranked.find((r) => r.candidate.id === 'fragile')!;
     const r = ranked.find((r) => r.candidate.id === 'robust')!;
     // Both are headwind-free at the exact forecast (WindComfort ties)...
@@ -228,11 +228,48 @@ describe('WR-025 forecast robustness (±30°)', () => {
     expect(f.evidence.robustnessSpreadMs).toBeGreaterThan(1);
     expect(r.evidence.robustnessSpreadMs).toBeCloseTo(0, 6);
     expect(r.sub.robustness.normalized).toBeGreaterThan(f.sub.robustness.normalized);
-    // Robustness outweighs the fragile route's small distance edge: robust ranks first.
-    expect(ranked[0].candidate.id).toBe('robust');
+
+    // CAUSAL isolation (review MAJOR 1): score with ONLY distance (which favours the on-target
+    // fragile route) plus robustness. With robustness ON, robust wins despite its distance handicap;
+    // turn robustness OFF and the order flips to fragile — proving robustness, not a confounding
+    // faster/shorter axis (traffic/rain are time-weighted), is what drives the demotion.
+    const iso = (robustness: number): ScoringWeights => ({
+      wind: 0,
+      robustness,
+      safety: 0,
+      shelter: 0,
+      surface: 0,
+      traffic: 0,
+      scenery: 0,
+      climb: 0,
+      distance: 0.05,
+      rain: 0,
+      sequencing: 0,
+    });
+    expect(scoreCandidates(inputs, { ...OPTS, weights: iso(0.1) }).ranked[0].candidate.id).toBe(
+      'robust',
+    );
+    expect(scoreCandidates(inputs, { ...OPTS, weights: iso(0) }).ranked[0].candidate.id).toBe(
+      'fragile',
+    );
+
+    // Golden lock under default weights (combined behaviour).
     expect(
       ranked.map((x) => ({ id: x.candidate.id, total: Math.round(x.total) })),
     ).toMatchSnapshot();
+  });
+
+  it('scoreMatrix computes robustness within budget (perf guard)', () => {
+    // 6 candidates × 12 hours, each cell doing base + two ±30° re-analyses — must stay well bounded.
+    const inputs: CandidateWindInput[] = Array.from({ length: 6 }, (_v, i) => ({
+      candidate: candidate(`m${i}`, (i * 60) % 360, 10),
+      windBySegment: steadyWind(10, 12),
+    }));
+    const hours = Array.from({ length: 12 }, (_v, h) => h);
+    const t0 = performance.now();
+    const matrix = scoreMatrix(inputs, hours, OPTS);
+    expect(performance.now() - t0).toBeLessThan(500);
+    expect(matrix.rows).toHaveLength(6);
   });
 });
 
