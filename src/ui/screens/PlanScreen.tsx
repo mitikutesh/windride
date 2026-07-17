@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { ConditionsStrip, DistanceSlider, PrimaryButton, Segmented, Toggle } from '../components';
 import { DownwindResults } from '../components/DownwindResults';
+import { suggestWinter } from '../../engine/winter';
 import { DEFAULT_START, usePlanStore } from '../../state/planStore';
 import { useSavedRoutesStore } from '../../state/savedRoutesStore';
 import { downloadText } from '../download';
@@ -115,7 +116,18 @@ export function PlanScreen() {
           onChange={(avoidBusy) => setInput({ avoidBusy })}
           label="Avoid busy roads"
         />
+        <Toggle
+          checked={!!inputs.winter}
+          onChange={(winter) => setInput({ winter })}
+          label="Winter mode"
+          title="Studded-tyre speeds, home-before-dark on, ice-risk cautions (WR-027)"
+        />
       </div>
+      {conditions && !inputs.winter && suggestWinter(conditions.tempC) ? (
+        <p className="wr-muted" role="note">
+          It’s {Math.round(conditions.tempC)} °C — consider Winter mode for honest ice-aware ETAs.
+        </p>
+      ) : null}
 
       <details className="wr-plan__start">
         <summary>

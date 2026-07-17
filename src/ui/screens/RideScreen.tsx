@@ -20,6 +20,7 @@ import { PrimaryButton, Segmented, StatCell, WindRibbon } from '../components';
 import { RideHistory } from '../components/RideHistory';
 import { RideMap } from '../components/RideMap';
 import { WindHud } from '../components/WindHud';
+import { WinterCaution } from '../components/WinterCaution';
 import { downloadText } from '../download';
 import { routeToRibbon } from '../routeGeo';
 import { useWakeLock } from '../useWakeLock';
@@ -43,6 +44,7 @@ type RideStatus = 'idle' | 'riding' | 'paused' | 'ended';
 export function RideScreen() {
   const ranked = useResultsStore((s) => s.ranked);
   const scored = useResultsStore((s) => s.ranked.find((r) => r.candidate.id === s.selectedId));
+  const winter = useResultsStore((s) => s.winter);
   const refreshRides = useRidesStore((s) => s.refresh);
 
   const [status, setStatus] = useState<RideStatus>('idle');
@@ -305,6 +307,7 @@ export function RideScreen() {
       </div>
 
       <div className="wr-ride__controls">
+        {status === 'idle' ? <WinterCaution winter={winter} /> : null}
         {status === 'idle' ? (
           <>
             <Segmented

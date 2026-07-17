@@ -511,6 +511,20 @@
   font-weight: 600;
 }
 
+/* Winter caution (WR-027). */
+.wr-winter {
+  margin: var(--space-2) 0;
+}
+.wr-winter__ice {
+  margin: 0 0 var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-pill);
+  background: var(--surface-2);
+  color: var(--head);
+  font-weight: 600;
+  font-size: var(--fs-small);
+}
+
 /* Downwind one-ways (WR-026). */
 .wr-downwind__list {
   list-style: none;

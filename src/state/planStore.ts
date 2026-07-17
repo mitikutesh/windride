@@ -191,6 +191,7 @@ export const usePlanStore = create<PlanState>()(
             startMatrix: out.startMatrix,
             startMessage: out.startMessage,
             hourLabels: out.hourLabels,
+            winter: out.winter,
           });
           set({ conditions: out.conditions, status: 'ready', progress: '' });
           if (typeof window !== 'undefined') {

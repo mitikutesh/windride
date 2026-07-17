@@ -153,4 +153,27 @@ export class OpenMeteoProvider implements WeatherProvider {
     const body = await this.fetchJson(`${ENDPOINT}?${params.toString()}`);
     return parseDaylight(body);
   }
+
+  /** Prior-`hours` precipitation (mm) for the ice-risk heuristic — Open-Meteo `past_hours` param. */
+  async recentPrecipMm(p: LatLon, hours: number): Promise<number> {
+    const params = new URLSearchParams({
+      latitude: String(p.lat),
+      longitude: String(p.lon),
+      hourly: 'precipitation',
+      past_hours: String(hours),
+      forecast_hours: '1',
+      timezone: 'auto',
+    });
+    const body = await this.fetchJson(`${ENDPOINT}?${params.toString()}`);
+    return parseRecentPrecipMm(body);
+  }
+}
+
+/** Sum the hourly precipitation array (mm) from a past_hours response; 0 when absent. */
+export function parseRecentPrecipMm(body: unknown): number {
+  const arr = Array.isArray(body) ? body : [body];
+  const precip = (arr[0] as { hourly?: { precipitation?: Array<number | null> } })?.hourly
+    ?.precipitation;
+  if (!Array.isArray(precip)) return 0;
+  return precip.reduce<number>((sum, v) => sum + (typeof v === 'number' ? v : 0), 0);
 }

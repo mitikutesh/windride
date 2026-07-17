@@ -89,6 +89,13 @@ export class MockWeatherProvider implements WeatherProvider {
     );
   }
 
+  async recentPrecipMm(_p: LatLon, _hours: number): Promise<number> {
+    if (this.failWith) throw new ProviderError(this.failWith);
+    // The default mock story is a dry summer day; the 'shifting' story adds a little recent precip
+    // so a winter demo on mocks can exercise the ice-risk plumbing.
+    return this.scenario === 'shifting' ? 2 : 0;
+  }
+
   async daylight(_p: LatLon): Promise<Daylight> {
     if (this.failWith) throw new ProviderError(this.failWith);
     const r = FIXTURE[0];

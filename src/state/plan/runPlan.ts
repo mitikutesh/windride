@@ -22,6 +22,14 @@ import {
   type StartTimeMatrix,
 } from '../../engine/scoring';
 import { startTimeMessage } from '../../engine/startTime';
+import {
+  iceRisk,
+  iceRiskMessage,
+  precipType,
+  shadedKm,
+  winterSpeedSettings,
+  type PrecipType,
+} from '../../engine/winter';
 
 export interface PlanInputs {
   distanceKm: number;
@@ -32,6 +40,20 @@ export interface PlanInputs {
   start: LatLon;
   /** Departure hour offset from now for the main ranking (0 = now; WR-020 picker). */
   departureHour?: number;
+  /** Winter / Nordic mode (WR-027): studded speeds, daylight-on, ice-risk caution, snow copy. */
+  winter?: boolean;
+}
+
+/** Winter-mode advisory info for the results/ride UI (WR-027). Null outside winter mode. */
+export interface WinterInfo {
+  /** Advisory ice-risk flag — a caution, never a guarantee. */
+  iceRisk: boolean;
+  /** Hedged caution copy (empty when no ice risk). */
+  message: string;
+  /** Temperature-inferred precipitation type, so copy says "snow", not "rain". */
+  precip: PrecipType;
+  /** Coldest forecast hour in the window (°C). */
+  minTempC: number;
 }
 
 export interface Conditions {
@@ -61,6 +83,8 @@ export interface PlanOutput {
   startMessage: string;
   /** Clock label per hour index (e.g. "17:00"), aligned to startMatrix.hours. */
   hourLabels: string[];
+  /** Winter-mode advisory (WR-027); null when winter mode is off. */
+  winter: WinterInfo | null;
 }
 
 export interface RunPlanOpts {
@@ -132,9 +156,14 @@ export async function runPlan(
 
   opts.onProgress?.({ phase: 'scoring' });
   const departureHour = inputs.departureHour ?? 0;
+  // Winter mode (WR-027): daylight defaults ON (Nordic winters are short), and the speed model uses
+  // studded-tyre offsets so ETAs stay honest on ice.
+  const winterActive = !!inputs.winter;
+  const homeBeforeDark = inputs.homeBeforeDark || winterActive;
+  const speed = winterActive ? winterSpeedSettings(activeSpeedSettings()) : activeSpeedSettings();
   // Sunset margin from NOW; each departure hour eats 60 min of it (handled per-hour by scoreMatrix).
   const minutesUntilSunsetNow = (Date.parse(daylight.sunset) - opts.now) / 60000;
-  const minutesUntilSunset = inputs.homeBeforeDark
+  const minutesUntilSunset = homeBeforeDark
     ? minutesUntilSunsetNow - departureHour * 60
     : undefined;
   const weights: ScoringWeights = inputs.avoidBusy
@@ -150,13 +179,13 @@ export async function runPlan(
     prefersSurface: (inputs.surface === 'gravel' ? 'gravel' : 'paved') as 'gravel' | 'paved',
     weights,
     hasShelterData: shelterDataAvailable,
-    // The owner's calibrated speed model when applied, else the default (WR-024).
-    speed: activeSpeedSettings(),
+    // Winter studded speeds, else the owner's calibrated model / default (WR-024, WR-027).
+    speed,
   };
 
   const { ranked, rejected } = scoreCandidates(windInputs, {
     ...baseOpts,
-    homeBeforeDark: inputs.homeBeforeDark,
+    homeBeforeDark,
     minutesUntilSunset,
     startHourIndex: departureHour,
   });
@@ -166,8 +195,8 @@ export async function runPlan(
   const windowHours = Array.from({ length: Math.max(1, hourly.length) }, (_v, i) => i);
   const startMatrix = scoreMatrix(windInputs, windowHours, {
     ...baseOpts,
-    homeBeforeDark: inputs.homeBeforeDark,
-    minutesUntilSunset: inputs.homeBeforeDark ? minutesUntilSunsetNow : undefined,
+    homeBeforeDark,
+    minutesUntilSunset: homeBeforeDark ? minutesUntilSunsetNow : undefined,
   });
   const hourLabels = windowHours.map((h) => {
     const d = new Date(opts.now + h * 3_600_000);
@@ -188,6 +217,22 @@ export async function runPlan(
     hourLabel: (h) => hourLabels[h] ?? `+${h}h`,
   });
 
+  // Ice-risk caution (WR-027): coldest hour in the window + whether it precipitated in the prior 24 h.
+  let winter: WinterInfo | null = null;
+  if (winterActive) {
+    const minTempC = hourly.length
+      ? Math.min(...hourly.map((s) => s.tempC))
+      : (current?.tempC ?? 0);
+    const precipPrior24hMm = (await providers.weather.recentPrecipMm?.(inputs.start, 24)) ?? 0;
+    const risk = iceRisk({ minTempC, precipPrior24hMm });
+    winter = {
+      iceRisk: risk,
+      message: risk ? iceRiskMessage(ranked[0] ? shadedKm(ranked[0].analysis) : 0) : '',
+      precip: precipType(current?.tempC ?? minTempC, current?.precipProb ?? 0),
+      minTempC,
+    };
+  }
+
   return {
     ranked,
     rejected,
@@ -196,5 +241,6 @@ export async function runPlan(
     startMatrix,
     startMessage,
     hourLabels,
+    winter,
   };
 }

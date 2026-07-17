@@ -48,7 +48,7 @@ Test contract · Technical notes · Out of scope · Log.
 |---|---|---|---|---|
 | WR-025 | Forecast-robustness sub-score (±30°) | 007 | S | DONE |
 | WR-026 | Downwind one-ways + Digitransit return ranking | 011 | L | DONE |
-| WR-027 | Winter/Nordic mode | 020 | M | TODO |
+| WR-027 | Winter/Nordic mode | 020 | M | DONE |
 | WR-028 | Novelty score (ridden-edges geohash set) | 017 | M | TODO |
 
 ## Sequencing rules

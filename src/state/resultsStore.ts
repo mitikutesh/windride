@@ -1,6 +1,7 @@
 // state/resultsStore.ts — ranked candidates for the Results screen (WR-008 populates, WR-009 renders).
 import { create } from 'zustand';
 import type { RejectedCandidate, ScoredCandidate, StartTimeMatrix } from '../engine/scoring';
+import type { WinterInfo } from './plan/runPlan';
 
 interface ResultsState {
   ranked: ScoredCandidate[];
@@ -12,6 +13,8 @@ interface ResultsState {
   startMatrix: StartTimeMatrix | null;
   startMessage: string;
   hourLabels: string[];
+  /** Winter-mode advisory (WR-027); null outside winter mode. */
+  winter: WinterInfo | null;
   setResults: (r: {
     ranked: ScoredCandidate[];
     rejected: RejectedCandidate[];
@@ -19,6 +22,7 @@ interface ResultsState {
     startMatrix?: StartTimeMatrix | null;
     startMessage?: string;
     hourLabels?: string[];
+    winter?: WinterInfo | null;
   }) => void;
   select: (id: string) => void;
   clear: () => void;
@@ -32,6 +36,7 @@ export const useResultsStore = create<ResultsState>((set) => ({
   startMatrix: null,
   startMessage: '',
   hourLabels: [],
+  winter: null,
   setResults: ({
     ranked,
     rejected,
@@ -39,6 +44,7 @@ export const useResultsStore = create<ResultsState>((set) => ({
     startMatrix = null,
     startMessage = '',
     hourLabels = [],
+    winter = null,
   }) =>
     set({
       ranked,
@@ -47,6 +53,7 @@ export const useResultsStore = create<ResultsState>((set) => ({
       startMatrix,
       startMessage,
       hourLabels,
+      winter,
       selectedId: ranked[0]?.candidate.id ?? null,
     }),
   select: (id) => set({ selectedId: id }),
@@ -59,5 +66,6 @@ export const useResultsStore = create<ResultsState>((set) => ({
       startMatrix: null,
       startMessage: '',
       hourLabels: [],
+      winter: null,
     }),
 }));

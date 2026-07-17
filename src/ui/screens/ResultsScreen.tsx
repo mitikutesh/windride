@@ -3,6 +3,7 @@ import { RouteCard } from '../components/RouteCard';
 import { RouteMap } from '../components/RouteMap';
 import { HeatStrip } from '../components/HeatStrip';
 import { FeelsChart } from '../components/FeelsChart';
+import { WinterCaution } from '../components/WinterCaution';
 import { PrimaryButton } from '../components';
 import { useResultsStore } from '../../state/resultsStore';
 import { useSavedRoutesStore } from '../../state/savedRoutesStore';
@@ -20,6 +21,7 @@ export function ResultsScreen() {
   const startMatrix = useResultsStore((s) => s.startMatrix);
   const startMessage = useResultsStore((s) => s.startMessage);
   const hourLabels = useResultsStore((s) => s.hourLabels);
+  const winter = useResultsStore((s) => s.winter);
 
   if (ranked.length === 0) {
     return (
@@ -71,6 +73,7 @@ export function ResultsScreen() {
       <RouteMap candidates={top3} selectedId={selectedId} onSelect={select} />
       <div className="wr-results__cards">
         <h1>Your routes</h1>
+        <WinterCaution winter={winter} />
         {!shelterDataAvailable ? (
           <p className="wr-muted">No shelter data here — wind shown without forest sheltering.</p>
         ) : null}
