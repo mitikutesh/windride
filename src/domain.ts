@@ -75,3 +75,15 @@ export type RoundTripParams = {
 };
 
 export type Daylight = { sunrise: string; sunset: string };
+
+/** Summary of a recorded ride (WR-017). Times in seconds, distance in metres. */
+export type RideSummary = {
+  distanceM: number;
+  elapsedS: number;
+  movingS: number;
+  avgSpeedMs: number;
+  /** Seconds spent in each wind relationship, from the planned segments (when a plan is linked). */
+  windByKindS?: { tail: number; cross: number; head: number };
+  /** Headwind-km avoided vs the plan session's median candidate, when that data exists. */
+  headwindAvoidedKm?: number;
+};

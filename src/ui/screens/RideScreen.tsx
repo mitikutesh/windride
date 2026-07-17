@@ -1,16 +1,33 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { deleteRide, getRecordingRide, type RecordedRide } from '../../data/db';
 import { armAudio, type CueMode } from '../../nav/announcer';
 import type { Fix } from '../../nav/fixSource';
 import { GeolocationSource } from '../../nav/locationService';
-import { nullRecorder, type RideRecorder } from '../../nav/recorder';
+import {
+  IdbRideRecorder,
+  nullRecorder,
+  saveUnfinishedRide,
+  type RideRecorder,
+} from '../../nav/recorder';
 import { RideController, type RideState } from '../../nav/rideController';
 import { useResultsStore } from '../../state/resultsStore';
-import { formatDurationHM, metresToKm } from '../../utils/units';
+import { useRidesStore } from '../../state/ridesStore';
+import { gpxFilename } from '../../utils/gpx';
+import { formatDurationHM, localYMD, metresToKm } from '../../utils/units';
 import { PrimaryButton, Segmented, StatCell, WindRibbon } from '../components';
+import { RideHistory } from '../components/RideHistory';
 import { RideMap } from '../components/RideMap';
 import { WindHud } from '../components/WindHud';
+import { downloadText } from '../download';
 import { routeToRibbon } from '../routeGeo';
 import { useWakeLock } from '../useWakeLock';
+
+const median = (xs: number[]): number => {
+  if (xs.length === 0) return 0;
+  const s = [...xs].sort((a, b) => a - b);
+  const m = Math.floor(s.length / 2);
+  return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+};
 
 const DevReplayPanel = lazy(() => import('../components/DevReplayPanel'));
 
@@ -22,13 +39,16 @@ type RideStatus = 'idle' | 'riding' | 'paused' | 'ended';
  * RideController, holds a wake lock while riding, and offers a battery-saver mode.
  */
 export function RideScreen() {
+  const ranked = useResultsStore((s) => s.ranked);
   const scored = useResultsStore((s) => s.ranked.find((r) => r.candidate.id === s.selectedId));
+  const refreshRides = useRidesStore((s) => s.refresh);
 
   const [status, setStatus] = useState<RideStatus>('idle');
   const [rideState, setRideState] = useState<RideState | null>(null);
   const [cueMode, setCueMode] = useState<CueMode>('voice');
   const [batterySaver, setBatterySaver] = useState(false);
   const [gpsError, setGpsError] = useState<string | null>(null);
+  const [unfinished, setUnfinished] = useState<RecordedRide | null>(null);
 
   const controllerRef = useRef<RideController | null>(null);
   const recorderRef = useRef<RideRecorder>(nullRecorder);
@@ -36,12 +56,29 @@ export function RideScreen() {
 
   useWakeLock(status === 'riding');
 
+  // On open, offer any crash-interrupted ride for save/discard (resume-or-save prompt).
+  useEffect(() => {
+    getRecordingRide()
+      .then((r) => setUnfinished(r ?? null))
+      .catch(() => setUnfinished(null)); // idb unavailable — no prompt, no crash
+  }, []);
+
+  // Flush buffered fixes when the tab is backgrounded — the crash-safety net for an OS app kill.
+  useEffect(() => {
+    const onHide = () => {
+      if (document.visibilityState === 'hidden') void recorderRef.current.flush();
+    };
+    document.addEventListener('visibilitychange', onHide);
+    return () => document.removeEventListener('visibilitychange', onHide);
+  }, []);
+
   // Leaving the ride mid-stream must stop GPS + cues (else watchPosition and the announcer keep
   // running on a dead screen — battery drain and stray voice cues on other screens).
   useEffect(
     () => () => {
       sourceRef.current?.stop();
       controllerRef.current?.pause();
+      void recorderRef.current.flush();
     },
     [],
   );
@@ -62,7 +99,16 @@ export function RideScreen() {
     if (!scored) return;
     const announcer = armAudio(cueMode); // unlock audio on this user gesture
     controllerRef.current = new RideController({ analysis: scored.analysis, announcer });
-    recorderRef.current = nullRecorder; // WR-017 swaps in the crash-safe recorder
+    const name = `WindRide ${scored.evidence.distanceKm.toFixed(0)} km`;
+    recorderRef.current = new IdbRideRecorder({
+      rideId: crypto.randomUUID(),
+      name,
+      startedAt: Date.now(),
+      routeId: scored.candidate.id, // plan linkage — WR-024/WR-028 need it
+      analysis: scored.analysis,
+      medianHeadwindKm: median(ranked.map((r) => r.evidence.headwindKm)),
+      chosenHeadwindKm: scored.evidence.headwindKm,
+    });
     recorderRef.current.start();
     setStatus('riding');
     setGpsError(null);
@@ -70,7 +116,7 @@ export function RideScreen() {
     const source = new GeolocationSource();
     sourceRef.current = source;
     source.start(handleFix, (err) => setGpsError(err.message || 'Location unavailable'));
-  }, [scored, cueMode, handleFix]);
+  }, [scored, cueMode, handleFix, ranked]);
 
   const pause = useCallback(() => {
     controllerRef.current?.pause();
@@ -87,9 +133,38 @@ export function RideScreen() {
   const end = useCallback(() => {
     sourceRef.current?.stop();
     controllerRef.current?.pause();
-    void recorderRef.current.finish();
+    void recorderRef.current.finish().then((gpx) => {
+      if (gpx) downloadText(gpxFilename(0, localYMD(new Date())), 'application/gpx+xml', gpx);
+      void refreshRides();
+    });
     setStatus('ended');
-  }, []);
+  }, [refreshRides]);
+
+  const saveUnfinished = useCallback(() => {
+    if (!unfinished) return;
+    void saveUnfinishedRide(unfinished).then((gpx) => {
+      if (gpx) downloadText(gpxFilename(0, localYMD(new Date())), 'application/gpx+xml', gpx);
+      setUnfinished(null);
+      void refreshRides();
+    });
+  }, [unfinished, refreshRides]);
+
+  const discardUnfinished = useCallback(() => {
+    if (!unfinished) return;
+    void deleteRide(unfinished.id).then(() => setUnfinished(null));
+  }, [unfinished]);
+
+  const unfinishedPrompt = unfinished ? (
+    <div className="wr-ride__resume" role="alertdialog" aria-label="Unfinished ride">
+      <span>Unfinished ride from {localYMD(new Date(unfinished.startedAt))} found.</span>
+      <div className="wr-ride__controls">
+        <PrimaryButton onClick={saveUnfinished}>Save it</PrimaryButton>
+        <button type="button" className="wr-btn-secondary" onClick={discardUnfinished}>
+          Discard
+        </button>
+      </div>
+    </div>
+  ) : null;
 
   if (!scored) {
     return (
@@ -98,6 +173,8 @@ export function RideScreen() {
         <a className="wr-navlink" href="#/results">
           ← Results
         </a>
+        {unfinishedPrompt}
+        <RideHistory />
       </div>
     );
   }
@@ -213,6 +290,9 @@ export function RideScreen() {
           Battery saver
         </label>
       </div>
+
+      {status === 'idle' ? unfinishedPrompt : null}
+      {status === 'idle' || status === 'ended' ? <RideHistory /> : null}
 
       {import.meta.env.DEV ? (
         <Suspense fallback={null}>

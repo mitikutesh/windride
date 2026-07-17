@@ -399,3 +399,48 @@
   color: var(--text);
   font-weight: 600;
 }
+
+/* --- Ride history + resume prompt (WR-017) -------------------------------------------- */
+.wr-ride__resume {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  background: var(--surface-2);
+}
+.wr-history {
+  margin-top: var(--space-4);
+}
+.wr-history__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.wr-history__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+}
+.wr-history__meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.wr-history__name {
+  font-weight: 600;
+}
+.wr-history__actions {
+  display: flex;
+  gap: var(--space-2);
+  flex-shrink: 0;
+}
