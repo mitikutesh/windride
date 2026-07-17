@@ -47,7 +47,11 @@ export function CalibrationSettings() {
             <li>Tailwind gain {proposal.result.model.kTail.toFixed(2)}</li>
             <li>Headwind loss {proposal.result.model.kHead.toFixed(2)}</li>
           </ul>
-          {proposal.result.fitted.length < 4 ? (
+          {proposal.result.fitted.length === 0 ? (
+            <p className="wr-muted">
+              Not enough varied data to fit any parameter yet — keeping the defaults.
+            </p>
+          ) : proposal.result.fitted.length < 4 ? (
             <p className="wr-muted">
               Partial fit — only {proposal.result.fitted.join(', ')} had enough data; the rest keep
               their defaults.

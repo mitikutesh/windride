@@ -93,4 +93,26 @@ describe('observationsFromRide', () => {
     const obs = observationsFromRide(pathAnalysis, ride(25 / 3.6, 25 / 3.6));
     expect(obs.every((o) => o.surface === 'paved')).toBe(true);
   });
+
+  it('excludes stopped time so a red light does not drag the observed speed down', () => {
+    // Ride segment 1 at 30 km/h with a 120 s stop partway; segment 2 at 30 km/h throughout.
+    const pts: GpxPoint[] = [];
+    let t = 0;
+    for (let m = 0; m <= 2 * SEG_M; m += 30) {
+      pts.push({ ...at(m), time: new Date(T0 + t * 1000).toISOString() });
+      t += 30 / (30 / 3.6); // 30 km/h to the next point
+      if (m === 150) {
+        // Stationary for 120 s (8 fixes at the same spot) — must not count toward speed.
+        for (let k = 0; k < 8; k++) {
+          pts.push({ ...at(150), time: new Date(T0 + (t + k * 15) * 1000).toISOString() });
+        }
+        t += 8 * 15;
+      }
+    }
+    const paved = observationsFromRide(analysis, pts).find((o) => o.surface === 'paved')!;
+    // With the 120 s stop counted, paved speed would collapse to ~7 km/h and weightS would exceed
+    // 160 s; the gate keeps observed speed in the riding range and weight to the moving portion.
+    expect(paved.observedSpeedKmh).toBeGreaterThan(20);
+    expect(paved.weightS).toBeLessThan(90);
+  });
 });

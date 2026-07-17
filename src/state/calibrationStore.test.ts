@@ -55,21 +55,31 @@ describe('calibrationStore', () => {
 
   it('accumulates rides and only proposes a fit after ENOUGH_RIDES', () => {
     const s = useCalibrationStore.getState();
-    for (let i = 0; i < ENOUGH_RIDES - 1; i++) s.recordRide(analysis, ride(), 90, 100);
+    for (let i = 0; i < ENOUGH_RIDES - 1; i++) s.recordRide(analysis, ride());
     expect(useCalibrationStore.getState().rideCount).toBe(ENOUGH_RIDES - 1);
     expect(useCalibrationStore.getState().proposal()).toBeNull();
 
-    s.recordRide(analysis, ride(), 90, 100);
+    s.recordRide(analysis, ride());
     const proposal = useCalibrationStore.getState().proposal();
     expect(proposal).not.toBeNull();
     expect(Number.isFinite(proposal!.beforeErrorPct)).toBe(true);
     expect(Number.isFinite(proposal!.afterErrorPct)).toBe(true);
     expect(useCalibrationStore.getState().etaErrors).toHaveLength(ENOUGH_RIDES);
+    // Per-ride error is coverage-robust (scored over what was ridden), so it stays sane.
+    expect(useCalibrationStore.getState().etaErrors.every((e) => e >= 0 && e < 100)).toBe(true);
   });
 
   it('does not count a ride that produced no on-route paved/gravel observations', () => {
-    useCalibrationStore.getState().recordRide(analysis, [], 90, 100);
+    useCalibrationStore.getState().recordRide(analysis, []);
     expect(useCalibrationStore.getState().rideCount).toBe(0);
+  });
+
+  it('ignores a corrupt persisted model (non-finite params) and falls back to the default', () => {
+    // Simulate a corrupt hydrated `applied` reaching the store.
+    useCalibrationStore.setState({
+      applied: { v0Paved: NaN, v0Gravel: 20, kTail: 0.3, kHead: 0.6 },
+    });
+    expect(activeSpeedSettings().baseKmh.paved).toBe(DEFAULT_SPEED_SETTINGS.baseKmh.paved);
   });
 
   it('applies a model explicitly and reverts to the default', () => {
@@ -85,7 +95,7 @@ describe('calibrationStore', () => {
 
   it('resetData clears everything', () => {
     const s = useCalibrationStore.getState();
-    s.recordRide(analysis, ride(), 90, 100);
+    s.recordRide(analysis, ride());
     s.apply({ v0Paved: 40, v0Gravel: 33, kTail: 0.4, kHead: 0.7 });
     s.resetData();
     const after = useCalibrationStore.getState();

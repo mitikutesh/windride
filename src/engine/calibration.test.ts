@@ -6,6 +6,7 @@ import {
   etaErrorPct,
   fitSpeedModel,
   mergeBuckets,
+  nearFlatBuckets,
   toSpeedSettings,
   type RideObservation,
 } from './calibration';
@@ -78,6 +79,49 @@ describe('fitSpeedModel', () => {
     const { model, fitted } = fitSpeedModel([], BASE);
     expect(fitted).toEqual([]);
     expect(model.v0Paved).toBe(BASE.baseKmh.paved);
+  });
+
+  it('tail-only data never bumps the held headwind coefficient (honest partial fit)', () => {
+    // A strong tailwind gain fits kTail > base.headCoef. kHead has NO supporting data, so it MUST
+    // stay at base — the bound is honoured by clamping the fitted kTail, not by asserting headwind
+    // data we never saw (otherwise the "kept defaults" claim would be a lie).
+    const strongTail: RideObservation[] = [0, 10, 20].map((v) => ({
+      surface: 'paved',
+      vParKmh: v,
+      gradePct: 0,
+      observedSpeedKmh: 27 + 0.9 * v,
+      weightS: 100,
+    }));
+    const { model, fitted } = fitSpeedModel(strongTail, BASE);
+    expect(fitted).not.toContain('kHead');
+    expect(model.kHead).toBe(BASE.headCoef); // untouched
+    expect(model.kTail).toBeLessThanOrEqual(BASE.headCoef); // clamped by the held bound
+    expect(model.kHead).toBeGreaterThanOrEqual(model.kTail); // k_head ≥ k_tail still holds
+  });
+});
+
+describe('nearFlatBuckets', () => {
+  it('excludes steep buckets so descent error cannot leak into v0', () => {
+    const flat = grid(['paved'], [-10, 0, 10], [0]); // clean, TRUE-generated
+    // Steep descents ridden fast (55 km/h) — unrelated to the model's crude downhill term.
+    const steep: RideObservation[] = [-10, 0, 10].map((v) => ({
+      surface: 'paved',
+      vParKmh: v,
+      gradePct: -10,
+      observedSpeedKmh: 55,
+      weightS: 100,
+    }));
+    const all = bucketObservations([...flat, ...steep]);
+    expect(nearFlatBuckets(all).length).toBeLessThan(all.length);
+
+    // Fitting near-flat only recovers v0 cleanly...
+    const clean = fitSpeedModel(bucketsToObservations(nearFlatBuckets(all)), BASE);
+    expect(clean.model.v0Paved).toBeCloseTo(TRUE.v0Paved, 0);
+    // ...while fitting everything is pulled well off by the descent contamination.
+    const contaminated = fitSpeedModel(bucketsToObservations(all), BASE);
+    expect(Math.abs(contaminated.model.v0Paved - TRUE.v0Paved)).toBeGreaterThan(
+      Math.abs(clean.model.v0Paved - TRUE.v0Paved),
+    );
   });
 });
 

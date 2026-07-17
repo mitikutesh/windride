@@ -81,3 +81,37 @@ lint clean, build OK.
 **Follow-ups:** path/unknown base speeds and physics-model (CdA/Crr) fitting remain out of scope
 per the story. Reviewed post-implementation by a substitute senior reviewer (Opus) — Fable 5 was
 out of usage credits this session; see follow-up review commit for findings/fixes.
+
+**2026-07-17 — Substitute review (Opus, standing in for Fable 5 — out of credits) — fixes
+applied.** Verdict: REQUEST-CHANGES; all six findings below are fixed and the gate is green (339
+tests, lint clean, build OK).
+- **MAJOR 1 — bounds could move an unfitted param.** The old `kHead = max(kHead, kTail)`
+  projection could push an *unfitted* headwind coefficient above its base value when tail-only
+  data fit `kTail` high, while the UI still claimed "kept defaults" — dishonest. Fixed: the
+  `k_head ≥ k_tail ≥ 0` bound is now enforced only among *fitted* parameters; a held (unfitted)
+  coefficient stays exactly at base and the fitted one is clamped against it instead. New
+  regression test: tail-only data leaves `kHead` at base and clamps `kTail`.
+- **MAJOR 2 — moving-time mismatch.** `observationsFromRide` counted all on-track time
+  including stops, but `summary.movingS` excludes sub-1.2 km/h time — the fit and the ETA target
+  were on different clocks (stopped time dragged `v0` low, so ETAs ran too long). Fixed:
+  `observationsFromRide` now applies the same `MOVING_SPEED_MS` gate, so observed speeds and
+  weights are on the moving-time clock. New test: a 120 s stop no longer drags observed speed
+  down.
+- **MAJOR 3 — grade leak into v0.** Holding the crude linear grade term fixed while fitting a
+  single `v0` across all grades let descent error contaminate `v0`. Fixed: the fit and the
+  before/after comparison now run over near-flat buckets only (`|grade| ≤ MAX_FIT_GRADE_PCT`,
+  4%); steep buckets are still persisted, for a future physics-model story. New test: a near-flat
+  fit recovers `v0` cleanly while fitting everything is pulled off.
+- **MAJOR 4 — no completion guard.** Per-ride ETA error compared the full-plan predicted time
+  against a partial actual, so a bailed-early ride could fabricate a ~700% error and still count.
+  Fixed: per-ride ETA error is now computed by `etaErrorForModel` over the ride's own buckets (the
+  portion actually ridden), scored with the model in effect at the time — coverage-robust.
+- **MINOR 5 — jittery observed distance.** Observed distance now uses snapped along-track
+  progress delta rather than raw GPS haversine (which jitter inflates), plus a sanity clamp to
+  the model's max speed.
+- **MINOR 6 — unvalidated persisted model.** The persisted `applied` model is now validated (all
+  params finite) before it can drive ETAs — `activeSpeedSettings()` falls back to default
+  otherwise; the persist store gained `version: 1`; the Settings panel now handles the
+  zero-fitted-parameters case honestly instead of implying a full fit occurred.
+- See the DEC-028 review addendum in `docs/DECISIONS.md` for the design-level summary of these
+  refinements.

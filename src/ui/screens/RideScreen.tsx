@@ -147,10 +147,7 @@ export function RideScreen() {
       downloadGpx(gpx, summary.distanceM);
       // Feed the finished ride to speed-model calibration (WR-024). Aggregates only; the owner
       // must apply any resulting model explicitly from Settings — planning never changes silently.
-      if (analysis)
-        useCalibrationStore
-          .getState()
-          .recordRide(analysis, points, analysis.totalTimeS, summary.movingS);
+      if (analysis) useCalibrationStore.getState().recordRide(analysis, points);
       void refreshRides();
     });
     setStatus('ended');

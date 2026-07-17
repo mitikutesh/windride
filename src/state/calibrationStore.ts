@@ -12,6 +12,7 @@ import {
   etaErrorForModel,
   fitSpeedModel,
   mergeBuckets,
+  nearFlatBuckets,
   toSpeedSettings,
   type CalibratedModel,
   type CalibrationBucket,
@@ -41,19 +42,15 @@ interface CalibrationState {
   etaErrors: number[];
   /** The currently applied calibrated model, or null for the default model. */
   applied: CalibratedModel | null;
-  recordRide: (
-    analysis: CandidateAnalysis,
-    points: GpxPoint[],
-    predictedMovingS: number,
-    actualMovingS: number,
-  ) => void;
+  /** Bank a finished ride against its planned analysis (aggregates only). */
+  recordRide: (analysis: CandidateAnalysis, points: GpxPoint[]) => void;
   proposal: () => CalibrationProposal | null;
   apply: (model: CalibratedModel) => void;
   clearApplied: () => void;
   resetData: () => void;
 }
 
-/** ETA error the plain default model scored on the recorded buckets — the "before" baseline. */
+/** The plain default model — the "before" baseline for the proposal comparison. */
 function defaultModel(): CalibratedModel {
   return {
     v0Paved: DEFAULT_SPEED_SETTINGS.baseKmh.paved,
@@ -63,22 +60,36 @@ function defaultModel(): CalibratedModel {
   };
 }
 
+/** A persisted model is trustworthy only if every parameter is a finite number (guards NaN ETAs). */
+export function isValidModel(m: CalibratedModel | null | undefined): m is CalibratedModel {
+  return (
+    !!m &&
+    Number.isFinite(m.v0Paved) &&
+    Number.isFinite(m.v0Gravel) &&
+    Number.isFinite(m.kTail) &&
+    Number.isFinite(m.kHead)
+  );
+}
+
 /**
  * Fit a proposal from the banked buckets, or null if there aren't enough rides yet. Pure and
  * exported so the Settings panel can memoize on (buckets, rideCount) without reaching into `get()`.
+ * The fit + before/after comparison run over NEAR-FLAT buckets only — the terrain where the linear
+ * model (grade held fixed) is trustworthy and the calibration can actually help (see DEC-028).
  */
 export function computeProposal(
   buckets: CalibrationBucket[],
   rideCount: number,
 ): CalibrationProposal | null {
   if (rideCount < ENOUGH_RIDES) return null;
-  const obs = bucketsToObservations(buckets);
+  const flat = nearFlatBuckets(buckets);
+  const obs = bucketsToObservations(flat);
   if (obs.length === 0) return null;
   const result = fitSpeedModel(obs, DEFAULT_SPEED_SETTINGS);
   return {
     result,
-    beforeErrorPct: etaErrorForModel(buckets, defaultModel(), DEFAULT_SPEED_SETTINGS),
-    afterErrorPct: etaErrorForModel(buckets, result.model, DEFAULT_SPEED_SETTINGS),
+    beforeErrorPct: etaErrorForModel(flat, defaultModel(), DEFAULT_SPEED_SETTINGS),
+    afterErrorPct: etaErrorForModel(flat, result.model, DEFAULT_SPEED_SETTINGS),
   };
 }
 
@@ -90,16 +101,17 @@ export const useCalibrationStore = create<CalibrationState>()(
       etaErrors: [],
       applied: null,
 
-      recordRide: (analysis, points, predictedMovingS, actualMovingS) => {
+      recordRide: (analysis, points) => {
         const obs = observationsFromRide(analysis, points);
         // A ride with no on-route paved/gravel motion contributes nothing — don't count it.
         if (obs.length === 0) return;
-        const errorPct =
-          actualMovingS > 0
-            ? (Math.abs(predictedMovingS - actualMovingS) / actualMovingS) * 100
-            : 0;
+        const rideBuckets = bucketObservations(obs);
+        // Per-ride ETA error over the portion ACTUALLY ridden, scored with the model that was in
+        // effect — coverage-robust, so bailing on a plan early can't fabricate a 700% "error".
+        const activeModel = get().applied ?? defaultModel();
+        const errorPct = etaErrorForModel(rideBuckets, activeModel, DEFAULT_SPEED_SETTINGS);
         set((s) => ({
-          buckets: mergeBuckets(s.buckets, bucketObservations(obs)),
+          buckets: mergeBuckets(s.buckets, rideBuckets),
           rideCount: s.rideCount + 1,
           etaErrors: [...s.etaErrors, errorPct].slice(-ETA_HISTORY),
         }));
@@ -116,6 +128,7 @@ export const useCalibrationStore = create<CalibrationState>()(
     }),
     {
       name: 'windride-calibration',
+      version: 1,
       storage: createJSONStorage(() => idbStateStorage),
       partialize: (s) => ({
         buckets: s.buckets,
@@ -127,8 +140,14 @@ export const useCalibrationStore = create<CalibrationState>()(
   ),
 );
 
-/** The speed settings planning should use right now — the applied calibration, else the default. */
+/**
+ * The speed settings planning should use right now — the applied calibration, else the default.
+ * A corrupt/partial persisted model (any non-finite parameter) falls back to the default rather
+ * than propagating NaN into every ETA.
+ */
 export function activeSpeedSettings(): SpeedSettings {
   const { applied } = useCalibrationStore.getState();
-  return applied ? toSpeedSettings(applied, DEFAULT_SPEED_SETTINGS) : DEFAULT_SPEED_SETTINGS;
+  return isValidModel(applied)
+    ? toSpeedSettings(applied, DEFAULT_SPEED_SETTINGS)
+    : DEFAULT_SPEED_SETTINGS;
 }

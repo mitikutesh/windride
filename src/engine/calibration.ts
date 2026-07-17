@@ -96,8 +96,20 @@ export function fitSpeedModel(obs: RideObservation[], base: SpeedSettings): Cali
     fitted.push(PARAMS[c]);
   });
   // Bounds: k_head ≥ k_tail ≥ 0 (headwind never helps more than tailwind; neither is negative).
-  model.kTail = Math.max(0, model.kTail);
-  model.kHead = Math.max(model.kHead, model.kTail);
+  // Enforce them ONLY among the parameters that were actually fitted — a parameter held at its base
+  // (no supporting data) must stay exactly at its base, or the panel's "kept defaults" claim lies.
+  // So when only one wind coefficient has data, we clamp the FITTED one against the held base value
+  // rather than bumping the unsupported one (which would assert headwind data we never observed).
+  const hasTail = fitted.includes('kTail');
+  const hasHead = fitted.includes('kHead');
+  if (hasTail && hasHead) {
+    model.kTail = Math.max(0, model.kTail);
+    model.kHead = Math.max(model.kHead, model.kTail);
+  } else if (hasTail) {
+    model.kTail = Math.max(0, Math.min(model.kTail, model.kHead)); // kHead held at base
+  } else if (hasHead) {
+    model.kHead = Math.max(model.kHead, Math.max(0, model.kTail)); // kTail held at base
+  }
   return { model, fitted, sampleCount: obs.length };
 }
 
@@ -134,6 +146,22 @@ export function etaErrorPct(predictedMovingS: number, actualMovingS: number): nu
 
 export const V_PAR_BAND_KMH = 5;
 export const GRADE_BAND_PCT = 1;
+
+/**
+ * Only near-flat buckets feed the fit. The linear model's grade term is a known-crude MVP
+ * (SCORING_SPEC §3 — it even *slows* the model on descents), and it's held fixed here, so on steep
+ * segments its error would be absorbed into v0 and poison the flat-speed estimate the ETA leans on
+ * hardest. Restricting the fit to |grade| ≤ this keeps v0 clean; physics grade fitting is out of
+ * scope (DEC-028). Steep buckets are still persisted for a future physics-model story.
+ */
+export const MAX_FIT_GRADE_PCT = 4;
+
+/** Buckets flat enough to fit v0/wind coefficients cleanly (see {@link MAX_FIT_GRADE_PCT}). */
+export function nearFlatBuckets(buckets: CalibrationBucket[]): CalibrationBucket[] {
+  return buckets.filter(
+    (b) => b.weightS > 0 && Math.abs(b.sumGrade / b.weightS) <= MAX_FIT_GRADE_PCT,
+  );
+}
 
 export interface CalibrationBucket {
   surface: 'paved' | 'gravel';
