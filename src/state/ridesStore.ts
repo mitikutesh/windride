@@ -1,6 +1,6 @@
 // state/ridesStore.ts — recorded ride history + Strava upload (WR-017, WR-023).
 import { create } from 'zustand';
-import { isProviderError } from '../adapters/errors';
+import { isProviderError, ProviderError } from '../adapters/errors';
 import { StravaUploader } from '../adapters/strava/upload';
 import { deleteRide, getStravaCreds, listRides, updateRide, type RecordedRide } from '../data/db';
 import { loadRidePoints } from '../nav/recorder';
@@ -22,7 +22,7 @@ interface RidesState {
 
 async function defaultSend(gpx: string, name: string, externalId: string): Promise<number> {
   const creds = await getStravaCreds();
-  if (!creds) throw new Error('no-creds');
+  if (!creds) throw new ProviderError('badResponse', 'Strava not configured', 'no-creds');
   const uploader = new StravaUploader(creds);
   return (await uploader.sendGpx(gpx, name, externalId)).activityId;
 }

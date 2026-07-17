@@ -24,11 +24,17 @@ export function StravaSettings() {
       .catch(() => {}); // idb unavailable (e.g. tests) — just show the empty form
   }, []);
 
+  const [error, setError] = useState(false);
   const save = async () => {
     if (!clientId || !clientSecret || !refreshToken) return;
-    await setStravaCreds({ clientId, clientSecret, refreshToken });
-    setSaved(true);
-    setConfigured(true);
+    try {
+      await setStravaCreds({ clientId, clientSecret, refreshToken });
+      setSaved(true);
+      setConfigured(true);
+      setError(false);
+    } catch {
+      setError(true);
+    }
   };
 
   return (
@@ -71,6 +77,7 @@ export function StravaSettings() {
       </label>
       <PrimaryButton type="submit">Save Strava credentials</PrimaryButton>
       {saved ? <span className="wr-muted"> Saved.</span> : null}
+      {error ? <span className="wr-muted"> Could not save.</span> : null}
     </form>
   );
 }

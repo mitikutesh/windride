@@ -28,6 +28,7 @@ describe('windride idb v1 → v2 migration', () => {
     const db = await openWindrideDb();
     expect(db.objectStoreNames.contains('rides')).toBe(true);
     expect(db.objectStoreNames.contains('ridePoints')).toBe(true);
+    expect(db.objectStoreNames.contains('strava')).toBe(true); // v3 store added on migration
     // The pre-existing route survived the migration.
     const routes = await listRoutes();
     expect(routes.map((r) => r.id)).toContain('legacy');

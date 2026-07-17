@@ -78,3 +78,43 @@ the activity id, idempotent no-re-send, duplicate state). 315 tests total; lint 
 **Follow-ups:** the one manual end-to-end (a real test ride sent through `strava-auth.mjs` +
 `StravaSettings` to actual Strava) is still TODO — needs the owner to set up real Strava API app
 credentials, which weren't available in this session.
+
+## Review pass — fixes
+
+Reviewed by a substitute senior reviewer (Opus) — the Fable 5 model was out of usage credits this
+session. Verdict: APPROVE-WITH-FIXES; all fixes below are applied and the gate is green (317
+tests, lint clean, build OK).
+
+- **SF1 — `pollUpload` ignored HTTP status.** A 401/429 returned mid-poll was swallowed (the body
+  was parsed regardless of status), so polling ran out its full budget and reported `'timeout'`
+  instead of the real error. Fixed: `pollUpload` now checks `res.status` before reading the body —
+  429 maps to a `quota`/`'rate'` `ProviderError`, any other non-OK status maps to the typed
+  `httpError` — mirroring the mapping `startUpload` already did.
+- **SF3 — test gaps.** Added: a poll-timeout test (upload never resolves → code `'timeout'` once
+  `maxPolls` is exhausted); a token-expiry re-refresh test (clock advanced past `expiresAt - skew`
+  triggers a second `POST /oauth/token` call instead of reusing the stale cached token); and a
+  `strava` object-store assertion in the v1→v3 idb migration test (`db.migration.test.ts`)
+  confirming the `strava` store and `stravaActivityId` survive migration from older schemas.
+- **SF2 — CORS risk (hard gate, not code-fixable this session).** Browser-direct calls to
+  Strava's `/oauth/token` and `/uploads` may be blocked by CORS — Strava's API is not guaranteed to
+  return `Access-Control-Allow-Origin` for browser callers. This is the single biggest risk to
+  whether the feature works at all in production, and it undermines DEC-027's no-backend rationale
+  if it doesn't. Recorded as a required check in the still-outstanding manual end-to-end above; if
+  blocked, the fix is a small CORS proxy, which would also move the client secret server-side. See
+  the DEC-027 addendum in `docs/DECISIONS.md`.
+- **NITs:**
+  - Removed the dead `VITE_STRAVA_CLIENT_ID` declaration from `vite-env.d.ts` — credentials live
+    in idb per DEC-027, never in Vite env.
+  - `startUpload` now throws a typed `ProviderError` if the response lacks a numeric `id`, instead
+    of returning `undefined` and going on to poll `/uploads/undefined`.
+  - `ridesStore`'s `defaultSend` throws a `ProviderError('no-creds')` rather than a plain `Error`
+    when no Strava credentials are set.
+  - `StravaSettings.save` now wraps `setStravaCreds` in a `try`/`catch` and surfaces a "Could not
+    save" message on failure instead of failing silently.
+
+**Standing risk (unchanged, per DEC-027):** the Strava client secret sits in browser idb in
+cleartext and is sent from browser JS to `/oauth/token` — accepted for a personal, no-backend PWA.
+Resolving the CORS risk above via a proxy would also retire this arrangement by moving the secret
+server-side.
+
+**Gate:** 317 tests, lint clean, build OK.

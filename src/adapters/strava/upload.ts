@@ -102,7 +102,10 @@ export class StravaUploader {
       }
       throw this.httpError(res.status, json.error ?? 'upload', 'upload');
     }
-    return json.id as number;
+    if (typeof json.id !== 'number') {
+      throw new ProviderError('badResponse', 'Strava upload returned no id', 'upload');
+    }
+    return json.id;
   }
 
   /** Poll the upload's own status until it yields an activity id or errors. GET /uploads/{id} only. */
@@ -112,6 +115,9 @@ export class StravaUploader {
       const res = await this.fetchOrNetwork(`${this.base}/uploads/${uploadId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
+      // Map HTTP failures here too (a 401/429 mid-poll must surface, not silently time out).
+      if (res.status === 429) throw new ProviderError('quota', 'Strava rate limit', 'rate');
+      if (!res.ok) throw this.httpError(res.status, 'upload status', 'upload');
       const json = (await res.json().catch(() => ({}))) as {
         activity_id: number | null;
         error: string | null;

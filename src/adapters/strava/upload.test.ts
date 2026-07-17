@@ -109,6 +109,36 @@ describe('StravaUploader', () => {
     await expect(up.startUpload('<gpx/>', 'R', 'ride-1')).rejects.toMatchObject({ kind: 'quota' });
   });
 
+  it('times out after maxPolls when the upload never finishes', async () => {
+    const { fetchFn } = mockFetch([
+      { match: (u) => u.includes('/oauth/token'), res: okToken },
+      { match: (u, m) => u.endsWith('/uploads') && m === 'POST', res: () => ({ id: 3 }) },
+      { match: (u) => /\/uploads\/3$/.test(u), res: () => ({ activity_id: null, error: null }) },
+    ]);
+    const up = new StravaUploader(CREDS, { ...baseDeps(fetchFn), maxPolls: 3 });
+    await expect(up.sendGpx('<gpx/>', 'R', 'ride-1')).rejects.toMatchObject({ code: 'timeout' });
+  });
+
+  it('re-refreshes the access token after it expires', async () => {
+    let clock = NOW;
+    const { fetchFn, calls } = mockFetch([
+      // Short-lived token (expires 100 s out).
+      {
+        match: (u) => u.includes('/oauth/token'),
+        res: () => ({ access_token: 'tok', expires_at: clock / 1000 + 100 }),
+      },
+    ]);
+    const up = new StravaUploader(CREDS, {
+      fetchFn,
+      now: () => clock,
+      sleep: () => Promise.resolve(),
+    });
+    await up.accessToken();
+    clock += 90_000; // past expiresAt − 60 s skew ⇒ must refresh again
+    await up.accessToken();
+    expect(calls.filter((c) => c.url.includes('/oauth/token'))).toHaveLength(2);
+  });
+
   it('surfaces a processing error from the poll', async () => {
     const { fetchFn } = mockFetch([
       { match: (u) => u.includes('/oauth/token'), res: okToken },
