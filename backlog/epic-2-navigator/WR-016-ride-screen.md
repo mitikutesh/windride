@@ -74,3 +74,56 @@ Ride summary screen (small addition in WR-017); feels-like chart (WR-022).
   riding, pause stops cue firing), `src/ui/screens/RideScreen.test.tsx` (4: empty state,
   glance/start render, start→pause→resume flow, battery-saver toggle). 238 tests total,
   lint clean, build OK.
+
+## Fable 5 review pass — fixes
+
+A Fable 5 review returned REQUEST-CHANGES on the shipped story above. All findings are now fixed;
+the gate is green again.
+
+- **BLOCKER B1 — GPS + voice cues survived navigating away mid-ride.** `RideScreen` had no
+  teardown: leaving the screen mid-ride left the `GeolocationSource` polling and the controller
+  (and its `Announcer`) live in the background. Fixed: a `useEffect` unmount cleanup now stops the
+  `FixSource` and pauses the controller (which stops the announcer) when `RideScreen` unmounts.
+  Added a test asserting the (mocked) `GeolocationSource.stop()` is called on unmount.
+- **BLOCKER B2 — WR-015's reroute machinery wasn't wired into the live pipeline.** Resolved as a
+  deliberate split rather than a rushed full wiring: the CHEAP partial NAVIGATION_SPEC §3
+  compliance ships now — an audible off-route alert (announced once per off-route episode) plus a
+  bearing-to-track guidance arrow (`RideState.toTrack`: bearing + distance to the nearest track
+  point, shown in the off-route banner rotated relative to heading). The FULL auto-reroute
+  (`Rerouter.attempt` → `spliceRoute` → swap route/track/snapper + `CueScheduler.rearm` +
+  `announcer.stop()`) is DEFERRED and recorded as **DEC-022**, because the spliced route has no
+  `CandidateAnalysis` and live re-analysis of the new leg's wind/ETA is non-trivial and was
+  explicitly out of scope in WR-015 ("scoring the new leg's wind"). WR-015's off-route DETECTION
+  (WR-013/015) plus this alert/arrow give the rider real guidance now; the follow-up story wires
+  the rest.
+- **SHOULD-FIX S3 — ETA EMA poisoned while paused or by unknown-speed fixes.** Fixed: `onFix` now
+  skips `eta.update` while paused, and `speedOf` returns `null` (skipping the EMA sample) when
+  speed is unknown, distinct from a measured zero — a stationary-but-valid fix no longer drags the
+  EMA toward zero.
+- **SHOULD-FIX S4 — progress ribbon dot used a distance fraction.** The dot sat in the wrong wind
+  band on headwind/tailwind routes because it didn't match the time-weighted ribbon layout. Fixed:
+  the dot now uses the modelled elapsed-TIME fraction (`RideState.timeFraction`).
+- **SHOULD-FIX S5 — speed glance numeral under the 48 px acceptance floor.** Fixed: a new
+  `--fs-glance-lg` token renders the speed numeral at 48 px (acceptance said ≥48 px); the other
+  glance cells stay at the 27 px floor.
+- **SHOULD-FIX S6 — geolocation failure was silent.** Fixed: `source.start` is now passed an
+  `onError` that shows a banner instead of silently sitting in "riding" with a dead GPS feed.
+- **NIT N1 — wind-HUD arrow CSS transition backspun across the 0/360 seam.** Fixed: removed the
+  transition; raw-degree rotation was animating the long way round (~360°) whenever the bearing
+  crossed due north.
+- **NIT N2 — heading jitter gate over-counted E-W movement at high latitude.** Fixed: the gate now
+  applies `cos(lat)` to the longitude delta (was over-counting ~2x at 60°N).
+- **NIT N3 — resume test used a fresh controller instance instead of resuming the paused one.**
+  Fixed: the resume test now pauses only a short prefix (so the turn is still ahead) and resumes
+  the SAME paused controller.
+- **Deferred NITs (documented, not fixed):**
+  - N4 — `end()` leaves the controller live so a late replay fix can still mutate state; WR-017's
+    recorder guards against this internally.
+  - N6 — `speedKmh` is converted in `nav` rather than at the UI edge; deferred SI-boundary cleanup.
+  - N7 — battery-saver only drops the pulse; the SVG map is already low-power so this is judged
+    sufficient for now.
+  - N8 — no `useWakeLock` unit test; `RideMap` projection remains untested.
+- **Tests added/updated:** `src/nav/rideController.test.ts` grew from 3 to 5 tests (added
+  resume-same-instance and off-route bearing/announce-once cases); `src/ui/screens/RideScreen.test.tsx`
+  grew from 4 to 5 tests (added unmount-stops-GPS).
+- **Gate:** 241 tests, lint clean, build OK.

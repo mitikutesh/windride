@@ -24,10 +24,8 @@ export class HeadingSmoother {
   /** Feed the next position; returns the smoothed heading (deg, 0..360) or null until known. */
   update(p: LatLon): number | null {
     if (this.last) {
-      const moved = Math.hypot(
-        (p.lat - this.last.lat) * 111_320,
-        (p.lon - this.last.lon) * 111_320,
-      );
+      const mLon = 111_320 * Math.cos((this.last.lat * Math.PI) / 180);
+      const moved = Math.hypot((p.lat - this.last.lat) * 111_320, (p.lon - this.last.lon) * mLon);
       if (moved >= HEADING_MIN_MOVE_M) {
         const b = bearingDeg(this.last, p);
         this.headingDeg =

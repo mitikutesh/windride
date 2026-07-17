@@ -14,7 +14,7 @@ import type { Fix } from './fixSource';
 import { EtaEstimator } from './eta';
 import { HeadingSmoother } from './heading';
 import { classifyWindKind, type WindKind } from '../engine/wind';
-import { OffRouteMonitor, type OffRouteState } from './offRoute';
+import { bearingToTrack, OffRouteMonitor, type OffRouteState } from './offRoute';
 import { prepareTrack, Snapper, type Track } from './snap';
 import { nextWindTransition, toWindHudSegments, type WindTransition } from './windHud';
 
@@ -44,6 +44,10 @@ export interface RideState {
   windTransition: WindTransition | null;
   /** Wind at the rider's current segment (HUD arrow + colour). */
   wind: CurrentWind | null;
+  /** Bearing + distance back to the track while off-route (guidance arrow), else null. */
+  toTrack: { bearingDeg: number; distanceM: number } | null;
+  /** Modelled elapsed-time fraction 0..1 — positions the time-weighted ribbon dot. */
+  timeFraction: number;
   snapped: LatLon;
   paused: boolean;
 }
@@ -72,6 +76,7 @@ export class RideController {
 
   private pausedFlag = false;
   private lastFix: { p: LatLon; tMs: number } | null = null;
+  private lastOffRoute: OffRouteState = 'on-route';
 
   constructor(opts: RideControllerOptions) {
     this.analysis = opts.analysis;
@@ -107,13 +112,19 @@ export class RideController {
 
   onFix(fix: Fix): RideState {
     const snap = this.snapper.update(fix);
-    const speedMs = this.speedOf(fix);
+    const measuredMs = this.speedOf(fix); // null when unknown (don't poison the EMA)
+    const speedMs = measuredMs ?? 0;
     const headingDeg = this.heading.update(fix);
 
-    // ETA: fold actual vs modelled speed, correct remaining modelled time.
+    // ETA: fold actual vs modelled speed (skip while paused / when speed is unknown), then correct
+    // the remaining MODELLED TIME (never distance/speed math — CLAUDE.md).
     const modelledMs = this.modelledSpeedMs(snap.progressM);
-    this.eta.update(speedMs, modelledMs);
-    const etaS = this.eta.correct(this.remainingModelledS(snap.progressM));
+    if (!this.pausedFlag && measuredMs !== null) this.eta.update(measuredMs, modelledMs);
+    const remainingModelledS = this.remainingModelledS(snap.progressM);
+    const etaS = this.eta.correct(remainingModelledS);
+    const total = this.analysis.totalTimeS;
+    const timeFraction =
+      total > 0 ? Math.max(0, Math.min(1, (total - remainingModelledS) / total)) : 0;
 
     // Cues — only while riding.
     if (!this.pausedFlag) {
@@ -121,7 +132,22 @@ export class RideController {
         this.announcer.announce(cue);
     }
 
-    const { state: offRoute } = this.monitor.update(snap.perpendicularM, Date.parse(fix.time));
+    const tMs = Date.parse(fix.time);
+    const { state: offRoute } = this.monitor.update(
+      snap.perpendicularM,
+      Number.isFinite(tMs) ? tMs : 0,
+    );
+    // Audible off-route alert once per episode (NAVIGATION_SPEC §3). Full auto-reroute-splice is a
+    // deferred follow-up (DEC-022) — meanwhile the bearing-to-track arrow guides the rider back.
+    if (offRoute === 'alert' && this.lastOffRoute !== 'alert') {
+      this.announcer.announce({
+        stepIndex: -1,
+        kind: 'turn',
+        text: 'Off route, return to the track',
+        turnDistanceM: 0,
+      });
+    }
+    this.lastOffRoute = offRoute;
 
     return {
       progressM: snap.progressM,
@@ -136,6 +162,9 @@ export class RideController {
       nextTurn: this.nextTurn(snap.progressM),
       windTransition: nextWindTransition(this.hudSegs, snap.progressM),
       wind: this.windAt(snap.progressM),
+      toTrack:
+        offRoute === 'alert' ? bearingToTrack({ lat: fix.lat, lon: fix.lon }, snap.snapped) : null,
+      timeFraction,
       snapped: snap.snapped,
       paused: this.pausedFlag,
     };
@@ -147,15 +176,15 @@ export class RideController {
     return { kind: classifyWindKind(sa.wind.deltaDeg), windToDeg: sa.wind.windToDeg };
   }
 
-  /** Fix speed if the platform gives it, else derived from the last fix. */
-  private speedOf(fix: Fix): number {
+  /** Fix speed if the platform gives it, else derived from the last fix; null when unknown. */
+  private speedOf(fix: Fix): number | null {
     let speed = fix.speed;
     if ((speed === undefined || !Number.isFinite(speed)) && this.lastFix) {
       const dt = (Date.parse(fix.time) - this.lastFix.tMs) / 1000;
-      speed = dt > 0 ? haversineM(this.lastFix.p, fix) / dt : 0;
+      speed = dt > 0 ? haversineM(this.lastFix.p, fix) / dt : undefined;
     }
     this.lastFix = { p: fix, tMs: Date.parse(fix.time) };
-    return speed !== undefined && Number.isFinite(speed) && speed > 0 ? speed : 0;
+    return speed !== undefined && Number.isFinite(speed) && speed >= 0 ? speed : null;
   }
 
   private segmentIndexAt(progressM: number): number {

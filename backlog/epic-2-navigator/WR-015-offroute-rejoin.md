@@ -147,3 +147,16 @@ the gate is green again.
   case); `src/nav/offRoute.test.ts` grew from 7 to 8 tests (added the near-finish
   no-provider-call case).
 - **Gate:** 219 tests, lint clean, build OK.
+
+## Follow-up (WR-016 handoff)
+
+The monitor → `Rerouter` → `spliceRoute`-into-live-navigation wiring this story deferred to
+WR-016 (see "the actual monitor→rerouter→swap-route/snapper/cues wiring... is explicitly left to
+WR-016" above) is now tracked as **DEC-022**, not silently dropped. WR-016 shipped the CHEAP half
+of NAVIGATION_SPEC §3 — an audible off-route alert plus a bearing-to-track guidance arrow driven
+by this story's `bearingToTrack` — live in the Ride screen. The FULL auto-reroute (calling
+`Rerouter.attempt`/`spliceRoute` and swapping the live route/track/snapper + re-arming cues) is the
+deferred follow-up: it needs live re-analysis of the spliced leg's wind/ETA (the spliced
+`CandidateRoute` has no `CandidateAnalysis`), which was out of scope for both this story and
+WR-016. The tested `Rerouter`/`spliceRoute` building blocks here are unchanged and ready for that
+follow-up story to wire in.

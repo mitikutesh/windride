@@ -304,6 +304,10 @@
   position: absolute;
   inset-inline: var(--space-3);
   bottom: var(--space-3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
   padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-pill);
   background: var(--head);
@@ -334,9 +338,7 @@
   gap: var(--space-3);
   padding: var(--space-2) var(--space-3);
 }
-.wr-windhud__arrow {
-  transition: transform var(--motion-med, 200ms) var(--ease, ease-out);
-}
+/* No transition: animating raw degrees would backspin ~360° across the 0/360 seam. */
 .wr-windhud__text {
   display: flex;
   flex-direction: column;
@@ -355,6 +357,10 @@
 }
 .wr-ride__glance .wr-stat__value {
   font-size: var(--fs-glance);
+}
+/* Speed is the primary glance number — larger than ETA / km-left (acceptance: >=48 px). */
+.wr-ride__glance > div:first-child .wr-stat__value {
+  font-size: var(--fs-glance-lg);
 }
 .wr-ride__ribbon {
   position: relative;

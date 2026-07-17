@@ -1,8 +1,22 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import type { CandidateRoute, Segment, WindSample } from '../../domain';
 import { scoreCandidates } from '../../engine/scoring';
 import { useResultsStore } from '../../state/resultsStore';
+
+// GeolocationSource needs a real browser; mock it so we can assert start/stop lifecycle.
+const geo = vi.hoisted(() => ({ stop: vi.fn(), started: 0 }));
+vi.mock('../../nav/locationService', () => ({
+  GeolocationSource: class {
+    start() {
+      geo.started += 1;
+    }
+    stop() {
+      geo.stop();
+    }
+  },
+}));
+
 import { RideScreen } from './RideScreen';
 
 function candidate(id: string): CandidateRoute {
@@ -77,5 +91,14 @@ describe('<RideScreen />', () => {
     expect(saver).not.toBeChecked();
     fireEvent.click(saver);
     expect(saver).toBeChecked();
+  });
+
+  it('stops GPS when the ride screen unmounts mid-ride', () => {
+    seed();
+    geo.stop.mockClear();
+    const { unmount } = render(<RideScreen />);
+    fireEvent.click(screen.getByRole('button', { name: /Start ride/i }));
+    unmount();
+    expect(geo.stop).toHaveBeenCalled();
   });
 });

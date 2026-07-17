@@ -46,6 +46,7 @@
   --fs-small: 13px;
   --fs-label: 12px;
   --fs-glance: 27px; /* glance-zone numerals >= 27px */
+  --fs-glance-lg: 48px; /* primary glance numeral (ride speed), WR-016 */
   --fs-display: 34px;
 
   /* --- Ergonomics & motion (DESIGN §5) ----------------------------------------------- */

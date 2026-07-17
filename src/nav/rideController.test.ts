@@ -89,11 +89,64 @@ describe('RideController', () => {
     expect(announcer.stop).toHaveBeenCalled();
     for (const fix of fixes) controller.onFix(fix);
     expect(announcer.announce).not.toHaveBeenCalled();
-    // Resuming lets cues fire again.
+  });
+
+  it('resume re-enables cue firing on the same controller', () => {
+    const announcer = fakeAnnouncer();
+    const controller = new RideController({ analysis, announcer });
+    controller.pause();
+    // Pause only a short prefix so the turn is still ahead when we resume.
+    for (const fix of fixes.slice(0, 5)) controller.onFix(fix);
+    expect(announcer.announce).not.toHaveBeenCalled();
     controller.resume();
-    const announcer2 = fakeAnnouncer();
-    const c2 = new RideController({ analysis, announcer: announcer2 });
-    for (const fix of fixes) c2.onFix(fix);
-    expect(announcer2.announce).toHaveBeenCalled();
+    for (const fix of fixes.slice(5)) controller.onFix(fix);
+    expect(announcer.announce).toHaveBeenCalled();
+  });
+
+  it('flags off-route with a bearing-to-track arrow and announces it once', () => {
+    // A due-east straight route; a fix well north of it is unambiguously off-track.
+    const line: LatLon[] = [
+      { lat: 60, lon: 24 },
+      { lat: 60, lon: 24.05 },
+    ];
+    const segments = resample({ polyline: line });
+    const sample: WindSample = {
+      windMs: 4,
+      windFromDeg: 200,
+      gustMs: 6,
+      precipProb: 0,
+      tempC: 15,
+      time: '2026-07-10T09:00',
+    };
+    const straight = analyzeCandidate(
+      {
+        id: 'straight',
+        polyline: line,
+        segments,
+        distanceM: polylineLengthM(line),
+        ascentM: 0,
+        steps: [],
+      },
+      segments.map(() => [sample]),
+      { targetDistanceM: polylineLengthM(line) },
+    );
+    const announcer = fakeAnnouncer();
+    const controller = new RideController({ analysis: straight, announcer });
+    let alerts = 0;
+    let sawArrow = false;
+    for (let i = 0; i < 20; i++) {
+      const t = new Date(1_752_744_000_000 + i * 1000).toISOString();
+      const s = controller.onFix({ lat: 60.002, lon: 24.01, time: t }); // ~222 m north of the line
+      if (s.offRoute === 'alert') {
+        alerts += 1;
+        if (s.toTrack && s.toTrack.distanceM > 60) sawArrow = true;
+      }
+    }
+    expect(alerts).toBeGreaterThan(0);
+    expect(sawArrow).toBe(true);
+    const offRouteSays = announcer.announce.mock.calls.filter((c) =>
+      (c[0] as { text: string }).text.includes('Off route'),
+    );
+    expect(offRouteSays).toHaveLength(1);
   });
 });

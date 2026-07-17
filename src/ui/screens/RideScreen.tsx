@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { armAudio, type CueMode } from '../../nav/announcer';
 import type { Fix } from '../../nav/fixSource';
 import { GeolocationSource } from '../../nav/locationService';
@@ -28,6 +28,7 @@ export function RideScreen() {
   const [rideState, setRideState] = useState<RideState | null>(null);
   const [cueMode, setCueMode] = useState<CueMode>('voice');
   const [batterySaver, setBatterySaver] = useState(false);
+  const [gpsError, setGpsError] = useState<string | null>(null);
 
   const controllerRef = useRef<RideController | null>(null);
   const recorderRef = useRef<RideRecorder>(nullRecorder);
@@ -35,9 +36,20 @@ export function RideScreen() {
 
   useWakeLock(status === 'riding');
 
+  // Leaving the ride mid-stream must stop GPS + cues (else watchPosition and the announcer keep
+  // running on a dead screen — battery drain and stray voice cues on other screens).
+  useEffect(
+    () => () => {
+      sourceRef.current?.stop();
+      controllerRef.current?.pause();
+    },
+    [],
+  );
+
   const ribbon = useMemo(() => (scored ? routeToRibbon(scored) : []), [scored]);
-  const progressFraction =
-    rideState && scored ? Math.min(1, rideState.progressM / (scored.candidate.distanceM || 1)) : 0;
+  // The ribbon is laid out by TIME share, so the dot must use the modelled time fraction, not
+  // distance — otherwise it sits in the wrong wind band on headwind/tailwind routes.
+  const dotFraction = rideState?.timeFraction ?? 0;
 
   const handleFix = useCallback((fix: Fix) => {
     const controller = controllerRef.current;
@@ -53,10 +65,11 @@ export function RideScreen() {
     recorderRef.current = nullRecorder; // WR-017 swaps in the crash-safe recorder
     recorderRef.current.start();
     setStatus('riding');
+    setGpsError(null);
     // Live GPS; the dev replay panel can also drive handleFix.
     const source = new GeolocationSource();
     sourceRef.current = source;
-    source.start(handleFix);
+    source.start(handleFix, (err) => setGpsError(err.message || 'Location unavailable'));
   }, [scored, cueMode, handleFix]);
 
   const pause = useCallback(() => {
@@ -101,9 +114,25 @@ export function RideScreen() {
           }
           batterySaver={batterySaver}
         />
-        {rideState?.offRoute === 'alert' ? (
+        {rideState?.offRoute === 'alert' && rideState.toTrack ? (
           <div className="wr-ride__alert" role="alert">
-            Off route — head back to the track
+            <svg
+              viewBox="0 0 24 24"
+              width={22}
+              height={22}
+              aria-hidden="true"
+              style={{
+                transform: `rotate(${rideState.toTrack.bearingDeg - (rideState.headingDeg ?? 0)}deg)`,
+              }}
+            >
+              <path d="M12 2 L18 20 L12 16 L6 20 Z" fill="currentColor" />
+            </svg>
+            Off route — {Math.round(rideState.toTrack.distanceM)} m to the track
+          </div>
+        ) : null}
+        {gpsError ? (
+          <div className="wr-ride__alert" role="alert">
+            {gpsError}
           </div>
         ) : null}
       </div>
@@ -138,7 +167,7 @@ export function RideScreen() {
         <WindRibbon segments={ribbon} height={16} />
         <span
           className="wr-ride__dot"
-          style={{ left: `${progressFraction * 100}%` }}
+          style={{ left: `${dotFraction * 100}%` }}
           aria-hidden="true"
         />
       </div>
