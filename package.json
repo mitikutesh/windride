@@ -18,7 +18,9 @@
     "format": "prettier --write .",
     "probe:weather": "node scripts/probe-weather.mjs",
     "probe:ors": "node scripts/probe-ors.mjs",
-    "accept": "vite-node scripts/accept.ts"
+    "accept": "vite-node scripts/accept.ts",
+    "replay": "vite-node scripts/replay.ts",
+    "gen:traces": "vite-node scripts/gen-traces.ts"
   },
   "dependencies": {
     "@turf/turf": "^7.1.0",

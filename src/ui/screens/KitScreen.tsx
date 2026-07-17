@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import {
   Chip,
   PrimaryButton,
@@ -8,6 +8,12 @@ import {
   WindRibbon,
   type RibbonSegment,
 } from '../components';
+
+// Dev-only replay panel (WR-012). The conditional dynamic import is dead-code-eliminated from
+// production builds (import.meta.env.DEV is statically false), so its bundled traces never ship.
+const DevReplayPanel = import.meta.env.DEV
+  ? lazy(() => import('../components/DevReplayPanel'))
+  : null;
 
 const RIBBON: RibbonSegment[] = [
   { fraction: 0.45, kind: 'tail' },
@@ -65,6 +71,12 @@ export function KitScreen() {
 
       <h2>Toggle</h2>
       <Toggle checked={dark} onChange={setDark} label="Home before dark" />
+
+      {DevReplayPanel ? (
+        <Suspense fallback={null}>
+          <DevReplayPanel />
+        </Suspense>
+      ) : null}
     </section>
   );
 }

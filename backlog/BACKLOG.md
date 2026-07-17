@@ -25,7 +25,7 @@ Test contract · Technical notes · Out of scope · Log.
 ## Epic 2 · Navigator (v0.2) — "it guides me and I trust the ETA"
 | ID | Story | Deps | Size | Status |
 |---|---|---|---|---|
-| WR-012 | GPX replay harness (build BEFORE any GPS code) | 011 | M | TODO |
+| WR-012 | GPX replay harness (build BEFORE any GPS code) | 011 | M | DONE |
 | WR-013 | Location service + windowed snap + progress | 012 | M | TODO |
 | WR-014 | Turn cue engine + TTS/beep | 013 | M | TODO |
 | WR-015 | Off-route detect + rejoin-track reroute | 013 | M | TODO |
