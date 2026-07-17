@@ -17,7 +17,11 @@
   --text2: #8ca1c0;
   --sky: #4da3ff;
   --on-aurora: #05131d; /* ink on the aurora gradient */
-  --aurora: linear-gradient(100deg, var(--tail), var(--sky));
+  /* Aurora brand gradient endpoints, shared by the gradient and the ScoreRing stops so a
+     skin swap keeps them in sync (they happen to equal tail/sky today but are their own tokens). */
+  --aurora-a: var(--tail);
+  --aurora-b: var(--sky);
+  --aurora: linear-gradient(100deg, var(--aurora-a), var(--aurora-b));
 
   /* Derived surfaces (composed from core hues, no new hex) */
   --surface-2: color-mix(in srgb, var(--surface) 70%, var(--bg));

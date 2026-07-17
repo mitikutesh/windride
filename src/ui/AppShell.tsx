@@ -13,29 +13,29 @@ const NAV: NavItem[] = [
 
 interface AppShellProps {
   route: Route;
-  onNavigate: (r: Route) => void;
   children: ReactNode;
 }
 
-/** App shell (WR-002): header + Plan/Results nav, content, and the required attribution footer. */
-export function AppShell({ route, onNavigate, children }: AppShellProps) {
+/** App shell (WR-002): header + Plan/Results nav, content, and the required attribution footer.
+ *  Nav uses real anchors so links are copyable/openable and announced as links; the router's
+ *  hashchange listener (useHashRoute) drives the screen swap. */
+export function AppShell({ route, children }: AppShellProps) {
   return (
     <div className="wr-shell">
       <header className="wr-shell__header">
         <span className="wr-shell__brand">WindRide</span>
         <nav className="wr-shell__nav" aria-label="Primary">
           {NAV.map((item) => (
-            <button
+            <a
               key={item.route}
-              type="button"
+              href={`#/${item.route}`}
               className={['wr-navlink', route === item.route ? 'is-active' : '']
                 .filter(Boolean)
                 .join(' ')}
               aria-current={route === item.route ? 'page' : undefined}
-              onClick={() => onNavigate(item.route)}
             >
               {item.label}
-            </button>
+            </a>
           ))}
         </nav>
       </header>

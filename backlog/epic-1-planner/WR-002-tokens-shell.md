@@ -55,3 +55,29 @@ route shell — logged as DEC-010, DEFAULT-open, revisit if routing needs grow i
 
 Follow-ups: WR-008 replaces the Plan placeholder with real inputs; WR-009 replaces the Results
 placeholder with the MapLibre map and route cards, reusing WindRibbon/ScoreRing as-is.
+
+### Fable 5 review pass — fixes
+- Fonts: previous woff2 were byte-identical Inter variable files under static names plus a
+  mislabeled Space Grotesk build. Replaced with proper latin-subset VARIABLE woff2 sourced from
+  @fontsource-variable (OFL): `public/fonts/inter-latin-var.woff2` (wght 100–900) and
+  `space-grotesk-latin-var.woff2` (wght 300–700); `src/ui/fonts.css` now declares variable
+  `@font-face` with weight ranges; added `inter-OFL.txt`/`space-grotesk-OFL.txt`; temporary
+  @fontsource dev deps removed after copying — still fully self-hosted, no runtime Google request.
+- DESIGN §1 compliance: Toggle on-state track no longer uses wind hue `--tail`; uses core accent
+  `--sky` (switch state isn't a wind relationship).
+- a11y: primary nav is now real anchors (`<a href="#/plan">`) instead of buttons — copyable/
+  openable links, announced as links; `onNavigate` prop removed; hashchange listener still drives
+  the screen swap; `.wr-navlink` styled inline-flex, `text-decoration:none`.
+- Token guard hardened: `scripts/check-tokens.mjs` also flags colour-function literals
+  (rgb/rgba/hsl/hsla/hwb/lab/lch/oklab/oklch/color()) alongside hex, closing the bypass
+  (`color-mix()` intentionally not matched).
+- ScoreRing rounds the displayed numeral and aria-label (scoring will emit floats); arc geometry
+  stays continuous.
+- WindRibbon/`ribbon.ts` drops non-positive fractions instead of emitting zero-width rects or
+  "0% ..." in the accessible label.
+- Tests: axe a11y smoke now renders the full route (`<App/>` at `#/kit`) so header/nav/footer are
+  scanned too; added a ScoreRing float-rounding test and a prefers-reduced-motion assertion in the
+  design-guard test. Suite now 20 passing.
+- `tokens.css`: added shared `--aurora-a`/`--aurora-b` endpoints used by both the aurora gradient
+  and ScoreRing stops so a skin swap keeps them in sync.
+- KitScreen copy uses ">=" (U+2265 is outside the latin font subset).

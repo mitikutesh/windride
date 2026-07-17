@@ -13,7 +13,10 @@ const ROOT = process.cwd();
 const SRC = join(ROOT, 'src');
 const ALLOW = join(SRC, 'ui', 'tokens.css');
 const EXTS = ['.css', '.ts', '.tsx'];
-const HEX = /#[0-9a-fA-F]{3,4}\b|#[0-9a-fA-F]{6}\b|#[0-9a-fA-F]{8}\b/;
+// Raw colour = hex OR a colour function literal (rgb/hsl/oklch/...). `color-mix()` is not
+// matched (it composes tokens) and is only used inside the excluded tokens.css anyway.
+const COLOR =
+  /#[0-9a-fA-F]{3,4}\b|#[0-9a-fA-F]{6}\b|#[0-9a-fA-F]{8}\b|\b(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch|color)\(/i;
 
 /** @param {string} dir */
 function walk(dir) {
@@ -32,12 +35,12 @@ for (const file of walk(SRC)) {
   if (file === ALLOW) continue;
   const lines = readFileSync(file, 'utf8').split('\n');
   lines.forEach((line, i) => {
-    if (HEX.test(line)) offenders.push(`${relative(ROOT, file)}:${i + 1}  ${line.trim()}`);
+    if (COLOR.test(line)) offenders.push(`${relative(ROOT, file)}:${i + 1}  ${line.trim()}`);
   });
 }
 
 if (offenders.length > 0) {
-  console.error('Raw colour hex found outside src/ui/tokens.css (use CSS vars from tokens.css):');
+  console.error('Raw colour found outside src/ui/tokens.css (use CSS vars from tokens.css):');
   for (const o of offenders) console.error('  ' + o);
   process.exit(1);
 }

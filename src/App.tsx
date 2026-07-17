@@ -6,12 +6,8 @@ import { KitScreen } from './ui/screens/KitScreen';
 
 /** WindRide app root (WR-002): design-token shell + hash-routed screens. */
 export function App() {
-  const [route, navigate] = useHashRoute();
+  const [route] = useHashRoute();
   const screen =
     route === 'results' ? <ResultsScreen /> : route === 'kit' ? <KitScreen /> : <PlanScreen />;
-  return (
-    <AppShell route={route} onNavigate={navigate}>
-      {screen}
-    </AppShell>
-  );
+  return <AppShell route={route}>{screen}</AppShell>;
 }

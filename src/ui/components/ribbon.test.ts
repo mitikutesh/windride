@@ -37,16 +37,18 @@ describe('layoutRibbon', () => {
     expect(laid[2].x).toBe(laid[0].width + laid[1].width);
   });
 
-  it('clamps negative fractions to zero-width segments', () => {
+  it('drops non-positive fractions instead of emitting zero-width segments', () => {
     const laid = layoutRibbon(
       [
         { fraction: -1, kind: 'tail' },
+        { fraction: 0, kind: 'cross' },
         { fraction: 1, kind: 'head' },
       ],
       100,
     );
-    expect(laid[0].width).toBe(0);
-    expect(laid[1].width).toBe(100);
+    expect(laid).toHaveLength(1);
+    expect(laid[0].kind).toBe('head');
+    expect(laid[0].width).toBe(100);
   });
 
   it('returns [] for empty, all-zero, or zero-width input', () => {

@@ -14,4 +14,11 @@ describe('<ScoreRing />', () => {
     render(<ScoreRing score={150} />);
     expect(screen.getByRole('img')).toHaveAttribute('aria-label', 'Score 100 out of 100');
   });
+
+  it('rounds fractional scores for display', () => {
+    render(<ScoreRing score={71.63} />);
+    const img = screen.getByRole('img');
+    expect(img).toHaveAttribute('aria-label', 'Score 72 out of 100');
+    expect(img).toHaveTextContent('72');
+  });
 });

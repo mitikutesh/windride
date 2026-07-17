@@ -24,8 +24,11 @@ export interface LaidOutSegment {
 }
 
 export function layoutRibbon(segments: RibbonSegment[], totalWidth: number): LaidOutSegment[] {
-  // Clamp negatives to zero; a segment can't have negative length.
-  const positive = segments.map((s) => ({ kind: s.kind, fraction: Math.max(0, s.fraction) }));
+  // Drop non-positive fractions entirely: a zero/negative segment has no length and must not
+  // appear as a zero-width rect or pollute the accessible label ("0% headwind").
+  const positive = segments
+    .map((s) => ({ kind: s.kind, fraction: Math.max(0, s.fraction) }))
+    .filter((s) => s.fraction > 0);
   const sum = positive.reduce((acc, s) => acc + s.fraction, 0);
   if (sum <= 0 || totalWidth <= 0) return [];
 

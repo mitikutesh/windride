@@ -89,6 +89,8 @@ button {
   gap: var(--space-1);
 }
 .wr-navlink {
+  display: inline-flex;
+  align-items: center;
   min-height: var(--hit-min);
   padding: 0 var(--space-3);
   border: 0;
@@ -96,6 +98,7 @@ button {
   background: none;
   color: var(--text2);
   font-size: var(--fs-body);
+  text-decoration: none;
   cursor: pointer;
 }
 .wr-navlink:hover {

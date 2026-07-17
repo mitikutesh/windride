@@ -14,7 +14,9 @@ interface ScoreRingProps {
 export function ScoreRing({ score, size = 96, stroke = 10, label }: ScoreRingProps) {
   const gradientId = useId();
   const g = ringGeometry(score, size, stroke);
-  const aria = label ?? `Score ${g.score} out of 100`;
+  // The arc stays continuous; the printed numeral + label are rounded (scoring emits floats).
+  const shown = Math.round(g.score);
+  const aria = label ?? `Score ${shown} out of 100`;
 
   return (
     <svg
@@ -59,7 +61,7 @@ export function ScoreRing({ score, size = 96, stroke = 10, label }: ScoreRingPro
         textAnchor="middle"
         dominantBaseline="central"
       >
-        {g.score}
+        {shown}
       </text>
     </svg>
   );

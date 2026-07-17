@@ -27,7 +27,7 @@ export function KitScreen() {
     <section className="wr-screen wr-kit">
       <h1>Component kit</h1>
       <p className="wr-muted">
-        Every colour is a semantic wind token (DESIGN §1). Hit targets are ≥ 44 px; motion is
+        Every colour is a semantic wind token (DESIGN §1). Hit targets are &gt;= 44 px; motion is
         disabled under <code>prefers-reduced-motion</code>.
       </p>
 

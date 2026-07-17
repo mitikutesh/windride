@@ -93,7 +93,8 @@
   transition: transform var(--motion-fast) var(--ease);
 }
 .wr-toggle.is-on .wr-toggle__track {
-  background: var(--tail);
+  /* --sky is the core UI accent (not a wind hue): switch state is not a wind relationship. */
+  background: var(--sky);
 }
 .wr-toggle.is-on .wr-toggle__thumb {
   transform: translateX(20px);
@@ -156,10 +157,10 @@
   stroke: var(--line);
 }
 .wr-ring__stop-a {
-  stop-color: var(--tail);
+  stop-color: var(--aurora-a);
 }
 .wr-ring__stop-b {
-  stop-color: var(--sky);
+  stop-color: var(--aurora-b);
 }
 .wr-ring__num {
   font-family: var(--font-display);

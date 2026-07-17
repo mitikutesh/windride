@@ -1,34 +1,20 @@
-/* Self-hosted fonts (WR-002). Latin subset only — no runtime Google request (DESIGN §3).
-   Space Grotesk 700 for display/numerals, Inter 400/600/700 for body/UI. OFL licensed. */
+/* Self-hosted fonts (WR-002). Latin-subset VARIABLE woff2 — one file per family, no runtime
+   Google request (DESIGN §3). Sourced from @fontsource-variable (OFL; see public/fonts/*-OFL.txt).
+   Inter (body/UI) exposes wght 100–900; Space Grotesk (display/numerals) exposes wght 300–700.
+   The font-weight range lets 400/600/700 (Inter) and 700 (Space Grotesk) resolve on the axis. */
 
 @font-face {
   font-family: 'Inter';
   font-style: normal;
-  font-weight: 400;
   font-display: swap;
-  src: url('/fonts/inter-400.woff2') format('woff2');
-}
-
-@font-face {
-  font-family: 'Inter';
-  font-style: normal;
-  font-weight: 600;
-  font-display: swap;
-  src: url('/fonts/inter-600.woff2') format('woff2');
-}
-
-@font-face {
-  font-family: 'Inter';
-  font-style: normal;
-  font-weight: 700;
-  font-display: swap;
-  src: url('/fonts/inter-700.woff2') format('woff2');
+  font-weight: 100 900;
+  src: url('/fonts/inter-latin-var.woff2') format('woff2');
 }
 
 @font-face {
   font-family: 'Space Grotesk';
   font-style: normal;
-  font-weight: 700;
   font-display: swap;
-  src: url('/fonts/space-grotesk-700.woff2') format('woff2');
+  font-weight: 300 700;
+  src: url('/fonts/space-grotesk-latin-var.woff2') format('woff2');
 }

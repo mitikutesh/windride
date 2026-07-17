@@ -25,3 +25,11 @@ describe('hit targets (DESIGN §5)', () => {
     expect(usesHitMin(global, '\\.wr-navlink')).toBe(true);
   });
 });
+
+describe('reduced motion (DESIGN §5)', () => {
+  it('neutralises animation and transition under prefers-reduced-motion', () => {
+    expect(global).toMatch(/@media \(prefers-reduced-motion: reduce\)/);
+    expect(global).toMatch(/animation-duration:\s*0\.001ms\s*!important/);
+    expect(global).toMatch(/transition-duration:\s*0\.001ms\s*!important/);
+  });
+});
