@@ -19,7 +19,8 @@ export function WinterCaution({ winter }: { winter: WinterInfo | null }) {
     <div className="wr-winter">
       {winter.iceRisk ? (
         <p className="wr-winter__ice" role="alert">
-          ❄ {winter.message}
+          <span aria-hidden="true">❄ </span>
+          {winter.message}
         </p>
       ) : null}
       <p className="wr-muted">

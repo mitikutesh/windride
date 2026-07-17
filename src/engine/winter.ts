@@ -16,8 +16,10 @@ import type { SpeedSettings } from './speedModel';
 export const WINTER_SUGGEST_TEMP_C = 3;
 /** Ice-risk fires only when the coldest hour in the ride window is at/below this (°C). */
 export const ICE_RISK_TEMP_C = 1;
-/** Studded winter tyres cost roughly this much base speed (km/h) on every surface. */
+/** Studded winter tyres cost roughly this much base speed (km/h) on every surface (linear model). */
 export const STUDDED_OFFSET_KMH = 3;
+/** Studded tyres raise rolling resistance ~30% — how the PHYSICS model feels the same slowdown. */
+export const WINTER_CRR_MULT = 1.3;
 /** Exposure at/below this (deep shade / forest) stays icy longest after a thaw-freeze. */
 export const ICY_SHADE_EXPOSURE_MAX = 0.5;
 
@@ -59,16 +61,26 @@ export function iceRiskMessage(shadedKm: number): string {
     : base;
 }
 
-/** Studded-tyre winter speed model: every surface base speed drops by the studded offset. */
+/**
+ * Studded-tyre winter speed model. The LINEAR model slows via a base-speed offset per surface; the
+ * PHYSICS model slows via raised rolling resistance (crr) — so studded ETAs are honestly slower
+ * whichever model is active (a base-speed offset alone would be a no-op under physics, where baseKmh
+ * is only the Newton seed).
+ */
 export function winterSpeedSettings(
   base: SpeedSettings,
   offset = STUDDED_OFFSET_KMH,
+  crrMult = WINTER_CRR_MULT,
 ): SpeedSettings {
   const baseKmh = {} as Record<Surface, number>;
   for (const surface of Object.keys(base.baseKmh) as Surface[]) {
     baseKmh[surface] = Math.max(base.minKmh, base.baseKmh[surface] - offset);
   }
-  return { ...base, baseKmh };
+  const crr = {} as Record<Surface, number>;
+  for (const surface of Object.keys(base.crr) as Surface[]) {
+    crr[surface] = base.crr[surface] * crrMult;
+  }
+  return { ...base, baseKmh, crr };
 }
 
 /** Kilometres of the route in deep shade / forest (exposure ≤ 0.5) — the last to thaw. */

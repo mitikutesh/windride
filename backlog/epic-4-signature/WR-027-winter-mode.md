@@ -65,3 +65,33 @@ Road-maintenance feeds; friction modelling.
   daylight-default, shaded-stretch, and past-precip-adapter design decisions.
 - Reviewed post-implementation by a substitute senior reviewer (Opus) — Fable 5 was out of usage
   credits this session; see follow-up review commit for findings/fixes.
+
+**2026-07-18 — Substitute review (Opus, standing in for Fable 5 — out of credits) — fixes
+applied.** Verdict: REQUEST-CHANGES; 3 MAJOR, 3 MINOR, 1 NIT — all fixed, gate green (388 tests,
+lint clean, build OK).
+- **M1 — golden fixture didn't test the wiring.** The winter tests only exercised
+  `scoreCandidates` directly, never `runPlan`'s winter logic — flipping the daylight-force line
+  would have broken nothing and no test would have noticed. Fixed: added `runPlan`-level winter
+  integration tests (`src/state/plan/runPlan.test.ts`) proving `WinterInfo` is assembled in winter
+  mode (and `null` otherwise), studded speeds make the *same* route slower, home-before-dark is
+  **forced** on in winter even with the user toggle off (a too-long ride is rejected while an
+  otherwise-identical non-winter run keeps it), and the ice-risk caution fires on a cold wet
+  morning but not on a dry one.
+- **M2 — new parser untested.** Added contract tests for `parseRecentPrecipMm` (windowed sum,
+  nulls → 0, bare object, malformed → 0) and `OpenMeteoProvider.recentPrecipMm` (sums the prior
+  24 h, not the forecast hour; 429 → quota) in `openMeteo.test.ts`.
+- **M3 — DESIGN §1 colour.** The ice caution used `--head` (a wind/headwind hue) for a
+  non-wind warning. Fixed: it now uses `--cross`, the defined "caution" hue.
+- **m4 — studded no-op under the physics model.** `winterSpeedSettings` only touched `baseKmh`,
+  which the physics model uses solely as a Newton seed, so physics-model ETAs wouldn't actually
+  slow down in winter. Fixed: it now also raises rolling resistance (`crr × WINTER_CRR_MULT`,
+  1.3), so studded-tyre ETAs are honestly slower under either speed model; added a test.
+- **m5 — precip type read the wrong hour.** The "snow/rain likely" copy was inferred from hour 0
+  regardless of when the ride actually starts. Fixed: precip type is now inferred at the
+  **departure hour's** sample.
+- **m6 — summed 25 hours instead of 24.** `past_hours=24` + `forecast_hours=1` returns 25 hourly
+  entries; `parseRecentPrecipMm` now sums only the first `hours` entries (the past ones),
+  excluding the trailing forecast hour.
+- **NIT m7 — decorative glyph read aloud.** The decorative "❄" inside the `role="alert"` ice line
+  is now wrapped in `aria-hidden`.
+- See the DEC-031 review addendum in `docs/DECISIONS.md` for the design-level summary.

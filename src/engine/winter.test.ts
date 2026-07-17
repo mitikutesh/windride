@@ -61,6 +61,15 @@ describe('winterSpeedSettings (studded offset)', () => {
     // Grade/wind coefficients untouched.
     expect(w.tailCoef).toBe(DEFAULT_SPEED_SETTINGS.tailCoef);
   });
+
+  it('also raises rolling resistance so the physics model slows too (not a linear-only no-op)', () => {
+    const w = winterSpeedSettings(DEFAULT_SPEED_SETTINGS, 3, 1.3);
+    for (const s of Object.keys(DEFAULT_SPEED_SETTINGS.crr) as Array<
+      keyof typeof DEFAULT_SPEED_SETTINGS.crr
+    >) {
+      expect(w.crr[s]).toBeCloseTo(DEFAULT_SPEED_SETTINGS.crr[s] * 1.3, 6);
+    }
+  });
 });
 
 describe('shadedKm', () => {

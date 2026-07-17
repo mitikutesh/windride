@@ -516,11 +516,13 @@
   margin: var(--space-2) 0;
 }
 .wr-winter__ice {
+  /* --cross is the "caution" hue; --head means headwind (a wind relationship), so it must not
+     colour an ice warning (DESIGN §1). */
   margin: 0 0 var(--space-1);
   padding: var(--space-1) var(--space-2);
   border-radius: var(--radius-pill);
   background: var(--surface-2);
-  color: var(--head);
+  color: var(--cross);
   font-weight: 600;
   font-size: var(--fs-small);
 }

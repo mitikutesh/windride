@@ -4,6 +4,8 @@ import { ProviderError } from '../../adapters/errors';
 import { MockRouteProvider } from '../../adapters/routing/mock';
 import { MockWeatherProvider } from '../../adapters/weather/mock';
 import type { RouteProvider } from '../../adapters/routing';
+import type { WeatherProvider } from '../../adapters/weather';
+import type { LatLon, WindSample } from '../../domain';
 import { decodeExposureGrid } from '../../data/exposureGrid';
 import { runPlan, type PlanInputs } from './runPlan';
 
@@ -122,5 +124,95 @@ describe('runPlan', () => {
         now: NOW,
       }),
     ).rejects.toMatchObject({ kind: 'quota' });
+  });
+});
+
+// --- Winter mode wiring (WR-027) -------------------------------------------------------------
+/** A cold-winter weather provider with a controllable sunset margin (min from NOW) + recent precip. */
+function winterWeather(sunsetOffsetMin: number, tempC = -4, precipMm = 5): WeatherProvider {
+  const iso = (ms: number) => new Date(ms).toISOString().slice(0, 16);
+  return {
+    windAlong: async (points: LatLon[], hours: number) =>
+      points.map(() =>
+        Array.from({ length: hours }, (_v, h): WindSample => ({
+          windMs: 6,
+          windFromDeg: 200,
+          gustMs: 9,
+          precipProb: 40,
+          tempC,
+          time: iso(NOW + h * 3_600_000),
+        })),
+      ),
+    daylight: async () => ({
+      sunrise: iso(NOW - 3 * 3_600_000),
+      sunset: iso(NOW + sunsetOffsetMin * 60_000),
+    }),
+    recentPrecipMm: async () => precipMm,
+  };
+}
+const WINTER_IN = { ...INPUTS, routeType: 'out-and-back' as const };
+
+describe('runPlan winter mode (WR-027)', () => {
+  it('assembles WinterInfo in winter mode and leaves it null otherwise', async () => {
+    const w = await runPlan(
+      providers({ weather: winterWeather(600) }),
+      { ...WINTER_IN, winter: true },
+      { now: NOW },
+    );
+    expect(w.winter).not.toBeNull();
+    expect(w.winter!.minTempC).toBeLessThan(0);
+    const n = await runPlan(
+      providers({ weather: winterWeather(600) }),
+      { ...WINTER_IN, winter: false },
+      { now: NOW },
+    );
+    expect(n.winter).toBeNull();
+  });
+
+  it('applies studded speeds so the same route is slower in winter', async () => {
+    const w = await runPlan(
+      providers({ weather: winterWeather(600) }),
+      { ...WINTER_IN, winter: true },
+      { now: NOW },
+    );
+    const n = await runPlan(
+      providers({ weather: winterWeather(600) }),
+      { ...WINTER_IN, winter: false },
+      { now: NOW },
+    );
+    const wTop = w.ranked[0];
+    const nSame = n.ranked.find((r) => r.candidate.id === wTop.candidate.id) ?? n.ranked[0];
+    expect(wTop.evidence.timeS).toBeGreaterThan(nSame.evidence.timeS); // studded reached the model
+  });
+
+  it('forces home-before-dark ON in winter even with the user toggle off', async () => {
+    // Only ~40 min of daylight: winter rejects the long ride; a non-winter run (toggle off) keeps it.
+    const w = await runPlan(
+      providers({ weather: winterWeather(40) }),
+      { ...WINTER_IN, winter: true, homeBeforeDark: false },
+      { now: NOW },
+    );
+    const n = await runPlan(
+      providers({ weather: winterWeather(40) }),
+      { ...WINTER_IN, winter: false, homeBeforeDark: false },
+      { now: NOW },
+    );
+    expect(w.ranked.length).toBeLessThan(n.ranked.length);
+  });
+
+  it('fires the ice-risk caution on a cold wet morning and not on a dry one', async () => {
+    const wet = await runPlan(
+      providers({ weather: winterWeather(600, -4, 5) }),
+      { ...WINTER_IN, winter: true },
+      { now: NOW },
+    );
+    expect(wet.winter!.iceRisk).toBe(true);
+    expect(wet.winter!.message).toMatch(/possible ice/i);
+    const dry = await runPlan(
+      providers({ weather: winterWeather(600, -4, 0) }),
+      { ...WINTER_IN, winter: true },
+      { now: NOW },
+    );
+    expect(dry.winter!.iceRisk).toBe(false);
   });
 });

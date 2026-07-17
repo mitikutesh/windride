@@ -225,10 +225,13 @@ export async function runPlan(
       : (current?.tempC ?? 0);
     const precipPrior24hMm = (await providers.weather.recentPrecipMm?.(inputs.start, 24)) ?? 0;
     const risk = iceRisk({ minTempC, precipPrior24hMm });
+    // Infer precip TYPE at the DEPARTURE hour (not hour 0) — an evening ride's snow-vs-rain copy
+    // must reflect the evening, not now.
+    const departSample = hourly[Math.min(departureHour, Math.max(0, hourly.length - 1))] ?? current;
     winter = {
       iceRisk: risk,
       message: risk ? iceRiskMessage(ranked[0] ? shadedKm(ranked[0].analysis) : 0) : '',
-      precip: precipType(current?.tempC ?? minTempC, current?.precipProb ?? 0),
+      precip: precipType(departSample?.tempC ?? minTempC, departSample?.precipProb ?? 0),
       minTempC,
     };
   }

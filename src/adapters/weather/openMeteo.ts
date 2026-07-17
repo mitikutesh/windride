@@ -165,15 +165,20 @@ export class OpenMeteoProvider implements WeatherProvider {
       timezone: 'auto',
     });
     const body = await this.fetchJson(`${ENDPOINT}?${params.toString()}`);
-    return parseRecentPrecipMm(body);
+    return parseRecentPrecipMm(body, hours);
   }
 }
 
-/** Sum the hourly precipitation array (mm) from a past_hours response; 0 when absent. */
-export function parseRecentPrecipMm(body: unknown): number {
+/**
+ * Sum the hourly precipitation array (mm) from a past_hours response; 0 when absent. Only the first
+ * `hours` entries (the PAST hours, which precede the +1 forecast hour) are counted, so "prior 24 h"
+ * doesn't over-count the trailing forecast hour.
+ */
+export function parseRecentPrecipMm(body: unknown, hours?: number): number {
   const arr = Array.isArray(body) ? body : [body];
   const precip = (arr[0] as { hourly?: { precipitation?: Array<number | null> } })?.hourly
     ?.precipitation;
   if (!Array.isArray(precip)) return 0;
-  return precip.reduce<number>((sum, v) => sum + (typeof v === 'number' ? v : 0), 0);
+  const past = hours === undefined ? precip : precip.slice(0, hours);
+  return past.reduce<number>((sum, v) => sum + (typeof v === 'number' ? v : 0), 0);
 }

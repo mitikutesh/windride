@@ -3,7 +3,7 @@ import realEspooRaw from '../../../fixtures/openmeteo/real-espoo.json?raw';
 import type { LatLon } from '../../domain';
 import type { ProviderErrorKind } from '../errors';
 import { describeWeatherProviderContract } from '../providerContract';
-import { OpenMeteoProvider, parseDaylight, parseWindGrid } from './openMeteo';
+import { OpenMeteoProvider, parseDaylight, parseRecentPrecipMm, parseWindGrid } from './openMeteo';
 
 const FIXTURE = JSON.parse(realEspooRaw);
 const FIXED_NOW = 1_700_000_000_000;
@@ -121,5 +121,43 @@ describe('OpenMeteoProvider cache', () => {
     clock += 31 * 60 * 1000; // past the 30 min TTL (and into the next hour bucket)
     await provider.windAlong(POINTS, 6);
     expect(calls).toBe(2);
+  });
+});
+
+describe('parseRecentPrecipMm (WR-027)', () => {
+  it('sums only the first `hours` past entries (excludes the trailing forecast hour)', () => {
+    const body = [{ hourly: { precipitation: [1, 2, 0.5, 99] } }]; // 99 = the +1 forecast hour
+    expect(parseRecentPrecipMm(body, 3)).toBeCloseTo(3.5, 6);
+  });
+  it('treats nulls as 0 and sums the whole array when no window is given', () => {
+    expect(parseRecentPrecipMm([{ hourly: { precipitation: [1, null, 2] } }])).toBeCloseTo(3, 6);
+  });
+  it('accepts a bare (non-array) response object', () => {
+    expect(parseRecentPrecipMm({ hourly: { precipitation: [0.4, 0.6] } })).toBeCloseTo(1, 6);
+  });
+  it('returns 0 for missing/malformed bodies', () => {
+    expect(parseRecentPrecipMm({})).toBe(0);
+    expect(parseRecentPrecipMm([{ hourly: {} }])).toBe(0);
+    expect(parseRecentPrecipMm(null)).toBe(0);
+  });
+});
+
+describe('OpenMeteoProvider.recentPrecipMm (WR-027)', () => {
+  const precipBody = [{ hourly: { precipitation: [...Array(24).fill(0.1), 5] } }]; // 24 past + forecast
+  it('sums the prior 24 h of precipitation, not the forecast hour', async () => {
+    const fetchFn = (async () =>
+      ({
+        ok: true,
+        status: 200,
+        json: async () => precipBody,
+      }) as Response) as unknown as typeof fetch;
+    const p = new OpenMeteoProvider({ fetchFn, now: () => FIXED_NOW });
+    expect(await p.recentPrecipMm({ lat: 60.17, lon: 24.65 }, 24)).toBeCloseTo(2.4, 6);
+  });
+  it('maps a rate-limit to a quota error', async () => {
+    const p = new OpenMeteoProvider({ fetchFn: failFetch('quota'), now: () => FIXED_NOW });
+    await expect(p.recentPrecipMm({ lat: 60.17, lon: 24.65 }, 24)).rejects.toMatchObject({
+      kind: 'quota',
+    });
   });
 });
