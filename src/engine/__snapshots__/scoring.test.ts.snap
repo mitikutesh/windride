@@ -1,0 +1,18 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`scoreCandidates — golden ranking (SW 8 m/s steady) > is snapshot-locked (changing weights requires updating this) 1`] = `
+[
+  {
+    "id": "A",
+    "total": 81,
+  },
+  {
+    "id": "C",
+    "total": 67,
+  },
+  {
+    "id": "B",
+    "total": 31,
+  },
+]
+`;

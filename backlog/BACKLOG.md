@@ -16,7 +16,7 @@ Test contract · Technical notes · Out of scope · Log.
 | WR-004 | Open-Meteo weather adapter (multipoint, hourly) | 003 | M | DONE |
 | WR-005 | ORS routing adapter (round-trip diversity + dedupe) | 003 | L | DONE |
 | WR-006 | Geometry engine: resample, bearings, grades, overlap | 003 | M | DONE |
-| WR-007 | Scoring engine v1 + explanations | 006 | L | TODO |
+| WR-007 | Scoring engine v1 + explanations | 006 | L | DONE |
 | WR-008 | Plan screen (inputs → generate flow) | 002,003 | M | TODO |
 | WR-009 | Results: MapLibre map, wind-coloured routes, cards | 007,008 | L | TODO |
 | WR-010 | GPX export + route persistence (idb) | 009 | S | TODO |
