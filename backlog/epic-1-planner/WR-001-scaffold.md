@@ -52,3 +52,16 @@ Any UI beyond a "WindRide" placeholder screen; tokens (WR-002); adapters (WR-003
 - Follow-ups: WR-002 owns tokens.css content + app shell; WR-003 fills adapter interfaces/mock
   providers; WR-005/006 give maplibre-gl and @turf/turf their first real imports; WR-012+ add
   `npm run replay` and `npm run probe:<adapter>` to the command table.
+- Fable 5 review follow-up (post-close hardening): found and fixed two module-boundary
+  enforcement gaps in `eslint.config.js` — (1) the engine-purity rule only blocked deep imports
+  like `../state/x`, not bare-directory barrel imports like `../state` or `../nav`; group
+  patterns extended to cover both `**/x` and `**/x/**` for adapters/ui/state/nav/data; (2) the
+  "UI never imports adapters" rule didn't cover the src-root entry/App files, only `src/ui/**`;
+  `files` glob extended with `src/*.{ts,tsx}` and its group blocks both `**/adapters` and
+  `**/adapters/**`. Both gaps verified to fire (deep and barrel imports alike are now caught).
+  Also corrected a misleading comment implying `state/**` can't import adapters (stores do call
+  adapters per ARCHITECTURE §3). Minor nits: added `apple-touch-icon` link in `index.html`;
+  added `environmentMatchGlobs` in `vite.config.ts` so future UI tests (WR-008/009) run under
+  jsdom while engine/adapter tests stay on node; DEC-009 added to DECISIONS.md and README's
+  "no application code yet" line corrected to reflect the scaffold now existing. Quality gate
+  (test/lint/build) re-verified green after fixes.

@@ -11,8 +11,8 @@ import prettier from 'eslint-config-prettier';
  * Enforces the module-boundary law from ARCHITECTURE §3 and CLAUDE.md rule 4:
  *   - src/engine/** is PURE: it may not import from adapters/ui/state/nav/data,
  *     and may not read the wall clock (Date.now) — the clock is passed in.
- *   - src/ui/** and src/state/** never import from adapters directly; the flow is
- *     UI -> state (stores) -> adapters.
+ *   - src/ui/** (and the src-root entry) never import from adapters; the flow is
+ *     UI -> state (stores) -> adapters. Stores (state/**) are where adapters are called.
  */
 export default tseslint.config(
   { ignores: ['dist', 'dev-dist', 'coverage', 'node_modules'] },
@@ -43,7 +43,18 @@ export default tseslint.config(
         {
           patterns: [
             {
-              group: ['**/adapters/**', '**/ui/**', '**/state/**', '**/nav/**', '**/data/**'],
+              group: [
+                '**/adapters',
+                '**/adapters/**',
+                '**/ui',
+                '**/ui/**',
+                '**/state',
+                '**/state/**',
+                '**/nav',
+                '**/nav/**',
+                '**/data',
+                '**/data/**',
+              ],
               message:
                 'engine/ must stay pure (ARCHITECTURE §3): no imports from adapters, ui, state, nav, or data.',
             },
@@ -63,16 +74,17 @@ export default tseslint.config(
     },
   },
 
-  // ui/** and state/** — UI never fetches; stores own the adapter calls.
+  // ui/** (and the src-root entry/App) — UI never fetches. Stores (state/**) DO call
+  // adapters (ARCHITECTURE §3), so the restriction below intentionally targets UI only.
   {
-    files: ['src/ui/**/*.{ts,tsx}'],
+    files: ['src/ui/**/*.{ts,tsx}', 'src/*.{ts,tsx}'],
     rules: {
       'no-restricted-imports': [
         'error',
         {
           patterns: [
             {
-              group: ['**/adapters/**'],
+              group: ['**/adapters', '**/adapters/**'],
               message:
                 'UI components never fetch (ARCHITECTURE §3): read stores; stores call adapters.',
             },

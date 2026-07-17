@@ -4,9 +4,9 @@
 shelter, weather and daylight, then navigates you through them. Zero-cost personal build first
 (PWA, free APIs, no backend), commercial option preserved.
 
-This repository contains **no application code yet — by design.** It is a complete specification
-and story backlog for AI coding agents (Claude Code) to build the app one story at a time.
-The first story (`WR-001`) bootstraps the codebase.
+This repository is a complete specification and story backlog for AI coding agents (Claude Code)
+to build the app one story at a time. `WR-001` has bootstrapped the codebase — the scaffold and
+quality gate (lint, tests, build, CI) are in place — and every later story builds on it.
 
 ## How to use this kit
 

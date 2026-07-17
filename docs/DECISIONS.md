@@ -13,3 +13,4 @@ status (DECIDED / DEFAULT-open), date, story that triggered it.
 | DEC-006 | Exposure grid: Uusimaa only, 250 m cells, shipped as static JSON (< 5 MB budget). | DEFAULT-open |
 | DEC-007 | No backend of any kind before the commercial gate (PRODUCT_SPEC). Anything needing a server is out of scope or redesigned client-side. | DECIDED |
 | DEC-008 | Units: SI internally; degrees clockwise from true north; UI converts at the edge. | DECIDED |
+| DEC-009 | Module boundaries enforced via ESLint `no-restricted-imports`/`no-restricted-properties` in `eslint.config.js` (no separate boundaries plugin); `engine/constants.ts` is the one file beyond the exact ARCHITECTURE §2 list, holding shared SCORING_SPEC constants. | DECIDED |

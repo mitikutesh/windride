@@ -38,7 +38,9 @@ export default defineConfig({
   test: {
     // Engine and adapter tests run on fixtures only — never live APIs (CLAUDE.md rule 3).
     globals: true,
+    // Engine/adapter tests run under node; UI render tests (WR-008/009) get jsdom.
     environment: 'node',
+    environmentMatchGlobs: [['src/ui/**', 'jsdom']],
     setupFiles: [],
     include: ['src/**/*.{test,spec}.{ts,tsx}'],
     coverage: {
