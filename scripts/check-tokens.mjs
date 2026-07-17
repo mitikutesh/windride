@@ -11,7 +11,9 @@ import { join, relative } from 'node:path';
 
 const ROOT = process.cwd();
 const SRC = join(ROOT, 'src');
-const ALLOW = join(SRC, 'ui', 'tokens.css');
+// tokens.css is the source of truth; windColors.ts is the JS mirror MapLibre needs for WebGL
+// (kept in sync by windColors.test.ts). These are the only files allowed to hold raw colour.
+const ALLOW = new Set([join(SRC, 'ui', 'tokens.css'), join(SRC, 'ui', 'windColors.ts')]);
 const EXTS = ['.css', '.ts', '.tsx'];
 // Raw colour = hex OR a colour function literal (rgb/hsl/oklch/...). `color-mix()` is not
 // matched (it composes tokens) and is only used inside the excluded tokens.css anyway.
@@ -32,7 +34,7 @@ function walk(dir) {
 
 const offenders = [];
 for (const file of walk(SRC)) {
-  if (file === ALLOW) continue;
+  if (ALLOW.has(file)) continue;
   const lines = readFileSync(file, 'utf8').split('\n');
   lines.forEach((line, i) => {
     if (COLOR.test(line)) offenders.push(`${relative(ROOT, file)}:${i + 1}  ${line.trim()}`);

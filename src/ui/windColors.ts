@@ -1,0 +1,25 @@
+/**
+ * ui/windColors.ts — JS mirror of the semantic wind hues (WR-009).
+ *
+ * MapLibre paints on a WebGL canvas and cannot read CSS custom properties, so it needs concrete
+ * colour strings. This is the ONE sanctioned place (besides tokens.css) allowed to hold raw hex
+ * (scripts/check-tokens.mjs whitelists it); windColors.test.ts asserts these equal tokens.css.
+ */
+import type { WindKind } from './components/ribbon';
+
+export const WIND_COLORS: Record<WindKind, string> = {
+  tail: '#2ee6a8',
+  cross: '#f5b84c',
+  head: '#f26d5b',
+  shelter: '#3e8763',
+};
+
+/** Map chrome colours (also mirrored from tokens.css: --text2 ghost, --sky start marker). */
+export const MAP_COLORS = {
+  ghost: '#8ca1c0',
+  start: '#4da3ff',
+};
+
+export function windColor(kind: WindKind): string {
+  return WIND_COLORS[kind];
+}

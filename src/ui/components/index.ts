@@ -8,6 +8,7 @@ export { ScoreRing } from './ScoreRing';
 export { Segmented } from './Segmented';
 export { DistanceSlider } from './DistanceSlider';
 export { ConditionsStrip } from './ConditionsStrip';
+export { RouteCard } from './RouteCard';
 export { layoutRibbon } from './ribbon';
 export type { RibbonSegment, WindKind, LaidOutSegment } from './ribbon';
 export { ringGeometry } from './ring';

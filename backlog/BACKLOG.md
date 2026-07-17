@@ -18,7 +18,7 @@ Test contract · Technical notes · Out of scope · Log.
 | WR-006 | Geometry engine: resample, bearings, grades, overlap | 003 | M | DONE |
 | WR-007 | Scoring engine v1 + explanations | 006 | L | DONE |
 | WR-008 | Plan screen (inputs → generate flow) | 002,003 | M | DONE |
-| WR-009 | Results: MapLibre map, wind-coloured routes, cards | 007,008 | L | TODO |
+| WR-009 | Results: MapLibre map, wind-coloured routes, cards | 007,008 | L | DONE |
 | WR-010 | GPX export + route persistence (idb) | 009 | S | TODO |
 | WR-011 | v0.1 acceptance harness (30/50/80 km eval) | 010 | M | TODO |
 

@@ -1,13 +1,37 @@
-/** Results screen placeholder (WR-002). The MapLibre map + route cards land in WR-009. */
+import { RouteCard } from '../components/RouteCard';
+import { RouteMap } from '../components/RouteMap';
+import { useResultsStore } from '../../state/resultsStore';
+
+/** Results screen (WR-009): top-3 cards synced with a wind-coloured MapLibre route map. */
 export function ResultsScreen() {
+  const ranked = useResultsStore((s) => s.ranked);
+  const selectedId = useResultsStore((s) => s.selectedId);
+  const select = useResultsStore((s) => s.select);
+
+  if (ranked.length === 0) {
+    return (
+      <section className="wr-screen">
+        <h1>Your routes</h1>
+        <p className="wr-muted">No routes yet — plan a ride, then your top 3 appear here.</p>
+      </section>
+    );
+  }
+
   return (
-    <section className="wr-screen">
-      <h1>Your routes</h1>
-      <p className="wr-muted">
-        The top three candidates for today’s conditions will appear here on a map with per-segment
-        wind colouring, wind-aware ETAs and a plain-language explanation.
-      </p>
-      <p className="wr-muted">The map and route cards arrive in WR-009.</p>
+    <section className="wr-results">
+      <RouteMap candidates={ranked} selectedId={selectedId} onSelect={select} />
+      <div className="wr-results__cards">
+        <h1>Your routes</h1>
+        {ranked.slice(0, 3).map((sc) => (
+          <RouteCard
+            key={sc.candidate.id}
+            scored={sc}
+            rank={sc.rank}
+            selected={sc.candidate.id === selectedId}
+            onSelect={() => select(sc.candidate.id)}
+          />
+        ))}
+      </div>
     </section>
   );
 }
