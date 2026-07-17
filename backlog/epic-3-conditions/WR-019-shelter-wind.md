@@ -64,3 +64,48 @@ Gust flags UI (WR-021).
   unchanged — with the grid absent, shelter is a constant 0.5 across all candidates so it can't
   move relative rank; thresholds left as-is. Rerun and adjust with reasoning once the real grid
   lands (WR-018 follow-up).
+
+## Fable 5 review pass — fixes
+
+- **B1 (blocker, the key fix)**: without a grid, the shelter axis still differentiated candidates
+  — a candidate with any headwind got raw `shelterShare` 0 while a no-headwind candidate got the
+  neutral 0.5, and `normalizeHigher` stretched that gap into a real ~6.7-point swing sourced from
+  data that doesn't exist (double-counting the wind axis; reachable in production for
+  out-and-back routes under cardinal winds). The Log's prior honest caveat — "shelter is a
+  constant 0.5 across all candidates so it can't move relative rank" — was factually wrong at the
+  time it was written; it only became true once this fix landed. Fixed: `ScoreOptions` gained
+  `hasShelterData`; the shelter axis is normalized (`normalizeHigher(shelterShare)`) only when
+  true, otherwise every candidate gets the uniform 0.5 (raw `shelterShare` is still computed and
+  stays available as evidence). `runPlan` passes `hasShelterData: shelterDataAvailable`. Also
+  added a `V_PAR_EPS` (1e-6) float-dust guard in `computeMetrics` so a perpendicular leg
+  (`cos 90° ≈ 6e-17`) isn't miscounted as a sliver of tail- or headwind. A regression test in
+  `scoring.test.ts` covers a headwind candidate and a tailwind candidate with no grid: both
+  `sub.shelter.normalized === 0.5`. Recorded as DEC-025.
+- **S2 (should-fix)**: the "golden re-scored with a synthetic grid, forest-heavy rank improves"
+  acceptance box was ticked, but the golden trio still ran with exposure 1.0 everywhere (no real
+  grid), so shelter wasn't actually being exercised. Fixed: the sheltered-vs-exposed twin test now
+  runs with `hasShelterData: true` against a real synthetic-exposure grid, genuinely exercising
+  the shelter axis (`shelter.normalized` differentiates the pair, not just the wind axis). The
+  A/C/B golden snapshot was re-updated — rank order is preserved, and the earlier phantom shift
+  from B1 is gone now that shelter is correctly uniform when no grid is supplied.
+- **S3 (should-fix)**: exposure fill and `shelterDataAvailable` were untested and untestable,
+  because `loadExposureGrid` was hardcoded inside `runPlan`. Fixed: `RunPlanOpts.loadGrid` is now
+  injectable. Added `runPlan.test.ts` cases: a covering single-cell grid fills every segment's
+  exposure (0.35) and flags `shelterDataAvailable: true`; a null grid degrades every segment to
+  exposure 1.0 and flags `shelterDataAvailable: false`.
+- **N4 (nit)**: the `0.6` shelter-exposure threshold was duplicated between the engine and the UI.
+  Fixed: `SHELTER_EXPOSURE_MAX` is exported from `src/engine/scoring.ts` and imported by
+  `src/ui/routeGeo.ts` — single source of truth.
+- **N5 (nit)**: `runPlan`'s header comment was stale, still describing wind as spatially uniform
+  ("exposure 1.0, shelter grid is Epic 3") after WR-019 made the grid real. Corrected to describe
+  the exposure-fill step this story actually implements.
+- Deferred nits (noted, not fixed): `resultsStore.setResults`'s `shelterDataAvailable` parameter
+  is optional (only the real `runPlan` caller passes it); the flag flips true if *any* segment
+  falls in the covered region (acceptable at Uusimaa scope); `idbCache`'s mem-copy diverges from
+  the cached copy if exposure is mutated post-get, which is benign since `structuredClone` runs on
+  every `get` and exposure is recomputed fresh each `runPlan` call.
+- Corrected acceptance note: with the grid absent (DEC-024), `hasShelterData` is false, so the
+  shelter axis is uniform 0.5 and genuinely cannot shift relative rank — that statement is now
+  true (it was only made true by this fix, not before it). WR-011's acceptance harness is
+  genuinely unaffected.
+- Full gate after fixes: 272 tests passing, lint clean, build OK.

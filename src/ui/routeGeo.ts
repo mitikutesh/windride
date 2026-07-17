@@ -2,7 +2,11 @@
  * ui/routeGeo.ts — pure helpers turning a scored candidate into map/ribbon data (WR-009).
  */
 import { haversineM } from '../engine/geometry';
-import type { SegmentAnalysis, ScoredCandidate } from '../engine/scoring';
+import {
+  SHELTER_EXPOSURE_MAX,
+  type SegmentAnalysis,
+  type ScoredCandidate,
+} from '../engine/scoring';
 import { classifyWindKind } from '../engine/wind';
 import type { GpxPoint, GpxTrack } from '../utils/gpx';
 import type { RibbonSegment, WindKind } from './components/ribbon';
@@ -11,9 +15,6 @@ import { windColor } from './windColors';
 // classifyWindKind now lives in engine/wind (shared with the WR-016 wind HUD); re-export for
 // existing WR-009 importers.
 export { classifyWindKind };
-
-/** Exposure at/below this reads as sheltered — the map/ribbon show it as the shelter hue (WR-019). */
-export const SHELTER_EXPOSURE_MAX = 0.6;
 
 /** A segment's display kind: shelter when it's inside cover, else its wind relationship. */
 export function segmentKind(sa: SegmentAnalysis): WindKind {

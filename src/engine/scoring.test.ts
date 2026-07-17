@@ -86,12 +86,13 @@ describe('WR-019 shelter-aware scoring', () => {
     expect(a.segments[0].wind.vParMs).toBeCloseTo(-8 * 0.35, 6); // headwind, scaled down
   });
 
-  it('a forest-sheltered headwind route outranks its exposed twin', () => {
+  it('a forest-sheltered headwind route outranks its exposed twin (synthetic grid)', () => {
     const inputs: CandidateWindInput[] = [
       { candidate: shelteredCandidate('exposed', 1.0), windBySegment: steadyWind(10, 3, 45) },
       { candidate: shelteredCandidate('sheltered', 0.35), windBySegment: steadyWind(10, 3, 45) },
     ];
-    const { ranked } = scoreCandidates(inputs, OPTS);
+    // hasShelterData:true — a real exposure grid covers these routes, so the shelter axis is live.
+    const { ranked } = scoreCandidates(inputs, { ...OPTS, hasShelterData: true });
     const sheltered = ranked.find((r) => r.candidate.id === 'sheltered')!;
     const exposed = ranked.find((r) => r.candidate.id === 'exposed')!;
     // All upwind time is sheltered vs none.
@@ -101,6 +102,19 @@ describe('WR-019 shelter-aware scoring', () => {
     expect(sheltered.evidence.shelteredEffWindMs).toBeCloseTo(8 * 0.35, 6);
     expect(sheltered.total).toBeGreaterThan(exposed.total);
     expect(ranked[0].candidate.id).toBe('sheltered');
+  });
+
+  it('does NOT differentiate on shelter without a grid (headwind presence is not shelter)', () => {
+    // A headwind and a tailwind candidate, both exposure 1.0, no shelter data → uniform 0.5 shelter
+    // so presence-of-headwind can't leak into the shelter axis.
+    const { ranked } = scoreCandidates(
+      [
+        { candidate: shelteredCandidate('hw', 1.0), windBySegment: steadyWind(10, 3, 45) }, // headwind
+        { candidate: shelteredCandidate('tw', 1.0), windBySegment: steadyWind(10, 3, 225) }, // tailwind
+      ],
+      OPTS, // hasShelterData defaults false
+    );
+    for (const r of ranked) expect(r.sub.shelter.normalized).toBe(0.5);
   });
 });
 

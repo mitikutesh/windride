@@ -29,6 +29,11 @@ export type SubScoreName =
 
 export type ScoringWeights = Record<SubScoreName, number>;
 
+/** Exposure at/below this counts as shelter (SCORING_SPEC §4; shared with the map/ribbon tint). */
+export const SHELTER_EXPOSURE_MAX = 0.6;
+/** Along-wind speeds within this of zero are treated as neither head- nor tailwind (float dust). */
+const V_PAR_EPS = 1e-6;
+
 // Weights (SCORING_SPEC §6). Shelter (.06) joined in Epic 3 (WR-019); Robustness (.10) is still
 // deferred to Epic 4, so the total renormalises over whatever weights are present (sum <1 by design).
 export const DEFAULT_WEIGHTS: ScoringWeights = {
@@ -57,6 +62,9 @@ export interface ScoreOptions {
   weights?: ScoringWeights;
   crossThresholdMs?: number;
   distanceTolerancePct?: number;
+  /** True only when a real exposure grid covered the routes; else the shelter axis stays uniform
+   *  so presence-of-headwind can't masquerade as shelter differentiation (WR-019). */
+  hasShelterData?: boolean;
 }
 
 export interface SegmentAnalysis {
@@ -288,18 +296,18 @@ function computeMetrics(a: CandidateAnalysis, opts: ScoreOptions): RawMetrics {
     trafficPenalty += sa.timeS * trafficWeight(sa.seg.wayClass);
     rainPenalty += sa.timeS * (sa.precipProb / 100);
 
-    if (sa.wind.vParMs < 0) {
+    if (sa.wind.vParMs < -V_PAR_EPS) {
       headwindKm += km;
       hwTime += sa.timeS;
       if (sa.startS + sa.timeS / 2 < half) hwFirst += sa.timeS;
       if (sa.wind.deltaDeg > 150) directHeadwindKm += km;
       // Shelter (§4): the fraction of upwind time spent hidden in shelter (exposure ≤ 0.6).
-      if (sa.seg.exposure <= 0.6) {
+      if (sa.seg.exposure <= SHELTER_EXPOSURE_MAX) {
         shelteredUpwindTime += sa.timeS;
         shelteredUpwindDist += sa.seg.lengthM;
         shelteredEffWindTimeWeighted += sa.timeS * sa.wind.effectiveMs;
       }
-    } else if (sa.wind.vParMs > 0) {
+    } else if (sa.wind.vParMs > V_PAR_EPS) {
       tailwindKm += km;
       if (sa.startS + sa.timeS / 2 >= half) tailwindFinishKm += km;
     }
@@ -396,7 +404,12 @@ export function scoreCandidates(inputs: CandidateWindInput[], opts: ScoreOptions
   const norm: Record<SubScoreName, number[]> = {
     wind: normalizeLower(metrics.map((m) => m.headwindPenalty)),
     safety: normalizeLower(metrics.map((m) => m.crossPenalty)),
-    shelter: normalizeHigher(metrics.map((m) => m.shelterShare)),
+    // Only differentiate on shelter when a real exposure grid covered the routes; otherwise every
+    // candidate is uniform so presence-of-headwind (raw 0 vs the neutral 0.5) can't masquerade as
+    // shelter (WR-019 review — DEC-025).
+    shelter: opts.hasShelterData
+      ? normalizeHigher(metrics.map((m) => m.shelterShare))
+      : metrics.map(() => 0.5),
     surface: normalizeHigher(metrics.map((m) => m.surfaceMatchShare)),
     traffic: normalizeLower(metrics.map((m) => m.trafficPenalty)),
     scenery: normalizeHigher(metrics.map((m) => m.sceneryShare)),

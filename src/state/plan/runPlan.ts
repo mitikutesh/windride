@@ -1,14 +1,14 @@
 /**
  * state/plan/runPlan.ts — the v0.1 planning pipeline (WR-008, ARCHITECTURE §5).
  *
- * inputs -> routing.generateCandidates (segmented) -> ONE weather call -> engine scoring ->
- * ranked candidates. Stores call adapters; the engine stays pure. v0.1 treats wind as spatially
- * uniform (exposure 1.0, shelter grid is Epic 3), so every segment shares the start's hourly
- * column — but the two-pass scoring still varies wind by time-of-arrival.
+ * inputs -> routing.generateCandidates (segmented) -> exposure fill (shelter grid) -> ONE weather
+ * call -> engine scoring -> ranked candidates. Stores call adapters; the engine stays pure. Wind is
+ * spatially uniform (every segment shares the start's hourly column), but per-segment exposure comes
+ * from the shelter grid (WR-019) and the two-pass scoring varies wind by time-of-arrival.
  */
 import type { Providers } from '../../adapters/registry';
 import { generateCandidates } from '../../adapters/routing/ors';
-import { exposureAt, loadExposureGrid } from '../../data/exposureGrid';
+import { exposureAt, loadExposureGrid, type DecodedGrid } from '../../data/exposureGrid';
 import type { LatLon } from '../../domain';
 import { resample, segmentMidpoint } from '../../engine/geometry';
 import {
@@ -56,6 +56,8 @@ export interface RunPlanOpts {
   /** Current epoch ms (injected; the engine is clock-free, the pipeline may read the clock). */
   now: number;
   onProgress?: (p: PlanProgress) => void;
+  /** Injectable shelter-grid loader (tests supply a synthetic grid; default loads the asset). */
+  loadGrid?: () => Promise<DecodedGrid | null>;
 }
 
 function forecastHours(distanceKm: number): number {
@@ -89,7 +91,7 @@ export async function runPlan(
 
   // Fill each segment's exposure factor from the shelter grid (midpoint lookup, WR-019). The grid
   // is a local static asset; when it's absent every lookup is neutral 1.0 (matches the default).
-  const grid = await loadExposureGrid();
+  const grid = await (opts.loadGrid ?? loadExposureGrid)();
   let shelterDataAvailable = false;
   for (const c of candidates) {
     for (const s of c.segments) {
@@ -137,6 +139,7 @@ export async function runPlan(
       minutesUntilSunset,
       startHourIndex: 0,
       weights,
+      hasShelterData: shelterDataAvailable,
     },
   );
 

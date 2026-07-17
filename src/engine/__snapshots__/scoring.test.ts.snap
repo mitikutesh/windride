@@ -4,15 +4,15 @@ exports[`scoreCandidates — golden ranking (SW 8 m/s steady) > is snapshot-lock
 [
   {
     "id": "A",
-    "total": 82,
+    "total": 79,
   },
   {
     "id": "C",
-    "total": 69,
+    "total": 66,
   },
   {
     "id": "B",
-    "total": 29,
+    "total": 32,
   },
 ]
 `;
