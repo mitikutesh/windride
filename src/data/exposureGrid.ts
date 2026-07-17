@@ -90,11 +90,18 @@ export async function loadExposureGrid(
   fetchFn: typeof fetch = fetch,
   url = '/data/exposure-uusimaa.json',
 ): Promise<DecodedGrid | null> {
+  let res: Response;
   try {
-    const res = await fetchFn(url);
-    if (!res.ok) return null;
-    return decodeExposureGrid((await res.json()) as ExposureGridFile);
+    res = await fetchFn(url);
   } catch {
-    return null; // asset absent or unreadable — neutral exposure everywhere
+    return null; // offline / no asset — neutral exposure everywhere
+  }
+  if (!res.ok) return null; // 404: grid not generated yet
+  try {
+    return decodeExposureGrid((await res.json()) as ExposureGridFile);
+  } catch (e) {
+    // A present-but-corrupt grid is a real bug (bad manual run) — warn rather than silently neutral.
+    console.warn('exposureGrid: failed to decode grid asset, using neutral exposure', e);
+    return null;
   }
 }

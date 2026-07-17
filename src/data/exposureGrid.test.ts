@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import golden from '../../fixtures/exposure/golden-grid.json';
 import {
   decodeExposureGrid,
   exposureAt,
@@ -52,13 +53,29 @@ describe('exposureAt', () => {
     expect(exposureAt(g, 60.003, 24.005).factor).toBeCloseTo(byteToFactor(191), 6);
   });
 
-  it('returns neutral 1.0 out of region (west, and north of the grid)', () => {
-    expect(exposureAt(g, 60.001, 23.999)).toEqual({ factor: 1.0, inRegion: false });
-    expect(exposureAt(g, 60.05, 24.005)).toEqual({ factor: 1.0, inRegion: false });
+  it('reads the NE-corner cell (row 1, col 2)', () => {
+    expect(exposureAt(g, 60.003, 24.009).factor).toBeCloseTo(byteToFactor(100), 6);
+  });
+
+  it('returns neutral 1.0 out of region on every side', () => {
+    expect(exposureAt(g, 60.001, 23.999)).toEqual({ factor: 1.0, inRegion: false }); // west
+    expect(exposureAt(g, 60.001, 24.02)).toEqual({ factor: 1.0, inRegion: false }); // east
+    expect(exposureAt(g, 59.99, 24.005)).toEqual({ factor: 1.0, inRegion: false }); // south
+    expect(exposureAt(g, 60.05, 24.005)).toEqual({ factor: 1.0, inRegion: false }); // north
   });
 
   it('returns neutral 1.0 for a null grid (asset not generated)', () => {
     expect(exposureAt(null, 60.001, 24.001)).toEqual({ factor: 1.0, inRegion: false });
+  });
+});
+
+describe('golden grid (cross-language contract with the Python writer)', () => {
+  it('decodes the committed golden fixture that build_grid.py reproduces', () => {
+    // classify.pack_factors_b64 emits this exact base64 for the same factors (test_classify.py).
+    const g = decodeExposureGrid(golden as ExposureGridFile);
+    expect(Array.from(g.bytes)).toEqual([0, 128, 255, 64, 191, 100]);
+    expect(exposureAt(g, 60.001, 24.001).factor).toBeCloseTo(0.35, 6); // SW cell, byte 0
+    expect(exposureAt(g, 60.003, 24.009).factor).toBeCloseTo(byteToFactor(100), 6); // NE cell
   });
 });
 

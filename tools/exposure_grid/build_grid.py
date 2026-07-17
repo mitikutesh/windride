@@ -15,12 +15,12 @@ NEVER run in CI (network + heavy). This is a manual preprocessing step; commit t
 from __future__ import annotations
 
 import argparse
-import base64
 import json
 import math
 from pathlib import Path
 
 import numpy as np
+from shapely import union_all
 from shapely.geometry import box
 from shapely.strtree import STRtree
 
@@ -30,7 +30,7 @@ from classify import (
     OPEN_FACTOR,
     category_for_tags,
     cell_factor,
-    quantize,
+    pack_factors_b64,
 )
 
 M_PER_DEG_LAT = 111_320.0
@@ -47,6 +47,7 @@ def load_polygons(region: str | None, pbf: str | None):
 
     features = []  # (category, shapely geometry)
     water = []
+    seen: set = set()  # dedupe features shared across GDFs (e.g. landuse=forest + natural=wood)
     for gdf in (landuse, natural):
         if gdf is None:
             continue
@@ -54,7 +55,16 @@ def load_polygons(region: str | None, pbf: str | None):
             geom = row.geometry
             if geom is None or geom.is_empty:
                 continue
-            tags = {k: row[k] for k in ("landuse", "natural", "leisure") if k in row and row[k]}
+            oid = row.get("id")
+            if oid is not None and oid in seen:
+                continue
+            if oid is not None:
+                seen.add(oid)
+            tags = {
+                k: row[k]
+                for k in ("landuse", "natural", "leisure")
+                if isinstance(row.get(k), str)
+            }
             cat = category_for_tags(tags)
             if cat == "water":
                 water.append(geom)
@@ -92,11 +102,15 @@ def build(features, water, bbox, cell_m: float):
 
             areas: dict[str, float] = {}
             if not touches_water and feat_tree is not None:
+                # Union each category's intersections before measuring area, so overlapping
+                # same-category polygons aren't double-counted (BLOCKER: forest+wood duplicates).
+                per_cat: dict[str, list] = {}
                 for i in feat_tree.query(cell):
-                    cat = features[i][0]
-                    inter = feat_geoms[i].intersection(cell).area
-                    if inter > 0:
-                        areas[cat] = areas.get(cat, 0.0) + inter
+                    inter = feat_geoms[i].intersection(cell)
+                    if not inter.is_empty:
+                        per_cat.setdefault(features[i][0], []).append(inter)
+                for cat, geoms in per_cat.items():
+                    areas[cat] = union_all(geoms).area
 
             factors[r, c] = cell_factor(areas, cell_area, touches_water)
 
@@ -110,18 +124,20 @@ def build(features, water, bbox, cell_m: float):
     }
 
 
-def write_json(factors: np.ndarray, meta: dict, out: Path) -> None:
-    rows, cols = factors.shape
-    packed = bytes(quantize(float(factors[r, c])) for r in range(rows) for c in range(cols))
+def write_json(factors, meta: dict, out: Path) -> None:
+    rows = len(factors)
+    cols = len(factors[0]) if rows else 0
     doc = {
         "version": 1,
         **meta,
         "quant": {"min": FACTOR_MIN, "max": FACTOR_MAX},
-        "factorsB64": base64.b64encode(packed).decode("ascii"),
+        # factors[r][c] works for both a numpy 2-D array and a list of lists.
+        "factorsB64": pack_factors_b64([[factors[r][c] for c in range(cols)] for r in range(rows)]),
     }
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(doc, separators=(",", ":")) + "\n")
-    print(f"wrote {out} ({rows}x{cols} cells, {len(packed) / 1e6:.2f} MB packed)")
+    size_mb = out.stat().st_size / 1e6  # budget is on the JSON, not the raw bytes
+    print(f"wrote {out} ({rows}x{cols} cells, {size_mb:.2f} MB JSON)")
 
 
 def main() -> None:

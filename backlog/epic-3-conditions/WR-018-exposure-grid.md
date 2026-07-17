@@ -84,3 +84,58 @@ Runtime wiring into scoring (WR-019).
 - **Test counts:** `test_classify.py` 6 (Python, run manually via `pytest`, not part of the JS
   suite/CI), `exposureGrid.test.ts` 9 (new); **263 tests total in the JS suite, lint clean, build
   OK.**
+
+## Fable 5 review pass — fixes
+
+A Fable 5 review of this story returned REQUEST-CHANGES. All findings below are now fixed and
+the gate is green.
+
+- **BLOCKER 1 — overlap double-counting (data corruption), fixed three ways:** a feature tagged
+  both `landuse=forest` and `natural=wood` was being counted once in the landuse GDF and once in
+  the natural GDF, so a pure-forest cell read `0.70` instead of the correct `0.35` — every
+  overlapping same-category feature silently inflated its own factor. Fixed by (1)
+  `load_polygons` deduping features by OSM id across the landuse/natural GDFs before they ever
+  reach the rasterizer, (2) `build()` unioning each category's per-cell intersections (shapely
+  `union_all`) before measuring area, so same-category overlaps within a cell no longer
+  double-count, and (3) `classify.cell_factor` now normalizes when the classified area exceeds
+  the cell area — dividing by the classified total instead of padding with open space — so
+  cross-category overlaps (e.g. a park fully over a residential cell) stay within the
+  contributing categories' factor range instead of blowing past the `1.15` ceiling. Added a
+  `cell_factor` overlap test: park `0.50` fully over residential `0.60` → `0.55`.
+- **SHOULD-FIX 2 — open sea was invisible, breaking the coastal spot-check:** Geofabrik ships no
+  sea polygon; the coast is `natural=coastline` LineStrings, which `category_for_tags` mapped to
+  `None`, so coastal cells never tripped the `1.15` water-adjacency override — failing the
+  story's own coastal spot-check requirement. Fixed: `category_for_tags` now maps
+  `natural=coastline` to `water` (a LineString still `.intersects` a cell, so adjacency still
+  works with no polygon needed). Also reclassified `natural=wetland` out of `water` into `open`
+  — exposed low cover isn't water and conflating them was a latent NIT. Added classifier tests
+  for both.
+- **SHOULD-FIX 3 — no cross-language golden pinning writer and reader:** nothing guarded the
+  Python writer's byte order/quantization against the JS reader silently drifting apart (the
+  quiet-corruption failure class). Fixed: added `classify.pack_factors_b64` as the one stdlib-only
+  packing contract, a Python test asserting the golden base64 string `"AID/QL9k"` for a known
+  2×3 factor grid, a committed `fixtures/exposure/golden-grid.json`, and a JS test that decodes
+  that same fixture and asserts the cell factors — writer and reader are now pinned to one shared
+  golden instead of two independent implementations that happened to agree.
+- **SHOULD-FIX 4 — `exposureGrid.ts` fetches directly (adapters-only fetch rule):** recorded as
+  **DEC-023** (`docs/DECISIONS.md`) — first-party static asset reads under `src/data` are exempt
+  from the adapters-only fetch rule (ARCHITECTURE §2); live third-party APIs are unaffected and
+  still go through adapters.
+- **SHOULD-FIX 5 — Status DONE with the JSON-generation acceptance sub-point unmet:** recorded as
+  **DEC-024** (`docs/DECISIONS.md`) — the real `public/data/exposure-uusimaa.json` build is
+  deferred (no network to Geofabrik this session) and degrades to neutral `1.0` until run. This
+  is also tracked as an explicit follow-up so it can't rot: the **Follow-up** bullet in the Log
+  above (record the actual runtime, output file size, and the three spot-checks) stays open, and
+  WR-019 (shelter-aware effective wind) is blocked on real data from that manual run.
+- **NITs addressed:** `loadExposureGrid` now `console.warn`s on a present-but-unparseable
+  (corrupt) grid, so that failure mode is distinguishable from a merely absent asset;
+  `build_grid.py` now prints the real JSON file size (`st_size`) instead of the raw packed byte
+  count; `write_json` accepts a plain list-of-lists so the packer stays numpy-free and directly
+  testable; `.gitignore` now ignores `.venv/`, `__pycache__/`, `.pytest_cache/`, and `*.pyc`;
+  added JS out-of-region tests on all four sides plus the NE-corner cell.
+- **NITs deferred (noted, not blocking):** `pyrosm`/numpy 2.x install compatibility — verify at
+  the first real run; the per-cell pure-Python loop is slow (~hours over the full Uusimaa
+  extract) — vectorize later if it becomes a problem; the wetland minimum-area threshold —
+  revisit once real spot-checks are available.
+- **Gate:** 265 tests, lint clean, build OK. `build_grid.py` still needs a manual, offline run
+  to produce the real `public/data/exposure-uusimaa.json` (DEC-024) — nothing above changes that.

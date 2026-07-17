@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "origin": { "lat": 60, "lon": 24 },
+  "dLat": 0.002,
+  "dLon": 0.004,
+  "cols": 3,
+  "rows": 2,
+  "cellSizeM": 250,
+  "quant": { "min": 0.35, "max": 1.15 },
+  "factorsB64": "AID/QL9k"
+}

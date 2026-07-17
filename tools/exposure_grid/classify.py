@@ -7,6 +7,8 @@ category areas into a single exposure factor. Keep it simple — accuracy improv
 
 from __future__ import annotations
 
+import base64
+
 # Exposure factor per land-cover category (config; defaults from the story).
 CATEGORY_FACTOR: dict[str, float] = {
     "forest": 0.35,     # dense forest — most sheltered
@@ -34,8 +36,10 @@ def category_for_tags(tags: dict[str, str]) -> str | None:
 
     if natural == "wood" or landuse == "forest":
         return "forest"
-    if natural in ("water", "bay", "strait", "wetland") or landuse in ("reservoir", "basin"):
-        # Wetlands/water bodies count as water for adjacency; open water handled by the builder.
+    if natural in ("water", "bay", "strait", "coastline") or landuse in ("reservoir", "basin"):
+        # Water bodies + the sea coastline (a line, but .intersects still flags adjacency) drive the
+        # 1.15 water-adjacency override. Geofabrik extracts have no sea polygon, so coastline is how
+        # the open coast gets detected.
         return "water"
     if landuse == "residential":
         return "suburban"
@@ -46,6 +50,7 @@ def category_for_tags(tags: dict[str, str]) -> str | None:
         "heath",
         "scrub",
         "fell",
+        "wetland",  # low, open cover — exposed, not sheltered (and not "water")
     ):
         return "open"
     if leisure in ("park", "garden", "pitch"):
@@ -70,8 +75,23 @@ def cell_factor(
     weighted = sum(
         area * CATEGORY_FACTOR.get(cat, OPEN_FACTOR) for cat, area in category_areas.items()
     )
-    weighted += max(0.0, cell_area - classified) * OPEN_FACTOR  # unclassified → open
+    if classified > cell_area:
+        # Overlapping categories (e.g. a park polygon inside a residential one) report more area
+        # than the cell holds — normalise to a weighted mean over the classified area (no open pad)
+        # so the result stays within the categories' factor range instead of blowing past 1.15.
+        return weighted / classified
+    weighted += (cell_area - classified) * OPEN_FACTOR  # unclassified → open
     return weighted / cell_area
+
+
+def pack_factors_b64(rows_of_factors) -> str:
+    """Quantise a 2-D iterable of factors (row-major from SW) to bytes and base64-encode.
+
+    The cross-language contract with src/data/exposureGrid.ts — kept stdlib-only so it's unit-tested
+    without numpy/shapely. Order MUST stay row 0 = southmost, col 0 = westmost.
+    """
+    packed = bytes(quantize(float(f)) for row in rows_of_factors for f in row)
+    return base64.b64encode(packed).decode("ascii")
 
 
 def quantize(factor: float) -> int:
