@@ -8,6 +8,7 @@
  */
 import type { Providers } from '../../adapters/registry';
 import { generateCandidates } from '../../adapters/routing/ors';
+import { activeSpeedSettings } from '../calibrationStore';
 import { exposureAt, loadExposureGrid, type DecodedGrid } from '../../data/exposureGrid';
 import type { LatLon } from '../../domain';
 import { resample, segmentMidpoint } from '../../engine/geometry';
@@ -149,6 +150,8 @@ export async function runPlan(
     prefersSurface: (inputs.surface === 'gravel' ? 'gravel' : 'paved') as 'gravel' | 'paved',
     weights,
     hasShelterData: shelterDataAvailable,
+    // The owner's calibrated speed model when applied, else the default (WR-024).
+    speed: activeSpeedSettings(),
   };
 
   const { ranked, rejected } = scoreCandidates(windInputs, {

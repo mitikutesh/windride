@@ -23,6 +23,8 @@ import { summarizeRide } from './rideSummary';
 export interface RideFinish {
   gpx: string;
   summary: RideSummary;
+  /** The recorded points — WR-024 calibration buckets them against the planned analysis. */
+  points: GpxPoint[];
 }
 
 const EMPTY_SUMMARY: RideSummary = { distanceM: 0, elapsedS: 0, movingS: 0, avgSpeedMs: 0 };
@@ -47,7 +49,7 @@ export const nullRecorder: RideRecorder = {
   pause: () => {},
   resume: () => {},
   flush: () => Promise.resolve(),
-  finish: () => Promise.resolve({ gpx: '', summary: EMPTY_SUMMARY }),
+  finish: () => Promise.resolve({ gpx: '', summary: EMPTY_SUMMARY, points: [] }),
   lastError: null,
 };
 
@@ -135,7 +137,7 @@ export class IdbRideRecorder implements RideRecorder {
     const finishedAt = this.lastPointMs() ?? this.opts.startedAt;
     this.enqueue(() => updateRide(this.opts.rideId, { status: 'finished', finishedAt, summary }));
     await this.writeChain;
-    return { gpx: toGpx({ name: this.opts.name, points: this.all }), summary };
+    return { gpx: toGpx({ name: this.opts.name, points: this.all }), summary, points: this.all };
   }
 
   private lastPointMs(): number | undefined {
@@ -169,5 +171,5 @@ export async function saveUnfinishedRide(ride: RecordedRide): Promise<RideFinish
     finishedAt: Number.isFinite(finishedAt) ? finishedAt : ride.startedAt,
     summary,
   });
-  return { gpx: toGpx({ name: ride.name, points }), summary };
+  return { gpx: toGpx({ name: ride.name, points }), summary, points };
 }

@@ -41,7 +41,7 @@ Test contract · Technical notes · Out of scope · Log.
 | WR-021 | Gust-exposure safety flags | 019 | S | DONE |
 | WR-022 | Feels-like elevation chart | 009 | M | DONE |
 | WR-023 | Strava upload (single-player OAuth, GPX push) | 017 | M | DONE |
-| WR-024 | Speed-model calibration from recorded rides | 017 | M | TODO |
+| WR-024 | Speed-model calibration from recorded rides | 017 | M | DONE |
 
 ## Epic 4 · Signature (v0.4)
 | ID | Story | Deps | Size | Status |

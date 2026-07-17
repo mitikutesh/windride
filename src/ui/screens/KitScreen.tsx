@@ -8,6 +8,7 @@ import {
   WindRibbon,
   type RibbonSegment,
 } from '../components';
+import { CalibrationSettings } from '../components/CalibrationSettings';
 import { StravaSettings } from '../components/StravaSettings';
 
 // Dev-only replay panel (WR-012). The conditional dynamic import is dead-code-eliminated from
@@ -72,6 +73,9 @@ export function KitScreen() {
 
       <h2>Toggle</h2>
       <Toggle checked={dark} onChange={setDark} label="Home before dark" />
+
+      <h2>Speed-model calibration</h2>
+      <CalibrationSettings />
 
       <h2>Strava (upload-only)</h2>
       <StravaSettings />

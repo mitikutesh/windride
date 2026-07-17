@@ -11,6 +11,7 @@ import {
   type RideRecorder,
 } from '../../nav/recorder';
 import { RideController, type RideState } from '../../nav/rideController';
+import { useCalibrationStore } from '../../state/calibrationStore';
 import { useResultsStore } from '../../state/resultsStore';
 import { useRidesStore } from '../../state/ridesStore';
 import { gpxFilename } from '../../utils/gpx';
@@ -141,12 +142,19 @@ export function RideScreen() {
   const end = useCallback(() => {
     sourceRef.current?.stop();
     controllerRef.current?.pause();
-    void recorderRef.current.finish().then(({ gpx, summary }) => {
+    const analysis = scored?.analysis;
+    void recorderRef.current.finish().then(({ gpx, summary, points }) => {
       downloadGpx(gpx, summary.distanceM);
+      // Feed the finished ride to speed-model calibration (WR-024). Aggregates only; the owner
+      // must apply any resulting model explicitly from Settings — planning never changes silently.
+      if (analysis)
+        useCalibrationStore
+          .getState()
+          .recordRide(analysis, points, analysis.totalTimeS, summary.movingS);
       void refreshRides();
     });
     setStatus('ended');
-  }, [refreshRides]);
+  }, [refreshRides, scored]);
 
   const saveUnfinished = useCallback(() => {
     if (!unfinished) return;
