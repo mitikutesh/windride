@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import cleanLoop from '../../../fixtures/traces/clean-loop.gpx?raw';
 import figureEight from '../../../fixtures/traces/figure-eight.gpx?raw';
 import offRoute from '../../../fixtures/traces/off-route.gpx?raw';
@@ -26,6 +26,9 @@ export default function DevReplayPanel() {
   const [count, setCount] = useState(0);
   const [running, setRunning] = useState(false);
   const sourceRef = useRef<ReplaySource | null>(null);
+
+  // Stop the replay if the panel unmounts mid-stream (otherwise timers fire on a dead component).
+  useEffect(() => () => sourceRef.current?.stop(), []);
 
   const start = () => {
     sourceRef.current?.stop();

@@ -65,3 +65,50 @@ within the ±10% contract; all fixes emitted in order). 167 tests passing; lint 
 
 No open follow-ups; off-route/self-crossing *handling* (snap, cues, reroute) is explicitly out
 of scope here and lands in WR-013/WR-015 against these same traces.
+
+## Fable 5 review pass — fixes
+
+A Fable 5 review found SHOULD-FIX items (no blockers). All addressed:
+
+- **Endpoint closure (the headline bug).** `walkPolyline` was accumulating float distance
+  along the polyline and stopping once that accumulator reached the target, so replayed
+  loops/traces landed ~3.7–5.2 m short of the true route endpoint instead of closing exactly.
+  That gap would have corrupted WR-013's loop-closure and finish-detection ground truth (a
+  "closed loop" that never quite closes). Rewrote it to index-based iteration that emits the
+  exact final route vertex on the last step, eliminating drift. All three fixture traces were
+  regenerated against the fixed walker (576→577, 628→629, 1131→1132 fixes — the corrected
+  endpoint adds one fix each). The endpoint test is tightened from an approximate check to
+  near-exact.
+- **`FixSource` seam hardened for WR-013.** `start(onFix, onError?)` now carries an optional
+  error channel, and `Fix` gained optional `accuracy`/`heading` fields. This freezes the
+  interface shape so WR-013's `watchPosition`-backed source (permission denied, position
+  unavailable, timeout errors; accuracy-based gating) can implement against it with zero
+  breaking changes later. `ReplaySource.start` accepts `onError` for interface compatibility;
+  replay is deterministic and never errors, so it's simply unused there.
+- **1 Hz time synthesis for timeless GPX.** `parseTraceToFixes` previously collapsed every fix
+  in a trace lacking `<time>` elements to epoch 0, which would replay as an instantaneous dump
+  of out-of-order fixes rather than a timed stream. It now synthesises a 1 Hz timeline so
+  timeless traces replay sanely.
+- **Route-polyline sidecars for snap ground truth.** `gen-traces` now also writes the
+  underlying polylines to `fixtures/traces/{clean-loop,off-route,figure-eight}-route.json`.
+  Previously the figure-eight and off-route route shapes existed only inside the generator
+  script; WR-013's snap tests need the actual route geometry (not just the walked fix
+  sequence) as ground truth, so it's now a checked-in fixture.
+- **`DevReplayPanel` unmount cleanup.** Added a `useEffect` cleanup that stops the
+  `ReplaySource` on unmount, so navigating away from the panel mid-replay no longer leaves
+  timers firing against a dead component.
+- **Replay CLI validation + determinism.** `scripts/replay.ts` now validates `--speed` and
+  `--jitter` (rejects `NaN`/`<= 0`) instead of silently misbehaving, and adds a `--seed` flag
+  for deterministic jitter reproduction from the terminal.
+- **New tests.** A fixture-contract test asserts exact fix counts, clean-loop closure, that
+  the off-route trace peaks at ~300 m from the clean route (via turf `pointToLineDistance`)
+  and returns, and that the figure-eight self-crosses. A real-timer timing test asserts
+  emission lands within ±10% of wall-clock at 20× — the timing contract was previously only
+  checked against a mocked scheduler, not real timers.
+- **Deferred NITs (intentionally not fixed).** `ReplaySource` schedules one `setTimeout` per
+  fix upfront; fine at these fixture sizes, but a chained single-timer approach would scale
+  better and would allow mid-run speed changes — left as a future improvement if traces grow
+  much longer. The small `.wr-devpanel` CSS block ships in the production stylesheet since
+  CSS isn't tree-shaken by route/env like the JS import is; harmless (a few bytes) but noted.
+
+Gate green after fixes: 172 tests passing (was 167), lint clean, build clean.

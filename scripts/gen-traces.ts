@@ -20,7 +20,7 @@ const loop: LatLon[] = geo.features[0].geometry.coordinates.map((c: number[]) =>
   lon: c[0],
 }));
 
-/** Insert a ~300 m out-and-back spur perpendicular to the route near the given vertex. */
+/** Insert a ~300 m perpendicular detour (vertex -> spur -> next vertex) near ~40% along the route. */
 function offRoutePolyline(base: LatLon[]): LatLon[] {
   const k = Math.floor(base.length * 0.4);
   const a = base[k];
@@ -71,5 +71,8 @@ for (const [name, polyline] of traces) {
   });
   const out = `fixtures/traces/${name}.gpx`;
   writeFileSync(out, xml);
-  console.log(`wrote ${out} (${fixes.length} fixes)`);
+  // Also persist the underlying route polyline so WR-013 snap tests have ground-truth progress
+  // (the figure-eight/off-route polylines exist only here, not in any route fixture).
+  writeFileSync(`fixtures/traces/${name}-route.json`, JSON.stringify(polyline) + '\n');
+  console.log(`wrote ${out} (${fixes.length} fixes) + ${name}-route.json`);
 }

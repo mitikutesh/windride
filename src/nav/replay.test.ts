@@ -24,7 +24,9 @@ describe('walkPolyline', () => {
     for (let i = 1; i < fixes.length; i++) {
       expect(Date.parse(fixes[i].time)).toBeGreaterThan(Date.parse(fixes[i - 1].time));
     }
-    expect(fixes[fixes.length - 1].lat).toBeCloseTo(60.01, 4); // ends at the last point
+    // Ends EXACTLY at the last point (so loops close) even when total isn't a multiple of step.
+    expect(fixes[fixes.length - 1].lat).toBeCloseTo(60.01, 9);
+    expect(fixes[fixes.length - 1].lon).toBeCloseTo(24, 9);
   });
 });
 
@@ -86,5 +88,23 @@ describe('ReplaySource timing', () => {
     expect(scheduled.map((s) => s.ms)).toEqual([0, 100, 200]);
     scheduled.forEach((s) => s.cb());
     expect(got.map((f) => f.lat)).toEqual([60, 60.001, 60.002]);
+  });
+
+  it('emits with real timers within ±10% wall-clock at 20x', async () => {
+    const fixes: Fix[] = [
+      { lat: 60, lon: 24, time: '2026-07-10T09:00:00.000Z' },
+      { lat: 60, lon: 24, time: '2026-07-10T09:00:02.000Z' }, // 2 s later => 100 ms at 20x
+    ];
+    const source = new ReplaySource(fixes, { speed: 20 });
+    const t0 = performance.now();
+    const last = await new Promise<number>((resolve) => {
+      let n = 0;
+      source.start(() => {
+        n += 1;
+        if (n === fixes.length) resolve(performance.now() - t0);
+      });
+    });
+    expect(last).toBeGreaterThan(80); // ~100 ms, within ±10% plus scheduler slack
+    expect(last).toBeLessThan(160);
   });
 });

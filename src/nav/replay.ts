@@ -37,7 +37,8 @@ function gauss(rng: () => number): number {
 export function parseTraceToFixes(xml: string): Fix[] {
   const pts = fromGpx(xml);
   return pts.map((p, i) => {
-    const fix: Fix = { lat: p.lat, lon: p.lon, time: p.time ?? new Date(0).toISOString() };
+    // Missing <time> => synthesise a 1 Hz timeline so a timeless GPX still replays in order.
+    const fix: Fix = { lat: p.lat, lon: p.lon, time: p.time ?? new Date(i * 1000).toISOString() };
     if (p.ele !== undefined) fix.ele = p.ele;
     if (i > 0 && p.time && pts[i - 1].time) {
       const dt = (Date.parse(p.time) - Date.parse(pts[i - 1].time!)) / 1000;
@@ -69,20 +70,23 @@ export function walkPolyline(points: LatLon[], opts: WalkOptions = {}): Fix[] {
   const total = cum[cum.length - 1];
   const step = speedMs / hz;
 
-  const fixes: Fix[] = [];
-  for (let d = 0; d <= total + 1e-6; d += step) {
-    const dd = Math.min(d, total);
+  const fixAt = (dd: number): Fix => {
     let i = 0;
     while (i < cum.length - 1 && cum[i + 1] < dd) i++;
     const span = cum[i + 1] - cum[i] || 1;
     const t = (dd - cum[i]) / span;
-    fixes.push({
+    return {
       lat: points[i].lat + (points[i + 1].lat - points[i].lat) * t,
       lon: points[i].lon + (points[i + 1].lon - points[i].lon) * t,
       time: new Date(start + (dd / speedMs) * 1000).toISOString(),
       speed: speedMs,
-    });
-  }
+    };
+  };
+
+  const fixes: Fix[] = [];
+  // Index-based (no float accumulation); always finish with the EXACT endpoint so loops close.
+  for (let k = 0; k * step < total - 1e-6; k++) fixes.push(fixAt(k * step));
+  fixes.push(fixAt(total));
   return fixes;
 }
 
@@ -130,7 +134,8 @@ export class ReplaySource implements FixSource {
     this.clearTimeoutFn = opts.clearTimeoutFn ?? ((id) => clearTimeout(id));
   }
 
-  start(handler: (fix: Fix) => void): void {
+  // onError is part of the FixSource contract; replay never errors, so it is accepted and unused.
+  start(handler: (fix: Fix) => void, _onError?: (error: Error) => void): void {
     this.stop();
     if (this.fixes.length === 0) return;
     const t0 = Date.parse(this.fixes[0].time);
