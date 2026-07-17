@@ -84,6 +84,7 @@ function scoredWith(evidence: Partial<Evidence>): ScoredCandidate {
   const sub = {} as ScoredCandidate['sub'];
   for (const n of [
     'wind',
+    'robustness',
     'safety',
     'shelter',
     'surface',
@@ -111,6 +112,7 @@ function scoredWith(evidence: Partial<Evidence>): ScoredCandidate {
     headwindFirstHalfShare: 0.5,
     shelteredUpwindKm: 0,
     shelteredEffWindMs: 0,
+    robustnessSpreadMs: 0,
     ...evidence,
   };
   const c = candidate('x', 45);

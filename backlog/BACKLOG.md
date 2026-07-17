@@ -46,7 +46,7 @@ Test contract · Technical notes · Out of scope · Log.
 ## Epic 4 · Signature (v0.4)
 | ID | Story | Deps | Size | Status |
 |---|---|---|---|---|
-| WR-025 | Forecast-robustness sub-score (±30°) | 007 | S | TODO |
+| WR-025 | Forecast-robustness sub-score (±30°) | 007 | S | DONE |
 | WR-026 | Downwind one-ways + Digitransit return ranking | 011 | L | TODO |
 | WR-027 | Winter/Nordic mode | 020 | M | TODO |
 | WR-028 | Novelty score (ridden-edges geohash set) | 017 | M | TODO |

@@ -1,4 +1,4 @@
-import type { ScoredCandidate } from '../../engine/scoring';
+import { ROBUST_SPREAD_THRESHOLD_MS, type ScoredCandidate } from '../../engine/scoring';
 import { formatDurationHM } from '../../utils/units';
 import { routeToRibbon } from '../routeGeo';
 import { ScoreRing } from './ScoreRing';
@@ -54,6 +54,21 @@ export function RouteCard({ scored, rank, selected, onSelect }: RouteCardProps) 
           ⚠ {e.gustyKm.toFixed(1)} km exposed crosswind, gusts {Math.round(e.maxGustMs)} m/s
         </p>
       ) : null}
+
+      {(() => {
+        // Forecast-robustness marker (WR-025): how much worse the ride gets if the wind is 30° off.
+        const robust = e.robustnessSpreadMs < ROBUST_SPREAD_THRESHOLD_MS;
+        return (
+          <p
+            className={`wr-card__robust ${robust ? 'is-robust' : 'is-fragile'}`}
+            role="note"
+            title="How much extra effective headwind if the forecast direction is 30° off"
+          >
+            {robust ? '✓ robust' : '△ fragile'} · ±30° forecast: +{e.robustnessSpreadMs.toFixed(1)}{' '}
+            m/s
+          </p>
+        );
+      })()}
 
       <WindRibbon segments={routeToRibbon(scored)} height={12} />
       <p className="wr-card__explain">{scored.explanation}</p>

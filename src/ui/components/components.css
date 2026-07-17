@@ -511,6 +511,19 @@
   font-weight: 600;
 }
 
+/* Forecast-robustness marker (WR-025). */
+.wr-card__robust {
+  margin: var(--space-1) 0 0;
+  font-size: var(--fs-small);
+  font-weight: 600;
+}
+.wr-card__robust.is-robust {
+  color: var(--tail);
+}
+.wr-card__robust.is-fragile {
+  color: var(--head);
+}
+
 /* --- FeelsChart (WR-022) -------------------------------------------------------------- */
 .wr-feels {
   margin: 0;

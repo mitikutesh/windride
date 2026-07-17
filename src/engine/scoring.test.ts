@@ -176,6 +176,66 @@ describe('scoreCandidates — golden ranking (SW 8 m/s steady)', () => {
   });
 });
 
+describe('WR-025 forecast robustness (±30°)', () => {
+  /** A closed 12-gon: bearings 0,30,…330 — the delta multiset is invariant under a 30° wind shift. */
+  function circleCandidate(id: string, n = 12): CandidateRoute {
+    return {
+      id,
+      polyline: [
+        { lat: 60, lon: 24 },
+        { lat: 60.1, lon: 24.1 },
+      ],
+      segments: Array.from({ length: n }, (_v, i) => seg((i * 360) / n)),
+      distanceM: n * 1000,
+      ascentM: 0,
+      steps: [],
+    };
+  }
+
+  it('symmetric loop: robustness ≈ WindComfort (rotation-invariant), spread ≈ 0', () => {
+    const c = circleCandidate('loop', 12);
+    const { ranked } = scoreCandidates([{ candidate: c, windBySegment: steadyWind(12, 3, 200) }], {
+      ...OPTS,
+      targetDistanceM: 12_000,
+    });
+    const loop = ranked[0];
+    // Worst-case (min WindComfort) equals the forecast penalty for a rotation-symmetric loop.
+    expect(loop.sub.robustness.raw).toBeCloseTo(loop.sub.wind.raw, 5);
+    expect(loop.evidence.robustnessSpreadMs).toBeCloseTo(0, 5);
+  });
+
+  it('demotes a fragile route below a slightly-worse-but-robust one', () => {
+    // fragile: bearing 135 into a SW wind ⇒ pure crosswind at forecast (zero headwind, "great"),
+    //          but a −30° shift swings it to a 120° headwind — it collapses.
+    // robust: bearing 100 ⇒ tailwind at forecast and still headwind-free at ±30°, but it's a touch
+    //          short of target (9 km vs 10 km) so its DISTANCE score is slightly worse.
+    const fragile = candidate('fragile', 135, 10); // 10 km, on target
+    const robust = candidate('robust', 100, 9); // 9 km, slightly short
+    const { ranked } = scoreCandidates(
+      [
+        { candidate: fragile, windBySegment: steadyWind(10, 3, 225) },
+        { candidate: robust, windBySegment: steadyWind(9, 3, 225) },
+      ],
+      OPTS,
+    );
+
+    const f = ranked.find((r) => r.candidate.id === 'fragile')!;
+    const r = ranked.find((r) => r.candidate.id === 'robust')!;
+    // Both are headwind-free at the exact forecast (WindComfort ties)...
+    expect(f.sub.wind.raw).toBeCloseTo(0, 6);
+    expect(r.sub.wind.raw).toBeCloseTo(0, 6);
+    // ...but the fragile one collapses under a wrong forecast, the robust one does not.
+    expect(f.evidence.robustnessSpreadMs).toBeGreaterThan(1);
+    expect(r.evidence.robustnessSpreadMs).toBeCloseTo(0, 6);
+    expect(r.sub.robustness.normalized).toBeGreaterThan(f.sub.robustness.normalized);
+    // Robustness outweighs the fragile route's small distance edge: robust ranks first.
+    expect(ranked[0].candidate.id).toBe('robust');
+    expect(
+      ranked.map((x) => ({ id: x.candidate.id, total: Math.round(x.total) })),
+    ).toMatchSnapshot();
+  });
+});
+
 describe('scoreCandidates — hard constraints (§5)', () => {
   it('rejects routes outside ±15% of the target distance', () => {
     const { rejected, ranked } = scoreCandidates(

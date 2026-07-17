@@ -18,6 +18,7 @@ import {
 
 export type SubScoreName =
   | 'wind'
+  | 'robustness'
   | 'safety'
   | 'shelter'
   | 'surface'
@@ -35,10 +36,12 @@ export const SHELTER_EXPOSURE_MAX = 0.6;
 /** Along-wind speeds within this of zero are treated as neither head- nor tailwind (float dust). */
 const V_PAR_EPS = 1e-6;
 
-// Weights (SCORING_SPEC §6). Shelter (.06) joined in Epic 3 (WR-019); Robustness (.10) is still
-// deferred to Epic 4, so the total renormalises over whatever weights are present (sum <1 by design).
+// Weights (SCORING_SPEC §6). Shelter (.06) joined in Epic 3 (WR-019); Robustness (.10) joins in
+// Epic 4 (WR-025). The total renormalises over whatever weights are present, so a caller may still
+// drop a sub-score (sum <1 by design) without skewing the others.
 export const DEFAULT_WEIGHTS: ScoringWeights = {
   wind: 0.28,
+  robustness: 0.1,
   safety: 0.1,
   shelter: 0.06,
   surface: 0.12,
@@ -49,6 +52,11 @@ export const DEFAULT_WEIGHTS: ScoringWeights = {
   rain: 0.04,
   sequencing: 0.02,
 };
+
+/** Forecast-robustness perturbation (SCORING_SPEC §4): re-score at wind_from ± this many degrees. */
+export const ROBUSTNESS_PERTURBATION_DEG = 30;
+/** Extra effective headwind (m/s) under the worst ±30° error below which a route reads as "robust". */
+export const ROBUST_SPREAD_THRESHOLD_MS = 0.5;
 
 export interface ScoreOptions {
   targetDistanceM: number;
@@ -108,10 +116,15 @@ export interface Evidence {
   shelteredUpwindKm: number;
   /** Time-weighted effective wind (m/s) over that sheltered upwind — for the explanation. */
   shelteredEffWindMs: number;
+  /** Extra time-weighted effective headwind (m/s) under the worst ±30° forecast error (WR-025).
+   *  Small ⇒ robust; large ⇒ fragile (the route only works at the exact forecast). */
+  robustnessSpreadMs: number;
 }
 
 interface RawMetrics {
   headwindPenalty: number;
+  /** Worst (max) headwind penalty over wind_from ∈ {−30°, 0°, +30°} — low = robust (WR-025). */
+  robustnessPenalty: number;
   seqShare: number;
   shelterShare: number;
   crossPenalty: number;
@@ -188,6 +201,43 @@ function gaussian(value: number, target: number, sigma: number): number {
   return Math.exp(-0.5 * d * d);
 }
 
+/** Time-weighted, direction-emphasised headwind penalty — the core of WindComfort (§4). */
+function headwindPenaltyOf(segments: SegmentAnalysis[]): number {
+  let p = 0;
+  for (const sa of segments)
+    p += sa.timeS * headwindEmphasis(sa.wind.deltaDeg) * Math.max(0, -sa.wind.vParMs);
+  return p;
+}
+
+/** Copy the wind grid with every sample's meteorological wind_from rotated by `deg` (mod 360). */
+function rotateWindFrom(windBySegment: WindSample[][], deg: number): WindSample[][] {
+  return windBySegment.map((hours) =>
+    hours.map((s) => ({ ...s, windFromDeg: (((s.windFromDeg + deg) % 360) + 360) % 360 })),
+  );
+}
+
+/**
+ * Robustness (SCORING_SPEC §4): re-analyse the candidate with wind_from perturbed ±30° and take the
+ * WORST-case headwind penalty (= min WindComfort). Reuses the fixed geometry; only wind decomposition
+ * and time-weighting change. `opts` MUST carry the same startHourIndex the base analysis used, so the
+ * rotated passes sample the same forecast hours. Returns the worst penalty plus the extra effective
+ * headwind (m/s) it costs versus the forecast — the "spread" the results card surfaces.
+ */
+function computeRobustness(
+  candidate: CandidateRoute,
+  windBySegment: WindSample[][],
+  opts: ScoreOptions,
+  basePenalty: number,
+  totalTimeS: number,
+): { worstPenalty: number; spreadMs: number } {
+  let worst = basePenalty;
+  for (const deg of [-ROBUSTNESS_PERTURBATION_DEG, ROBUSTNESS_PERTURBATION_DEG]) {
+    const rotated = analyzeCandidate(candidate, rotateWindFrom(windBySegment, deg), opts);
+    worst = Math.max(worst, headwindPenaltyOf(rotated.segments));
+  }
+  return { worstPenalty: worst, spreadMs: totalTimeS > 0 ? (worst - basePenalty) / totalTimeS : 0 };
+}
+
 export function analyzeCandidate(
   candidate: CandidateRoute,
   windBySegment: WindSample[][],
@@ -259,7 +309,11 @@ export function analyzeCandidate(
   };
 }
 
-function computeMetrics(a: CandidateAnalysis, opts: ScoreOptions): RawMetrics {
+function computeMetrics(
+  a: CandidateAnalysis,
+  windBySegment: WindSample[][],
+  opts: ScoreOptions,
+): RawMetrics {
   const prefersSurface = opts.prefersSurface ?? 'any';
   const total = a.totalTimeS;
   const half = total / 2;
@@ -331,8 +385,11 @@ function computeMetrics(a: CandidateAnalysis, opts: ScoreOptions): RawMetrics {
   const seqShare = hwTime > 0 ? hwFirst / hwTime : 0.5;
   // Share of upwind time spent sheltered (0.5 = neutral when there is no headwind to shelter).
   const shelterShare = hwTime > 0 ? shelteredUpwindTime / hwTime : 0.5;
+  // Robustness (§4): worst-case headwind penalty if the forecast direction is ±30° off.
+  const robustness = computeRobustness(a.candidate, windBySegment, opts, headwindPenalty, total);
   return {
     headwindPenalty,
+    robustnessPenalty: robustness.worstPenalty,
     seqShare,
     shelterShare,
     crossPenalty,
@@ -361,6 +418,7 @@ function computeMetrics(a: CandidateAnalysis, opts: ScoreOptions): RawMetrics {
       shelteredUpwindKm: shelteredUpwindDist / M_PER_KM,
       shelteredEffWindMs:
         shelteredUpwindTime > 0 ? shelteredEffWindTimeWeighted / shelteredUpwindTime : 0,
+      robustnessSpreadMs: robustness.spreadMs,
     },
   };
 }
@@ -382,6 +440,7 @@ function subScoreNorms(
 ): Record<SubScoreName, number[]> {
   return {
     wind: normalizeLower(metrics.map((m) => m.headwindPenalty)),
+    robustness: normalizeLower(metrics.map((m) => m.robustnessPenalty)),
     safety: normalizeLower(metrics.map((m) => m.crossPenalty)),
     shelter: hasShelterData
       ? normalizeHigher(metrics.map((m) => m.shelterShare))
@@ -431,22 +490,27 @@ export function scoreCandidates(inputs: CandidateWindInput[], opts: ScoreOptions
   const weights = opts.weights ?? DEFAULT_WEIGHTS;
   const analyses = inputs.map((i) => analyzeCandidate(i.candidate, i.windBySegment, opts));
 
-  // Hard constraints (§5) filter before scoring.
+  // Hard constraints (§5) filter before scoring. Keep each survivor's wind for robustness re-scoring.
   const rejected: RejectedCandidate[] = [];
   const survivors: CandidateAnalysis[] = [];
-  for (const a of analyses) {
+  const survivorWind: WindSample[][][] = [];
+  analyses.forEach((a, i) => {
     const reasons = hardConstraintReasons(a, opts);
     if (reasons.length > 0) rejected.push({ candidate: a.candidate, reasons });
-    else survivors.push(a);
-  }
+    else {
+      survivors.push(a);
+      survivorWind.push(inputs[i].windBySegment);
+    }
+  });
   if (survivors.length === 0) return { ranked: [], rejected };
 
-  const metrics = survivors.map((a) => computeMetrics(a, opts));
+  const metrics = survivors.map((a, i) => computeMetrics(a, survivorWind[i], opts));
 
   // Each sub-score normalised 0–1 across the surviving set (higher = better).
   const norm = subScoreNorms(metrics, !!opts.hasShelterData);
   const rawByName: Record<SubScoreName, number[]> = {
     wind: metrics.map((m) => m.headwindPenalty),
+    robustness: metrics.map((m) => m.robustnessPenalty),
     safety: metrics.map((m) => m.crossPenalty),
     shelter: metrics.map((m) => m.shelterShare),
     surface: metrics.map((m) => m.surfaceMatchShare),
@@ -474,8 +538,13 @@ export function scoreCandidates(inputs: CandidateWindInput[], opts: ScoreOptions
     };
   });
 
-  // Deterministic ranking: total desc, ties broken by candidate id.
-  scored.sort((x, y) => y.total - x.total || x.candidate.id.localeCompare(y.candidate.id));
+  // Deterministic ranking: total desc; ties break toward higher robustness (WR-025), then id.
+  scored.sort(
+    (x, y) =>
+      y.total - x.total ||
+      y.sub.robustness.normalized - x.sub.robustness.normalized ||
+      x.candidate.id.localeCompare(y.candidate.id),
+  );
   scored.forEach((sc, i) => (sc.rank = i + 1));
   for (const sc of scored) sc.explanation = explainCandidate(sc, scored);
 
@@ -524,18 +593,18 @@ export function scoreMatrix(
 
   inputs.forEach((input, ci) => {
     hours.forEach((h, hi) => {
-      const a = analyzeCandidate(input.candidate, input.windBySegment, {
-        ...opts,
-        startHourIndex: h,
-      });
+      // Same startHourIndex feeds analysis AND robustness re-scoring, so the ±30° passes sample the
+      // same forecast hours as the base cell.
+      const analyzeOpts: ScoreOptions = { ...opts, startHourIndex: h };
+      const a = analyzeCandidate(input.candidate, input.windBySegment, analyzeOpts);
       const perHour: ScoreOptions = {
-        ...opts,
+        ...analyzeOpts,
         minutesUntilSunset:
           opts.minutesUntilSunset !== undefined ? opts.minutesUntilSunset - h * 60 : undefined,
       };
       if (hardConstraintReasons(a, perHour).length > 0) return; // rejected cell (e.g. dark)
       index.set(`${ci}:${hi}`, cells.length);
-      cells.push({ ci, hi, metrics: computeMetrics(a, perHour) });
+      cells.push({ ci, hi, metrics: computeMetrics(a, input.windBySegment, perHour) });
     });
   });
 

@@ -1,18 +1,31 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
+exports[`WR-025 forecast robustness (±30°) > demotes a fragile route below a slightly-worse-but-robust one 1`] = `
+[
+  {
+    "id": "robust",
+    "total": 60,
+  },
+  {
+    "id": "fragile",
+    "total": 40,
+  },
+]
+`;
+
 exports[`scoreCandidates — golden ranking (SW 8 m/s steady) > is snapshot-locked (changing weights requires updating this) 1`] = `
 [
   {
     "id": "A",
-    "total": 73,
+    "total": 76,
   },
   {
     "id": "C",
-    "total": 71,
+    "total": 73,
   },
   {
     "id": "B",
-    "total": 27,
+    "total": 24,
   },
 ]
 `;
