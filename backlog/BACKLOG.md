@@ -15,7 +15,7 @@ Test contract · Technical notes · Out of scope · Log.
 | WR-003 | Domain types + adapter interfaces + mock providers | 001 | M | DONE |
 | WR-004 | Open-Meteo weather adapter (multipoint, hourly) | 003 | M | DONE |
 | WR-005 | ORS routing adapter (round-trip diversity + dedupe) | 003 | L | TODO |
-| WR-006 | Geometry engine: resample, bearings, grades, overlap | 003 | M | TODO |
+| WR-006 | Geometry engine: resample, bearings, grades, overlap | 003 | M | DONE |
 | WR-007 | Scoring engine v1 + explanations | 006 | L | TODO |
 | WR-008 | Plan screen (inputs → generate flow) | 002,003 | M | TODO |
 | WR-009 | Results: MapLibre map, wind-coloured routes, cards | 007,008 | L | TODO |
@@ -55,3 +55,6 @@ Test contract · Technical notes · Out of scope · Log.
 Epics close in order; inside an epic, dependency order wins over ID order if they conflict.
 WR-012 (replay harness) is deliberately BEFORE all GPS work — navigation is developed at the
 desk, validated on the bike. New stories: next WR number, same template, add a row here.
+
+Note: WR-006 was done before WR-005 despite the higher ID — WR-005's ORS candidate dedupe
+depends on `engine/geometry.overlapRatio` from WR-006, so dependency order won (see DEC-012).
