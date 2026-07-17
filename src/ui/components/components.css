@@ -277,6 +277,11 @@
 .wr-ridemap__chevron {
   fill: var(--sky);
 }
+.wr-ridemap__gust {
+  fill: var(--head);
+  stroke: var(--bg);
+  stroke-width: 0.5;
+}
 .wr-ridemap__pulse {
   fill: var(--sky);
   opacity: 0.35;
@@ -493,4 +498,15 @@
 .wr-results__when {
   font-weight: 600;
   color: var(--sky);
+}
+
+/* --- Gust warning chip on route cards (WR-021) ---------------------------------------- */
+.wr-card__gust {
+  margin: 0;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-pill);
+  background: var(--surface-2);
+  color: var(--head);
+  font-size: var(--fs-small);
+  font-weight: 600;
 }

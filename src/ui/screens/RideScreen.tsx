@@ -254,6 +254,12 @@ export function RideScreen() {
             Ride isn’t being saved — storage error
           </div>
         ) : null}
+        {rideState?.gustAhead ? (
+          <div className="wr-ride__alert" role="alert">
+            ⚠ Crosswind gusts {Math.round(rideState.gustAhead.maxGustMs)} m/s in{' '}
+            {Math.round(rideState.gustAhead.inM)} m
+          </div>
+        ) : null}
       </div>
 
       {rideState?.nextTurn ? (

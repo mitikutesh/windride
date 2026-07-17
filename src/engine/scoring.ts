@@ -7,6 +7,7 @@
  */
 import type { CandidateRoute, Segment, WindSample } from '../domain';
 import { explainCandidate } from './explain';
+import { detectGustStretches, flaggedSegmentIndices } from './gustFlags';
 import { decompose, type WindComponents } from './wind';
 import {
   DEFAULT_SPEED_SETTINGS,
@@ -60,7 +61,10 @@ export interface ScoreOptions {
   startHourIndex?: number;
   speed?: SpeedSettings;
   weights?: ScoringWeights;
+  /** @deprecated superseded by the WR-021 gust-flag detector (gustThresholdMs). */
   crossThresholdMs?: number;
+  /** Effective-gust threshold (m/s) for the crosswind safety flag (default 13; settings 10–18). */
+  gustThresholdMs?: number;
   distanceTolerancePct?: number;
   /** True only when a real exposure grid covered the routes; else the shelter axis stays uniform
    *  so presence-of-headwind can't masquerade as shelter differentiation (WR-019). */
@@ -256,14 +260,12 @@ export function analyzeCandidate(
 }
 
 function computeMetrics(a: CandidateAnalysis, opts: ScoreOptions): RawMetrics {
-  const crossThreshold = opts.crossThresholdMs ?? 5;
   const prefersSurface = opts.prefersSurface ?? 'any';
   const total = a.totalTimeS;
   const half = total / 2;
   let totalDist = 0;
 
   let headwindPenalty = 0;
-  let crossPenalty = 0;
   let trafficPenalty = 0;
   let rainPenalty = 0;
   let hwTime = 0;
@@ -278,8 +280,6 @@ function computeMetrics(a: CandidateAnalysis, opts: ScoreOptions): RawMetrics {
   let headwindKm = 0;
   let tailwindKm = 0;
   let tailwindFinishKm = 0;
-  let gustyKm = 0;
-  let maxGustMs = 0;
 
   for (const sa of a.segments) {
     const km = sa.seg.lengthM / M_PER_KM;
@@ -287,12 +287,6 @@ function computeMetrics(a: CandidateAnalysis, opts: ScoreOptions): RawMetrics {
     const headwind = Math.max(0, -sa.wind.vParMs);
 
     headwindPenalty += sa.timeS * headwindEmphasis(sa.wind.deltaDeg) * headwind;
-    if (sa.wind.vCrossMs > crossThreshold && sa.seg.exposure >= 1.0) {
-      crossPenalty += sa.timeS * sa.wind.gustEffMs;
-      gustyKm += km;
-      // Track the peak gust only among the exposed-gusty km so the explanation stays truthful.
-      maxGustMs = Math.max(maxGustMs, sa.wind.gustEffMs);
-    }
     trafficPenalty += sa.timeS * trafficWeight(sa.seg.wayClass);
     rainPenalty += sa.timeS * (sa.precipProb / 100);
 
@@ -316,6 +310,17 @@ function computeMetrics(a: CandidateAnalysis, opts: ScoreOptions): RawMetrics {
     if (isGreenerWay(sa.seg.wayClass)) greenerDist += sa.seg.lengthM;
     if (sa.seg.surface === 'gravel') gravelKm += km;
   }
+
+  // CrosswindSafety penalty + gust evidence, from the SINGLE gust-stretch detector (WR-021):
+  // penalise time in flagged exposed-crosswind gust stretches; report their length + peak gust.
+  const gustStretches = detectGustStretches(a.segments, { thresholdMs: opts.gustThresholdMs });
+  const flagged = flaggedSegmentIndices(gustStretches);
+  let crossPenalty = 0;
+  a.segments.forEach((sa, i) => {
+    if (flagged.has(i)) crossPenalty += sa.timeS * sa.wind.gustEffMs;
+  });
+  const gustyKm = gustStretches.reduce((sum, s) => sum + s.lengthM, 0) / M_PER_KM;
+  const maxGustMs = gustStretches.reduce((m, s) => Math.max(m, s.maxGustMs), 0);
 
   const distGuard = totalDist || 1;
   // Share of headwind time in the first half (0.5 = neutral when there is no headwind to sequence).

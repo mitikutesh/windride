@@ -14,6 +14,7 @@ import type { Fix } from './fixSource';
 import { EtaEstimator } from './eta';
 import { HeadingSmoother } from './heading';
 import { classifyWindKind, type WindKind } from '../engine/wind';
+import { detectGustStretches, type GustStretch } from '../engine/gustFlags';
 import { bearingToTrack, OffRouteMonitor, type OffRouteState } from './offRoute';
 import { AUTO_PAUSE_S, MOVING_SPEED_MS } from './rideSummary';
 import { prepareTrack, Snapper, type Track } from './snap';
@@ -51,6 +52,8 @@ export interface RideState {
   timeFraction: number;
   /** Auto-pause: rider stopped (< 1.2 km/h) for > 20 s (NAVIGATION_SPEC §6). */
   autoPaused: boolean;
+  /** Exposed-crosswind gust stretch within 500 m ahead (WR-021), else null. */
+  gustAhead: { inM: number; maxGustMs: number } | null;
   snapped: LatLon;
   paused: boolean;
 }
@@ -77,6 +80,8 @@ export class RideController {
   private readonly hudSegs;
   private readonly cuePoints;
 
+  private readonly gustStretches: GustStretch[];
+  private readonly gustAnnounced = new Set<number>();
   private pausedFlag = false;
   private lastFix: { p: LatLon; tMs: number } | null = null;
   private lastOffRoute: OffRouteState = 'on-route';
@@ -90,6 +95,7 @@ export class RideController {
     this.cuePoints = buildCuePoints(opts.analysis.candidate.steps ?? [], this.track);
     this.scheduler = new CueScheduler(this.cuePoints, opts.unit ?? 'metric');
     this.hudSegs = toWindHudSegments(opts.analysis.segments);
+    this.gustStretches = detectGustStretches(opts.analysis.segments);
 
     let d = 0;
     let t = 0;
@@ -161,6 +167,25 @@ export class RideController {
     }
     this.lastOffRoute = offRoute;
 
+    // Upcoming exposed-crosswind gust stretch within 500 m — warn once (WR-021, NAVIGATION_SPEC §4).
+    let gustAhead: RideState['gustAhead'] = null;
+    for (const s of this.gustStretches) {
+      const inM = s.startM - snap.progressM;
+      if (inM > 0 && inM <= 500) {
+        gustAhead = { inM, maxGustMs: s.maxGustMs };
+        if (!this.gustAnnounced.has(s.startM)) {
+          this.gustAnnounced.add(s.startM);
+          this.announcer.announce({
+            stepIndex: -2,
+            kind: 'turn',
+            text: `Crosswind gusts ahead, up to ${Math.round(s.maxGustMs)} metres per second`,
+            turnDistanceM: s.startM,
+          });
+        }
+        break;
+      }
+    }
+
     return {
       progressM: snap.progressM,
       remainingM: snap.remainingM,
@@ -178,6 +203,7 @@ export class RideController {
         offRoute === 'alert' ? bearingToTrack({ lat: fix.lat, lon: fix.lon }, snap.snapped) : null,
       timeFraction,
       autoPaused,
+      gustAhead,
       snapped: snap.snapped,
       paused: this.pausedFlag,
     };

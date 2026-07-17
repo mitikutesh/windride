@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import type { LatLon } from '../../domain';
+import { detectGustStretches } from '../../engine/gustFlags';
 import type { ScoredCandidate } from '../../engine/scoring';
 import { routeToWindGeoJSON } from '../routeGeo';
 import { windColor } from '../windColors';
@@ -45,6 +46,14 @@ export function RideMap({ scored, rider, batterySaver = false }: RideMapProps) {
   }, [fc]);
 
   const riderXY = rider ? project(rider.position.lon, rider.position.lat) : null;
+  // Gust-stretch warning markers at each stretch midpoint (WR-021).
+  const gustMarkers = useMemo(
+    () =>
+      detectGustStretches(scored.analysis.segments).map((s) =>
+        project(s.midpoint.lon, s.midpoint.lat),
+      ),
+    [scored, project],
+  );
 
   return (
     <svg
@@ -70,6 +79,9 @@ export function RideMap({ scored, rider, batterySaver = false }: RideMapProps) {
           />
         );
       })}
+      {gustMarkers.map(([x, y], i) => (
+        <circle key={`gust-${i}`} className="wr-ridemap__gust" cx={x} cy={y} r={2.5} />
+      ))}
       {riderXY ? (
         <g transform={`translate(${riderXY[0]} ${riderXY[1]}) rotate(${rider?.headingDeg ?? 0})`}>
           {!batterySaver ? <circle className="wr-ridemap__pulse" r={5} /> : null}

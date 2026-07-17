@@ -150,6 +150,62 @@ describe('RideController', () => {
     expect(offRouteSays).toHaveLength(1);
   });
 
+  it('warns once about an upcoming exposed-crosswind gust stretch (WR-021)', () => {
+    // A due-east route; wind from the north = crosswind. First 3 segments sheltered (unflagged),
+    // the rest exposed with 16 m/s gusts → a flagged stretch starting ~900 m in.
+    const dLon = 300 / (111_320 * Math.cos((60 * Math.PI) / 180)); // 300 m east at 60°N
+    const seg = (i: number, exposure: number) => ({
+      a: { lat: 60, lon: 24 + i * dLon },
+      b: { lat: 60, lon: 24 + (i + 1) * dLon },
+      lengthM: 300,
+      bearingDeg: 90,
+      gradePct: 0,
+      surface: 'paved' as const,
+      exposure,
+    });
+    const segments = Array.from({ length: 10 }, (_v, i) => seg(i, i < 3 ? 0.35 : 1.0));
+    const gustCand: CandidateRoute = {
+      id: 'gust',
+      polyline: [
+        { lat: 60, lon: 24 },
+        { lat: 60, lon: 24 + 10 * dLon },
+      ],
+      segments,
+      distanceM: 3000,
+      ascentM: 0,
+      steps: [],
+    };
+    const gustSample: WindSample = {
+      windMs: 8,
+      windFromDeg: 0, // north → crosswind for an eastbound route
+      gustMs: 16,
+      precipProb: 0,
+      tempC: 15,
+      time: '2026-07-10T09:00',
+    };
+    const gustAnalysis = analyzeCandidate(
+      gustCand,
+      segments.map(() => [gustSample]),
+      { targetDistanceM: 3000 },
+    );
+    const announcer = fakeAnnouncer();
+    const controller = new RideController({ analysis: gustAnalysis, announcer });
+    let sawGustAhead = false;
+    for (let i = 0; i <= 20; i++) {
+      const s = controller.onFix({
+        lat: 60,
+        lon: 24 + (i * 150) / (111_320 * Math.cos((60 * Math.PI) / 180)), // ~150 m steps east
+        time: new Date(1e12 + i * 1000).toISOString(),
+      });
+      if (s.gustAhead) sawGustAhead = true;
+    }
+    expect(sawGustAhead).toBe(true);
+    const gustSays = announcer.announce.mock.calls.filter((c) =>
+      (c[0] as { text: string }).text.includes('Crosswind gusts'),
+    );
+    expect(gustSays).toHaveLength(1); // announced exactly once
+  });
+
   it('auto-pauses after a sustained stop and resumes on movement', () => {
     const controller = new RideController({ analysis, announcer: fakeAnnouncer() });
     const p = analysis.candidate.polyline[0];

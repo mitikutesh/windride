@@ -35,7 +35,7 @@ function steadyWind(n: number): WindSample[][] {
   const s: WindSample = {
     windMs: 8,
     windFromDeg: 225,
-    gustMs: 12,
+    gustMs: 15, // ≥ 13 so an exposed crosswind stretch trips the WR-021 gust flag
     precipProb: 10,
     tempC: 17,
     time: '2026-07-10T17:00',
