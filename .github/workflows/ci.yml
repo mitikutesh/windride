@@ -28,5 +28,8 @@ jobs:
       - name: Test
         run: npm test
 
+      - name: Acceptance (v0.1 honesty gate, fixtures only)
+        run: npm run accept
+
       - name: Build
         run: npm run build

@@ -20,7 +20,7 @@ Test contract · Technical notes · Out of scope · Log.
 | WR-008 | Plan screen (inputs → generate flow) | 002,003 | M | DONE |
 | WR-009 | Results: MapLibre map, wind-coloured routes, cards | 007,008 | L | DONE |
 | WR-010 | GPX export + route persistence (idb) | 009 | S | DONE |
-| WR-011 | v0.1 acceptance harness (30/50/80 km eval) | 010 | M | TODO |
+| WR-011 | v0.1 acceptance harness (30/50/80 km eval) | 010 | M | DONE |
 
 ## Epic 2 · Navigator (v0.2) — "it guides me and I trust the ETA"
 | ID | Story | Deps | Size | Status |

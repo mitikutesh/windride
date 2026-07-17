@@ -22,6 +22,9 @@ dev-dist/
 # Test / coverage
 coverage/
 
+# Generated acceptance report (npm run accept)
+accept-report.md
+
 # Logs
 *.log
 npm-debug.log*
