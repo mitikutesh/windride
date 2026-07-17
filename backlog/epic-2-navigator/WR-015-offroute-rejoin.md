@@ -97,3 +97,53 @@ off-route replay trace alerts in the 10–14 s window; the mocked-reroute-leg sp
 remaining distance monotonic with the finish point identical; the failure path is driven by a
 mock `ProviderError('quota')`; splice unit tests cover both a leg shorter and a leg longer than
 the gap. Full gate green: 217 tests, lint clean, build OK.
+
+## Fable 5 review pass — fixes
+
+A Fable 5 review returned REQUEST-CHANGES on the shipped story above. All findings are now fixed;
+the gate is green again.
+
+- **BLOCKER B1 (the key correctness fix) — reroute could target the finish.** Near the end of a
+  route, `progress + REJOIN_AHEAD_M` (500 m) could land past — or within a whisker of — the
+  route's finish point. The rejoin target was clamped to `track.total`, so the reroute's
+  `pointToPoint` call effectively aimed at the finish and remaining distance shortcut straight to
+  it: exactly the behaviour NAVIGATION_SPEC §3 says NEVER to do. Fixed: `Rerouter.attempt` now
+  checks whether `progress + REJOIN_AHEAD_M` would fall within `FINISH_GUARD_M` (50 m) of the
+  finish and, if so, skips the reroute entirely — no `pointToPoint` call is made — returning
+  `{ ok: false, reason: 'near-finish' }`; the caller keeps the bearing-to-track alert running
+  instead. The `RerouteOutcome` failure shape gained a discriminated `reason` field
+  (`'provider-error' | 'near-finish'`) so callers can tell "the provider failed, keep retrying"
+  apart from "we're intentionally not rerouting here." Recorded as **DEC-021**. Added a
+  near-finish test asserting no provider call is made and `reason: 'near-finish'` is returned.
+- **SHOULD-FIX S1 — spliced leg's own arrival step leaked into the ride.** `spliceRoute` kept the
+  reroute leg's own ORS "Arrive at destination" step (type 10) in the spliced steps array. Since
+  the leg only reaches the rejoin point, not the real finish, WR-014's cue engine would announce
+  "You have arrived" mid-ride at the rejoin. Fixed: `spliceRoute` now strips any type-10 step from
+  the leg before splicing (the original route's own arrival step, carried over from beyond the
+  rejoin, is preserved downstream and still fires at the real finish). Added a test with a leg
+  that carries a type-10 step, asserting it's stripped and arrival still fires once, at the end.
+- **SHOULD-FIX S2 — straddling segment dropped, breaking the segment-tiling invariant.**
+  `spliceRoute` dropped the original segment that straddled the rejoin point outright, so
+  `Σ(segments.lengthM)` no longer equalled `distanceM` (under-covered by up to ~500 m). Since the
+  ETA/wind model tiles the route by segment, this silently starved that stretch of any wind
+  scoring. Fixed: the straddling segment is now **trimmed** rather than dropped — its start point
+  is interpolated to the rejoin point and its `lengthM` shortened to match — so segments continue
+  to tile the whole route with no gap. Added a tiling-invariant assertion
+  (`Σ segments.lengthM ≈ distanceM`) to the splice test.
+- **NITs acknowledged/deferred:**
+  - N1 — the alert-window test's `>=10 s` lower bound is partly tautological (the monitor can't
+    fire before the sustain window elapses); kept as documentation, the `<=14 s` upper bound and
+    non-null result are the assertions actually doing the work.
+  - N2 — no backwards-clock guard on the monitor's sustain timer; deferred, GPS fix timestamps are
+    monotonic in practice.
+  - N3 — a zero-length seam edge can appear at a vertex-aligned rejoin; benign, already tolerated
+    by `prepareTrack`.
+  - N4 — the along-track interpolation helper is duplicated across `pointAtDistance`, `resample`,
+    and the replay harness; deferred refactor, no behavioural risk.
+  - The acceptance boxes for the sound/banner alert UI and the live cue-rearm wiring remain owned
+    by WR-016, as originally noted — unchanged by this review pass.
+- **Tests added/updated:** `src/engine/geometry.splice.test.ts` grew from 3 to 4 tests (added the
+  strip-arrival-step case and the tiling-invariant assertion folded into the existing preserve
+  case); `src/nav/offRoute.test.ts` grew from 7 to 8 tests (added the near-finish
+  no-provider-call case).
+- **Gate:** 219 tests, lint clean, build OK.

@@ -156,13 +156,29 @@ describe('Rerouter', () => {
       'cycling-regular',
     );
     const first = await r.attempt(current, route, track, progressM);
-    expect(first.ok).toBe(false);
-    if (first.ok) return;
+    if (first.ok || first.reason !== 'provider-error') throw new Error('expected provider-error');
     expect(first.error).toBeInstanceOf(ProviderError);
     expect(first.nextRetryMs).toBe(2000);
     const second = await r.attempt(current, route, track, progressM);
-    if (second.ok) throw new Error('expected second failure');
+    if (second.ok || second.reason !== 'provider-error') throw new Error('expected second failure');
     expect(second.nextRetryMs).toBe(4000); // backoff grows while guidance stays in alert
     expect(r.failedAttempts).toBe(2);
+  });
+
+  it('never reroutes to the finish: near the end it reports near-finish, not a call', async () => {
+    let called = false;
+    const r = new Rerouter(
+      provider((a, b) => {
+        called = true;
+        return Promise.resolve(legFrom([a, b]));
+      }),
+      'cycling-regular',
+    );
+    const nearFinish = track.total - 100; // rejoin (progress+500) would overshoot the finish
+    const outcome = await r.attempt(current, route, track, nearFinish);
+    expect(outcome.ok).toBe(false);
+    if (outcome.ok) return;
+    expect(outcome.reason).toBe('near-finish');
+    expect(called).toBe(false); // no pointToPoint call at all
   });
 });

@@ -214,6 +214,9 @@ export function expandRangesToEdges<T>(
 }
 
 // --- reroute splice (WR-015) ---------------------------------------------------------------
+/** ORS "Arrive at destination" maneuver code — stripped from a reroute leg (it ends mid-route). */
+const ORS_ARRIVAL_TYPE = 10;
+
 /**
  * Splice a reroute leg into a route at rejoin distance `atM` (NAVIGATION_SPEC §3). Returns the
  * forward route the navigator follows from the leg's start: [leg] + [original route beyond atM].
@@ -248,14 +251,32 @@ export function spliceRoute(
 
   const polyline = [...leg.polyline, ...pts.slice(idxAfter)];
 
-  // Downstream segments: those whose start distance is at/after the rejoin (drop the straddler).
-  const segStart: number[] = [];
-  let acc = 0;
+  // Downstream segments: keep everything from `at` onward. The segment straddling `at` is TRIMMED
+  // (not dropped) so Σ segment lengths still equals distanceM — the ETA/wind model tiles the route.
+  const downstreamSegs: Segment[] = [];
+  let segStart = 0;
   for (const s of route.segments) {
-    segStart.push(acc);
-    acc += s.lengthM;
+    const segEnd = segStart + s.lengthM;
+    if (segEnd > at) {
+      if (segStart >= at) {
+        downstreamSegs.push(s);
+      } else {
+        const frac = (at - segStart) / (s.lengthM || 1);
+        downstreamSegs.push({
+          ...s,
+          a: {
+            lat: s.a.lat + (s.b.lat - s.a.lat) * frac,
+            lon: s.a.lon + (s.b.lon - s.a.lon) * frac,
+          },
+          lengthM: segEnd - at,
+        });
+      }
+    }
+    segStart = segEnd;
   }
-  const downstreamSegs = route.segments.filter((_, i) => segStart[i] >= at);
+  // Drop the leg's own arrival step — the leg ends AT the rejoin, not the finish; announcing
+  // "You have arrived" there would be wrong. The original route's arrival is preserved downstream.
+  const legSteps = (leg.steps ?? []).filter((st) => st.type !== ORS_ARRIVAL_TYPE);
   const segments = [...leg.segments, ...downstreamSegs];
 
   // Re-index downstream steps into the new polyline; leg steps keep their 0-based indices.
@@ -272,7 +293,7 @@ export function spliceRoute(
         number,
       ],
     }));
-  const steps = [...(leg.steps ?? []), ...downstreamSteps];
+  const steps = [...legSteps, ...downstreamSteps];
 
   const downstreamAscent = downstreamSegs.reduce(
     (sum, s) => sum + Math.max(0, (s.gradePct / 100) * s.lengthM),

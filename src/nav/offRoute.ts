@@ -15,6 +15,8 @@ import { pointAtDistance, type Track } from './snap';
 export const OFF_ROUTE_PERP_M = 45;
 export const OFF_ROUTE_SUSTAIN_MS = 10_000;
 export const REJOIN_AHEAD_M = 500;
+/** Don't reroute when the rejoin point would land within this of the finish (DEC-021). */
+export const FINISH_GUARD_M = 50;
 export const REROUTE_BACKOFF_BASE_MS = 2_000;
 export const REROUTE_BACKOFF_CAP_MS = 30_000;
 
@@ -58,13 +60,16 @@ export function bearingToTrack(
 
 export type RerouteOutcome =
   | { ok: true; route: CandidateRoute; rejoinAtM: number }
-  | { ok: false; error: unknown; nextRetryMs: number };
+  | { ok: false; reason: 'provider-error'; error: unknown; nextRetryMs: number }
+  | { ok: false; reason: 'near-finish' };
 
 /**
  * Runs one rejoin reroute: pointToPoint(current → trackPointAt(progress + 500 m)), then splices the
- * returned leg into `route`. On provider failure returns ok:false with a backoff delay; the caller
- * stays in alert and retries. Attempt count is internal so backoff grows across consecutive failures
- * and resets on success.
+ * returned leg into `route`. If the rejoin point would land within FINISH_GUARD_M of the finish, we
+ * do NOT reroute (NAVIGATION_SPEC §3: never reroute to the finish) — the caller keeps the bearing-to-
+ * track alert (DEC-021). On provider failure returns a backoff delay; the caller stays in alert and
+ * retries. Attempt count is internal so backoff grows across consecutive failures and resets on
+ * success.
  */
 export class Rerouter {
   private attempts = 0;
@@ -84,7 +89,9 @@ export class Rerouter {
     track: Track,
     progressM: number,
   ): Promise<RerouteOutcome> {
-    const rejoinAtM = Math.min(track.total, progressM + REJOIN_AHEAD_M);
+    const rejoinAtM = progressM + REJOIN_AHEAD_M;
+    // Too close to the finish to preserve any route — never beeline to the finish.
+    if (rejoinAtM >= track.total - FINISH_GUARD_M) return { ok: false, reason: 'near-finish' };
     const target = pointAtDistance(track, rejoinAtM);
     try {
       const leg = await this.provider.pointToPoint(current, target, this.profile);
@@ -92,7 +99,12 @@ export class Rerouter {
       return { ok: true, route: spliceRoute(route, rejoinAtM, leg), rejoinAtM };
     } catch (error) {
       this.attempts += 1;
-      return { ok: false, error, nextRetryMs: rerouteBackoffMs(this.attempts) };
+      return {
+        ok: false,
+        reason: 'provider-error',
+        error,
+        nextRetryMs: rerouteBackoffMs(this.attempts),
+      };
     }
   }
 }

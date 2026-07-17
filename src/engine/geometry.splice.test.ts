@@ -53,13 +53,30 @@ describe('spliceRoute', () => {
     const spliced = spliceRoute(route, atM, leg);
     // Finish identical.
     expect(spliced.polyline.at(-1)).toEqual(route.polyline.at(-1));
-    // Downstream segments preserved unchanged (same objects, after the leg's own segments).
-    const downstream = spliced.segments.slice(leg.segments.length);
-    expect(downstream.length).toBeGreaterThan(0);
-    expect(downstream.every((s) => route.segments.includes(s))).toBe(true);
+    // Segments still tile the route: Σ lengthM == distanceM (the ETA/wind model needs full cover).
+    const segSum = spliced.segments.reduce((s, seg) => s + seg.lengthM, 0);
+    expect(segSum).toBeCloseTo(spliced.distanceM, 3);
+    // Later downstream segments preserved by identity (only the straddler is trimmed/new).
+    expect(route.segments.some((s) => spliced.segments.includes(s))).toBe(true);
     // Remaining distance = leg + untouched downstream; never a shortcut to the finish.
     expect(spliced.distanceM).toBeCloseTo(leg.distanceM + (total - atM), 3);
     expect(spliced.distanceM).toBeGreaterThan(total - atM);
+  });
+
+  it("strips the leg's arrival step so it isn't announced mid-ride at the rejoin", () => {
+    const leg = makeLeg([
+      { lat: 60.0025, lon: 24.004 },
+      { lat: 60.0036, lon: 24 },
+    ]);
+    leg.steps = [
+      { instruction: 'Head to route', distanceM: 50, type: 11, wayPoints: [0, 1] },
+      { instruction: 'Arrive at rejoin', distanceM: 0, type: 10, wayPoints: [1, 1] },
+    ];
+    const spliced = spliceRoute(route, atM, leg);
+    const arrivals = (spliced.steps ?? []).filter((s) => s.type === 10);
+    // Only the ORIGINAL route's arrival survives, not the leg's.
+    expect(arrivals).toHaveLength(1);
+    expect(arrivals[0].instruction).toBe('Arrive at destination');
   });
 
   it('re-indexes downstream steps into the new polyline and keeps arrival', () => {
