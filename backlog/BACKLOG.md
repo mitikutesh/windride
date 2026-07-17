@@ -10,7 +10,7 @@ Test contract · Technical notes · Out of scope · Log.
 ## Epic 1 · Planner (v0.1) — "3 good routes for right now, on a map, in <10 s"
 | ID | Story | Deps | Size | Status |
 |---|---|---|---|---|
-| WR-001 | Repo scaffold: Vite+TS+PWA, lint, vitest, CI | — | M | TODO |
+| WR-001 | Repo scaffold: Vite+TS+PWA, lint, vitest, CI | — | M | DONE |
 | WR-002 | Design tokens + app shell + attribution footer | 001 | M | TODO |
 | WR-003 | Domain types + adapter interfaces + mock providers | 001 | M | TODO |
 | WR-004 | Open-Meteo weather adapter (multipoint, hourly) | 003 | M | TODO |

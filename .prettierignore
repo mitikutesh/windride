@@ -1,0 +1,10 @@
+dist
+dev-dist
+coverage
+node_modules
+.claude
+public
+fixtures
+*.md
+tsconfig*.json
+package-lock.json
