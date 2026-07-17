@@ -7,7 +7,7 @@
  * public API — callers pass/receive plain LatLon and numbers.
  */
 import { bearing as turfBearing, distance as turfDistance } from '@turf/turf';
-import type { LatLon, Segment, Surface } from '../domain';
+import type { CandidateRoute, LatLon, Segment, Surface, TurnStep } from '../domain';
 import { SEGMENT_MAX_M, SEGMENT_MIN_M, SEGMENT_TARGET_M } from './constants';
 
 // --- angle helpers -------------------------------------------------------------------------
@@ -211,6 +211,82 @@ export function expandRangesToEdges<T>(
     for (let e = Math.max(0, start); e < Math.min(edges, end); e++) out[e] = map(code);
   }
   return out;
+}
+
+// --- reroute splice (WR-015) ---------------------------------------------------------------
+/**
+ * Splice a reroute leg into a route at rejoin distance `atM` (NAVIGATION_SPEC §3). Returns the
+ * forward route the navigator follows from the leg's start: [leg] + [original route beyond atM].
+ * The stretch before atM (the divergence + skipped section) is dropped; everything from atM to the
+ * finish is preserved unchanged, so the finish point is guaranteed identical and remaining distance
+ * never shortcuts to the finish. Pure.
+ *
+ * `atM` is the rejoin distance along `route` (progress + 500 m); `leg` runs from the rider's current
+ * position to trackPointAt(atM). Cumulative distances and step waypoint indices are recomputed once.
+ */
+export function spliceRoute(
+  route: CandidateRoute,
+  atM: number,
+  leg: CandidateRoute,
+): CandidateRoute {
+  const pts = route.polyline;
+  if (pts.length < 2) return leg; // degenerate route: nothing downstream to preserve
+
+  const cum: number[] = [0];
+  for (let i = 1; i < pts.length; i++) cum.push(cum[i - 1] + haversineM(pts[i - 1], pts[i]));
+  const total = cum[cum.length - 1];
+  const at = Math.max(0, Math.min(total, atM));
+
+  // First route point at or beyond the rejoin distance; downstream geometry starts here.
+  let idxAfter = pts.length - 1;
+  for (let i = 0; i < pts.length; i++) {
+    if (cum[i] >= at) {
+      idxAfter = i;
+      break;
+    }
+  }
+
+  const polyline = [...leg.polyline, ...pts.slice(idxAfter)];
+
+  // Downstream segments: those whose start distance is at/after the rejoin (drop the straddler).
+  const segStart: number[] = [];
+  let acc = 0;
+  for (const s of route.segments) {
+    segStart.push(acc);
+    acc += s.lengthM;
+  }
+  const downstreamSegs = route.segments.filter((_, i) => segStart[i] >= at);
+  const segments = [...leg.segments, ...downstreamSegs];
+
+  // Re-index downstream steps into the new polyline; leg steps keep their 0-based indices.
+  const legLen = leg.polyline.length;
+  const downstreamSteps = (route.steps ?? [])
+    .filter(
+      (st): st is TurnStep & { wayPoints: [number, number] } =>
+        st.wayPoints !== undefined && st.wayPoints[0] >= idxAfter,
+    )
+    .map((st) => ({
+      ...st,
+      wayPoints: [st.wayPoints[0] - idxAfter + legLen, st.wayPoints[1] - idxAfter + legLen] as [
+        number,
+        number,
+      ],
+    }));
+  const steps = [...(leg.steps ?? []), ...downstreamSteps];
+
+  const downstreamAscent = downstreamSegs.reduce(
+    (sum, s) => sum + Math.max(0, (s.gradePct / 100) * s.lengthM),
+    0,
+  );
+
+  return {
+    id: `${route.id}+reroute`,
+    polyline,
+    segments,
+    distanceM: leg.distanceM + (total - at),
+    ascentM: leg.ascentM + downstreamAscent,
+    steps,
+  };
 }
 
 // --- overlap -------------------------------------------------------------------------------

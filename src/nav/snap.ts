@@ -34,6 +34,22 @@ export function prepareTrack(polyline: LatLon[]): Track {
   return { points: polyline, cum, total: cum[cum.length - 1] };
 }
 
+/** Interpolated point at distance `m` along the track (clamped to the ends). WR-015 rejoin target. */
+export function pointAtDistance(track: Track, m: number): LatLon {
+  const { points, cum, total } = track;
+  const d = Math.max(0, Math.min(total, m));
+  if (d <= 0) return points[0];
+  if (d >= total) return points[points.length - 1];
+  let i = 0;
+  while (i < cum.length - 1 && cum[i + 1] < d) i++;
+  const span = cum[i + 1] - cum[i] || 1;
+  const t = (d - cum[i]) / span;
+  return {
+    lat: points[i].lat + (points[i + 1].lat - points[i].lat) * t,
+    lon: points[i].lon + (points[i + 1].lon - points[i].lon) * t,
+  };
+}
+
 export interface SnapResult {
   progressM: number;
   remainingM: number;
