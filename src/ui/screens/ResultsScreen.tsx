@@ -1,6 +1,11 @@
 import { RouteCard } from '../components/RouteCard';
 import { RouteMap } from '../components/RouteMap';
+import { PrimaryButton } from '../components';
 import { useResultsStore } from '../../state/resultsStore';
+import { useSavedRoutesStore } from '../../state/savedRoutesStore';
+import { candidateToGpxTrack } from '../routeGeo';
+import { downloadText } from '../download';
+import { gpxFilename, toGpx } from '../../utils/gpx';
 
 /** Results screen (WR-009): top-3 cards synced with a wind-coloured MapLibre route map. */
 export function ResultsScreen() {
@@ -19,11 +24,38 @@ export function ResultsScreen() {
 
   // The map and the cards must show the SAME set, so a ghost tap always maps to a visible card.
   const top3 = ranked.slice(0, 3);
+  const selected = top3.find((c) => c.candidate.id === selectedId) ?? top3[0];
+  const routeName = `WindRide ${selected.evidence.distanceKm.toFixed(0)} km`;
+
+  const exportGpx = () => {
+    const xml = toGpx(candidateToGpxTrack(selected, routeName));
+    downloadText(
+      gpxFilename(selected.evidence.distanceKm, new Date().toISOString()),
+      'application/gpx+xml',
+      xml,
+    );
+  };
+  const saveRoute = () =>
+    void useSavedRoutesStore.getState().save({
+      id: selected.candidate.id,
+      name: routeName,
+      savedAt: Date.now(),
+      distanceKm: selected.evidence.distanceKm,
+      ascentM: selected.evidence.ascentM,
+      track: candidateToGpxTrack(selected, routeName),
+    });
+
   return (
     <section className="wr-results">
       <RouteMap candidates={top3} selectedId={selectedId} onSelect={select} />
       <div className="wr-results__cards">
         <h1>Your routes</h1>
+        <div className="wr-results__actions">
+          <PrimaryButton onClick={exportGpx}>Export GPX</PrimaryButton>
+          <button type="button" className="wr-navlink" onClick={saveRoute}>
+            Save route
+          </button>
+        </div>
         {top3.map((sc) => (
           <RouteCard
             key={sc.candidate.id}

@@ -3,6 +3,7 @@
  */
 import { haversineM } from '../engine/geometry';
 import type { ScoredCandidate } from '../engine/scoring';
+import type { GpxPoint, GpxTrack } from '../utils/gpx';
 import type { RibbonSegment, WindKind } from './components/ribbon';
 import { windColor } from './windColors';
 
@@ -65,4 +66,26 @@ export function routeToRibbon(scored: ScoredCandidate): RibbonSegment[] {
     fraction: sa.timeS / total,
     kind: classifyWindKind(sa.wind.deltaDeg),
   }));
+}
+
+const round1 = (n: number) => Math.round(n * 10) / 10;
+
+/**
+ * Build a GPX track from a scored candidate (WR-010). Elevation is integrated from segment grades
+ * (relative, starting at 0) since CandidateRoute carries grade, not absolute per-point elevation.
+ */
+export function candidateToGpxTrack(scored: ScoredCandidate, name: string): GpxTrack {
+  const segs = scored.analysis.segments;
+  const points: GpxPoint[] = [];
+  if (segs.length > 0) {
+    let ele = 0;
+    points.push({ lat: segs[0].seg.a.lat, lon: segs[0].seg.a.lon, ele: round1(ele) });
+    for (const sa of segs) {
+      ele += (sa.seg.gradePct / 100) * sa.seg.lengthM;
+      points.push({ lat: sa.seg.b.lat, lon: sa.seg.b.lon, ele: round1(ele) });
+    }
+  } else {
+    for (const p of scored.candidate.polyline) points.push({ lat: p.lat, lon: p.lon });
+  }
+  return { name, creator: 'WindRide', points };
 }

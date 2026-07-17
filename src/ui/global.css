@@ -270,3 +270,33 @@ button {
   color: var(--text2);
   font-size: var(--fs-small);
 }
+.wr-results__actions {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+/* --- Saved routes list (WR-010) ---------------------------------------------------------- */
+.wr-saved-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.wr-saved-list__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+.wr-saved-list__actions {
+  display: flex;
+  gap: var(--space-2);
+}

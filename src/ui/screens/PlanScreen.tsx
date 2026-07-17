@@ -1,6 +1,9 @@
 import { useEffect } from 'react';
 import { ConditionsStrip, DistanceSlider, PrimaryButton, Segmented, Toggle } from '../components';
 import { DEFAULT_START, usePlanStore } from '../../state/planStore';
+import { useSavedRoutesStore } from '../../state/savedRoutesStore';
+import { downloadText } from '../download';
+import { gpxFilename, toGpx } from '../../utils/gpx';
 
 /** Plan screen (WR-008): inputs -> "Find today's route" -> pipeline (mocks or live per env). */
 export function PlanScreen() {
@@ -11,6 +14,8 @@ export function PlanScreen() {
   const error = usePlanStore((s) => s.error);
   const setInput = usePlanStore((s) => s.setInput);
   const generate = usePlanStore((s) => s.generate);
+  const savedRoutes = useSavedRoutesStore((s) => s.routes);
+  const removeRoute = useSavedRoutesStore((s) => s.remove);
 
   // After idb hydration: geolocate ONLY if the start is still the default (never clobber a
   // persisted/manual start), then load the conditions strip.
@@ -21,6 +26,7 @@ export function PlanScreen() {
         s.inputs.start.lat === DEFAULT_START.lat && s.inputs.start.lon === DEFAULT_START.lon;
       const located = atDefault ? s.locate() : Promise.resolve();
       void located.then(() => usePlanStore.getState().loadConditions());
+      void useSavedRoutesStore.getState().refresh();
     };
     if (usePlanStore.persist.hasHydrated()) {
       run();
@@ -127,6 +133,43 @@ export function PlanScreen() {
         <p className="wr-plan__error" role="alert">
           {error.message}
         </p>
+      ) : null}
+
+      {savedRoutes.length > 0 ? (
+        <section className="wr-plan__saved" aria-label="Saved routes">
+          <h2>Saved routes</h2>
+          <ul className="wr-saved-list">
+            {savedRoutes.map((r) => (
+              <li key={r.id} className="wr-saved-list__item">
+                <span>
+                  {r.name} · <span className="tabular">{r.distanceKm.toFixed(1)} km</span>
+                </span>
+                <span className="wr-saved-list__actions">
+                  <button
+                    type="button"
+                    className="wr-navlink"
+                    onClick={() =>
+                      downloadText(
+                        gpxFilename(r.distanceKm, new Date(r.savedAt).toISOString()),
+                        'application/gpx+xml',
+                        toGpx(r.track),
+                      )
+                    }
+                  >
+                    Export
+                  </button>
+                  <button
+                    type="button"
+                    className="wr-navlink"
+                    onClick={() => void removeRoute(r.id)}
+                  >
+                    Delete
+                  </button>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
       ) : null}
     </section>
   );

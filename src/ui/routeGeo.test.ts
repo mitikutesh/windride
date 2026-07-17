@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import type { CandidateRoute, Segment, WindSample } from '../domain';
 import { scoreCandidates, type ScoredCandidate } from '../engine/scoring';
-import { classifyWindKind, routeToRibbon, routeToWindGeoJSON } from './routeGeo';
+import {
+  candidateToGpxTrack,
+  classifyWindKind,
+  routeToRibbon,
+  routeToWindGeoJSON,
+} from './routeGeo';
 import { WIND_COLORS } from './windColors';
 
 function candidate(id: string, bearing: number, n = 10): CandidateRoute {
@@ -80,5 +85,17 @@ describe('routeToRibbon', () => {
     expect(ribbon).toHaveLength(sc.analysis.segments.length);
     const sum = ribbon.reduce((acc, r) => acc + r.fraction, 0);
     expect(sum).toBeCloseTo(1, 5);
+  });
+});
+
+describe('candidateToGpxTrack', () => {
+  it('emits segment endpoints (n+1 points) with elevation and a WindRide creator', () => {
+    const sc = scoredOne(45);
+    const track = candidateToGpxTrack(sc, 'My route');
+    expect(track.creator).toBe('WindRide');
+    expect(track.name).toBe('My route');
+    expect(track.points).toHaveLength(sc.analysis.segments.length + 1);
+    expect(track.points[0].ele).toBe(0);
+    expect(track.points.every((p) => p.ele !== undefined)).toBe(true);
   });
 });
