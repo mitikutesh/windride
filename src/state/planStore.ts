@@ -141,7 +141,11 @@ export const usePlanStore = create<PlanState>()(
             });
             return;
           }
-          useResultsStore.getState().setResults({ ranked: out.ranked, rejected: out.rejected });
+          useResultsStore.getState().setResults({
+            ranked: out.ranked,
+            rejected: out.rejected,
+            shelterDataAvailable: out.shelterDataAvailable,
+          });
           set({ conditions: out.conditions, status: 'ready', progress: '' });
           if (typeof window !== 'undefined') {
             window.location.hash = '#/results';

@@ -48,6 +48,24 @@ function scoredOne(bearing: number): ScoredCandidate {
   }).ranked[0];
 }
 
+function scoredSheltered(bearing: number): ScoredCandidate {
+  const c = candidate('SH', bearing);
+  c.segments = c.segments.map((s) => ({ ...s, exposure: 0.35 }));
+  return scoreCandidates([{ candidate: c, windBySegment: steady(10) }], {
+    targetDistanceM: 10_000,
+  }).ranked[0];
+}
+
+describe('shelter tint (WR-019)', () => {
+  it('marks low-exposure segments as shelter in the map + ribbon', () => {
+    const sc = scoredSheltered(45);
+    const fc = routeToWindGeoJSON(sc);
+    expect(fc.features.every((f) => f.properties.kind === 'shelter')).toBe(true);
+    expect(fc.features[0].properties.color).toBe(WIND_COLORS.shelter);
+    expect(routeToRibbon(sc).every((r) => r.kind === 'shelter')).toBe(true);
+  });
+});
+
 describe('classifyWindKind', () => {
   it('splits tail / cross / head by delta', () => {
     expect(classifyWindKind(0)).toBe('tail');

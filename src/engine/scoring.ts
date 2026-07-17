@@ -18,6 +18,7 @@ import {
 export type SubScoreName =
   | 'wind'
   | 'safety'
+  | 'shelter'
   | 'surface'
   | 'traffic'
   | 'scenery'
@@ -28,11 +29,12 @@ export type SubScoreName =
 
 export type ScoringWeights = Record<SubScoreName, number>;
 
-// v0.1 weights (SCORING_SPEC §6). Robustness (.10) and shelter (.06) are deferred to Epics 3/4;
-// the total renormalises over whatever weights are present, so these sum to <1 by design.
+// Weights (SCORING_SPEC §6). Shelter (.06) joined in Epic 3 (WR-019); Robustness (.10) is still
+// deferred to Epic 4, so the total renormalises over whatever weights are present (sum <1 by design).
 export const DEFAULT_WEIGHTS: ScoringWeights = {
   wind: 0.28,
   safety: 0.1,
+  shelter: 0.06,
   surface: 0.12,
   traffic: 0.1,
   scenery: 0.07,
@@ -90,11 +92,16 @@ export interface Evidence {
   gustyKm: number;
   maxGustMs: number;
   headwindFirstHalfShare: number;
+  /** Upwind distance ridden inside shelter (exposure ≤ 0.6) — WR-019. */
+  shelteredUpwindKm: number;
+  /** Time-weighted effective wind (m/s) over that sheltered upwind — for the explanation. */
+  shelteredEffWindMs: number;
 }
 
 interface RawMetrics {
   headwindPenalty: number;
   seqShare: number;
+  shelterShare: number;
   crossPenalty: number;
   surfaceMatchShare: number;
   trafficPenalty: number;
@@ -253,6 +260,9 @@ function computeMetrics(a: CandidateAnalysis, opts: ScoreOptions): RawMetrics {
   let rainPenalty = 0;
   let hwTime = 0;
   let hwFirst = 0;
+  let shelteredUpwindTime = 0;
+  let shelteredUpwindDist = 0;
+  let shelteredEffWindTimeWeighted = 0;
   let matchDist = 0;
   let greenerDist = 0;
   let gravelKm = 0;
@@ -283,6 +293,12 @@ function computeMetrics(a: CandidateAnalysis, opts: ScoreOptions): RawMetrics {
       hwTime += sa.timeS;
       if (sa.startS + sa.timeS / 2 < half) hwFirst += sa.timeS;
       if (sa.wind.deltaDeg > 150) directHeadwindKm += km;
+      // Shelter (§4): the fraction of upwind time spent hidden in shelter (exposure ≤ 0.6).
+      if (sa.seg.exposure <= 0.6) {
+        shelteredUpwindTime += sa.timeS;
+        shelteredUpwindDist += sa.seg.lengthM;
+        shelteredEffWindTimeWeighted += sa.timeS * sa.wind.effectiveMs;
+      }
     } else if (sa.wind.vParMs > 0) {
       tailwindKm += km;
       if (sa.startS + sa.timeS / 2 >= half) tailwindFinishKm += km;
@@ -296,9 +312,12 @@ function computeMetrics(a: CandidateAnalysis, opts: ScoreOptions): RawMetrics {
   const distGuard = totalDist || 1;
   // Share of headwind time in the first half (0.5 = neutral when there is no headwind to sequence).
   const seqShare = hwTime > 0 ? hwFirst / hwTime : 0.5;
+  // Share of upwind time spent sheltered (0.5 = neutral when there is no headwind to shelter).
+  const shelterShare = hwTime > 0 ? shelteredUpwindTime / hwTime : 0.5;
   return {
     headwindPenalty,
     seqShare,
+    shelterShare,
     crossPenalty,
     surfaceMatchShare: prefersSurface === 'any' ? 0.5 : matchDist / distGuard,
     trafficPenalty,
@@ -322,6 +341,9 @@ function computeMetrics(a: CandidateAnalysis, opts: ScoreOptions): RawMetrics {
       gustyKm,
       maxGustMs,
       headwindFirstHalfShare: seqShare,
+      shelteredUpwindKm: shelteredUpwindDist / M_PER_KM,
+      shelteredEffWindMs:
+        shelteredUpwindTime > 0 ? shelteredEffWindTimeWeighted / shelteredUpwindTime : 0,
     },
   };
 }
@@ -374,6 +396,7 @@ export function scoreCandidates(inputs: CandidateWindInput[], opts: ScoreOptions
   const norm: Record<SubScoreName, number[]> = {
     wind: normalizeLower(metrics.map((m) => m.headwindPenalty)),
     safety: normalizeLower(metrics.map((m) => m.crossPenalty)),
+    shelter: normalizeHigher(metrics.map((m) => m.shelterShare)),
     surface: normalizeHigher(metrics.map((m) => m.surfaceMatchShare)),
     traffic: normalizeLower(metrics.map((m) => m.trafficPenalty)),
     scenery: normalizeHigher(metrics.map((m) => m.sceneryShare)),
@@ -385,6 +408,7 @@ export function scoreCandidates(inputs: CandidateWindInput[], opts: ScoreOptions
   const rawByName: Record<SubScoreName, number[]> = {
     wind: metrics.map((m) => m.headwindPenalty),
     safety: metrics.map((m) => m.crossPenalty),
+    shelter: metrics.map((m) => m.shelterShare),
     surface: metrics.map((m) => m.surfaceMatchShare),
     traffic: metrics.map((m) => m.trafficPenalty),
     scenery: metrics.map((m) => m.sceneryShare),

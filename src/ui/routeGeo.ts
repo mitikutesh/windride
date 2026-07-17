@@ -2,15 +2,23 @@
  * ui/routeGeo.ts — pure helpers turning a scored candidate into map/ribbon data (WR-009).
  */
 import { haversineM } from '../engine/geometry';
-import type { ScoredCandidate } from '../engine/scoring';
-import { classifyWindKind, type WindKind } from '../engine/wind';
+import type { SegmentAnalysis, ScoredCandidate } from '../engine/scoring';
+import { classifyWindKind } from '../engine/wind';
 import type { GpxPoint, GpxTrack } from '../utils/gpx';
-import type { RibbonSegment } from './components/ribbon';
+import type { RibbonSegment, WindKind } from './components/ribbon';
 import { windColor } from './windColors';
 
 // classifyWindKind now lives in engine/wind (shared with the WR-016 wind HUD); re-export for
 // existing WR-009 importers.
 export { classifyWindKind };
+
+/** Exposure at/below this reads as sheltered — the map/ribbon show it as the shelter hue (WR-019). */
+export const SHELTER_EXPOSURE_MAX = 0.6;
+
+/** A segment's display kind: shelter when it's inside cover, else its wind relationship. */
+export function segmentKind(sa: SegmentAnalysis): WindKind {
+  return sa.seg.exposure <= SHELTER_EXPOSURE_MAX ? 'shelter' : classifyWindKind(sa.wind.deltaDeg);
+}
 
 export interface WindLineFeature {
   type: 'Feature';
@@ -41,7 +49,7 @@ export function routeToWindGeoJSON(scored: ScoredCandidate): WindFeatureCollecti
       if (cum[i] > d0 + 1e-6 && cum[i] < d1 - 1e-6) mid.push([poly[i].lon, poly[i].lat]);
     }
     d0 = d1;
-    const kind = classifyWindKind(sa.wind.deltaDeg);
+    const kind = segmentKind(sa);
     return {
       type: 'Feature' as const,
       properties: { kind, color: windColor(kind) },
@@ -62,7 +70,7 @@ export function routeToRibbon(scored: ScoredCandidate): RibbonSegment[] {
   const total = scored.analysis.totalTimeS || 1;
   return scored.analysis.segments.map((sa) => ({
     fraction: sa.timeS / total,
-    kind: classifyWindKind(sa.wind.deltaDeg),
+    kind: segmentKind(sa),
   }));
 }
 

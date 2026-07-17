@@ -85,6 +85,7 @@ function scoredWith(evidence: Partial<Evidence>): ScoredCandidate {
   for (const n of [
     'wind',
     'safety',
+    'shelter',
     'surface',
     'traffic',
     'scenery',
@@ -108,6 +109,8 @@ function scoredWith(evidence: Partial<Evidence>): ScoredCandidate {
     gustyKm: 0,
     maxGustMs: 0,
     headwindFirstHalfShare: 0.5,
+    shelteredUpwindKm: 0,
+    shelteredEffWindMs: 0,
     ...evidence,
   };
   const c = candidate('x', 45);
@@ -143,5 +146,14 @@ describe('explainCandidate — surface/scenery/climb templates', () => {
     const text = explainCandidate(sc, [sc]);
     expect(text).toMatch(/250 m of climbing/);
     expect(text).toMatch(/\. [A-Z0-9]/); // each sentence starts capitalised
+  });
+
+  it('reports sheltered upwind km with the effective wind (WR-019)', () => {
+    const c = candidate('SH', 225); // headwind (bearing 225 into a SW wind)
+    c.segments = c.segments.map((s) => ({ ...s, exposure: 0.35 }));
+    const { ranked } = scoreCandidates([{ candidate: c, windBySegment: steadyWind(10) }], {
+      targetDistanceM: 10_000,
+    });
+    expect(ranked[0].explanation).toMatch(/km of upwind inside forest, effective wind [\d.]+ m\/s/);
   });
 });

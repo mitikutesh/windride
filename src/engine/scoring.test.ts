@@ -63,6 +63,47 @@ function steadyWind(n: number, hours = 3, windFromDeg = 225): WindSample[][] {
 
 const OPTS: ScoreOptions = { targetDistanceM: 10_000, prefersSurface: 'any' };
 
+/** A headwind candidate (bearing 45 into a NE wind) with a uniform exposure factor. */
+function shelteredCandidate(id: string, exposure: number): CandidateRoute {
+  return {
+    id,
+    polyline: [
+      { lat: 60, lon: 24 },
+      { lat: 60.1, lon: 24.1 },
+    ],
+    segments: Array.from({ length: 10 }, () => ({ ...seg(45), exposure })),
+    distanceM: 10_000,
+    ascentM: 0,
+    steps: [],
+  };
+}
+
+describe('WR-019 shelter-aware scoring', () => {
+  it('W_eff scales v_par by segment exposure', () => {
+    // bearing 45, wind_from 45 ⇒ pure headwind; exposure 0.35 scales the effective wind.
+    const a = analyzeCandidate(shelteredCandidate('s', 0.35), steadyWind(10, 3, 45), OPTS);
+    expect(a.segments[0].wind.effectiveMs).toBeCloseTo(8 * 0.35, 6);
+    expect(a.segments[0].wind.vParMs).toBeCloseTo(-8 * 0.35, 6); // headwind, scaled down
+  });
+
+  it('a forest-sheltered headwind route outranks its exposed twin', () => {
+    const inputs: CandidateWindInput[] = [
+      { candidate: shelteredCandidate('exposed', 1.0), windBySegment: steadyWind(10, 3, 45) },
+      { candidate: shelteredCandidate('sheltered', 0.35), windBySegment: steadyWind(10, 3, 45) },
+    ];
+    const { ranked } = scoreCandidates(inputs, OPTS);
+    const sheltered = ranked.find((r) => r.candidate.id === 'sheltered')!;
+    const exposed = ranked.find((r) => r.candidate.id === 'exposed')!;
+    // All upwind time is sheltered vs none.
+    expect(sheltered.sub.shelter.raw).toBeCloseTo(1, 6);
+    expect(exposed.sub.shelter.raw).toBeCloseTo(0, 6);
+    expect(sheltered.evidence.shelteredUpwindKm).toBeCloseTo(10, 6);
+    expect(sheltered.evidence.shelteredEffWindMs).toBeCloseTo(8 * 0.35, 6);
+    expect(sheltered.total).toBeGreaterThan(exposed.total);
+    expect(ranked[0].candidate.id).toBe('sheltered');
+  });
+});
+
 describe('scoreCandidates — golden ranking (SW 8 m/s steady)', () => {
   // A heads NE (tailwind), C heads SE (crosswind), B heads SW (headwind). Hand-reasoned order:
   // A wins WindComfort + is fastest; C keeps WindComfort but loses CrosswindSafety; B is headwind.

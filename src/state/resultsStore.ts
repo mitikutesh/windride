@@ -6,7 +6,13 @@ interface ResultsState {
   ranked: ScoredCandidate[];
   rejected: RejectedCandidate[];
   selectedId: string | null;
-  setResults: (r: { ranked: ScoredCandidate[]; rejected: RejectedCandidate[] }) => void;
+  /** False when no exposure/shelter data covered the routes (WR-019) — shown as a note. */
+  shelterDataAvailable: boolean;
+  setResults: (r: {
+    ranked: ScoredCandidate[];
+    rejected: RejectedCandidate[];
+    shelterDataAvailable?: boolean;
+  }) => void;
   select: (id: string) => void;
   clear: () => void;
 }
@@ -15,8 +21,9 @@ export const useResultsStore = create<ResultsState>((set) => ({
   ranked: [],
   rejected: [],
   selectedId: null,
-  setResults: ({ ranked, rejected }) =>
-    set({ ranked, rejected, selectedId: ranked[0]?.candidate.id ?? null }),
+  shelterDataAvailable: false,
+  setResults: ({ ranked, rejected, shelterDataAvailable = false }) =>
+    set({ ranked, rejected, shelterDataAvailable, selectedId: ranked[0]?.candidate.id ?? null }),
   select: (id) => set({ selectedId: id }),
-  clear: () => set({ ranked: [], rejected: [], selectedId: null }),
+  clear: () => set({ ranked: [], rejected: [], selectedId: null, shelterDataAvailable: false }),
 }));

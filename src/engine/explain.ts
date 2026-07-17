@@ -59,6 +59,13 @@ export function explainCandidate(sc: ScoredCandidate, set: ScoredCandidate[]): s
       text: `${e.gustyKm.toFixed(1)} km exposed to gusts up to ${e.maxGustMs.toFixed(0)} m/s`,
     });
   }
+  // Shelter (WR-019): upwind km ridden hidden in forest, with the felt (effective) wind there.
+  if (e.shelteredUpwindKm > 0.3) {
+    facts.push({
+      priority: 1 + 2 * sc.sub.shelter.normalized,
+      text: `${e.shelteredUpwindKm.toFixed(1)} km of upwind inside forest, effective wind ${e.shelteredEffWindMs.toFixed(1)} m/s`,
+    });
+  }
   if (e.gravelKm > 0.3) {
     facts.push({ priority: 0.8, text: `${e.gravelKm.toFixed(1)} km on gravel` });
   }

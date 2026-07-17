@@ -40,6 +40,11 @@ export function bearingDeg(a: LatLon, b: LatLon): number {
   return normalizeDeg(turfBearing(toCoord(a), toCoord(b)));
 }
 
+/** Midpoint of a segment's endpoints — the point used for per-segment grid lookups (WR-019). */
+export function segmentMidpoint(seg: Segment): LatLon {
+  return { lat: (seg.a.lat + seg.b.lat) / 2, lon: (seg.a.lon + seg.b.lon) / 2 };
+}
+
 /** Total polyline length in metres. */
 export function polylineLengthM(pts: LatLon[]): number {
   let sum = 0;

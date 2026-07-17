@@ -13,6 +13,7 @@ export function ResultsScreen() {
   const ranked = useResultsStore((s) => s.ranked);
   const selectedId = useResultsStore((s) => s.selectedId);
   const select = useResultsStore((s) => s.select);
+  const shelterDataAvailable = useResultsStore((s) => s.shelterDataAvailable);
 
   if (ranked.length === 0) {
     return (
@@ -51,6 +52,9 @@ export function ResultsScreen() {
       <RouteMap candidates={top3} selectedId={selectedId} onSelect={select} />
       <div className="wr-results__cards">
         <h1>Your routes</h1>
+        {!shelterDataAvailable ? (
+          <p className="wr-muted">No shelter data here — wind shown without forest sheltering.</p>
+        ) : null}
         <div className="wr-results__actions">
           <PrimaryButton onClick={exportGpx}>Export GPX</PrimaryButton>
           <a className="wr-navlink" href="#/ride">

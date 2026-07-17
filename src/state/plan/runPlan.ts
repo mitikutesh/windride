@@ -8,8 +8,9 @@
  */
 import type { Providers } from '../../adapters/registry';
 import { generateCandidates } from '../../adapters/routing/ors';
+import { exposureAt, loadExposureGrid } from '../../data/exposureGrid';
 import type { LatLon } from '../../domain';
-import { resample } from '../../engine/geometry';
+import { resample, segmentMidpoint } from '../../engine/geometry';
 import {
   DEFAULT_WEIGHTS,
   scoreCandidates,
@@ -47,6 +48,8 @@ export interface PlanOutput {
   ranked: ScoredCandidate[];
   rejected: RejectedCandidate[];
   conditions: Conditions;
+  /** False when the exposure grid isn't generated / the ride is outside its region (WR-019). */
+  shelterDataAvailable: boolean;
 }
 
 export interface RunPlanOpts {
@@ -83,6 +86,19 @@ export async function runPlan(
   const candidates = raw.map((c) =>
     c.segments.length > 0 ? c : { ...c, segments: resample({ polyline: c.polyline }) },
   );
+
+  // Fill each segment's exposure factor from the shelter grid (midpoint lookup, WR-019). The grid
+  // is a local static asset; when it's absent every lookup is neutral 1.0 (matches the default).
+  const grid = await loadExposureGrid();
+  let shelterDataAvailable = false;
+  for (const c of candidates) {
+    for (const s of c.segments) {
+      const mid = segmentMidpoint(s);
+      const { factor, inRegion } = exposureAt(grid, mid.lat, mid.lon);
+      s.exposure = factor;
+      if (inRegion) shelterDataAvailable = true;
+    }
+  }
 
   opts.onProgress?.({ phase: 'weather' });
   const hours = forecastHours(inputs.distanceKm);
@@ -124,5 +140,5 @@ export async function runPlan(
     },
   );
 
-  return { ranked, rejected, conditions };
+  return { ranked, rejected, conditions, shelterDataAvailable };
 }
