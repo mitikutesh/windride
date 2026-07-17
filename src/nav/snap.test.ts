@@ -6,7 +6,13 @@ import figureRouteRaw from '../../fixtures/traces/figure-eight-route.json?raw';
 import type { LatLon } from '../domain';
 import type { Fix } from './fixSource';
 import { parseTraceToFixes, mulberry32, applyJitter } from './replay';
-import { prepareTrack, Snapper, SNAP_JITTER_TOLERANCE_M, SNAP_PERP_GATE_M } from './snap';
+import {
+  prepareTrack,
+  Snapper,
+  SNAP_JITTER_TOLERANCE_M,
+  SNAP_PERP_GATE_M,
+  SNAP_WINDOW_FWD_M,
+} from './snap';
 
 const cleanRoute = JSON.parse(cleanRouteRaw) as LatLon[];
 const figureRoute = JSON.parse(figureRouteRaw) as LatLon[];
@@ -38,6 +44,32 @@ describe('Snapper — core behaviour', () => {
     expect(r.onTrack).toBe(true);
   });
 
+  it('cold start does NOT latch on a fix outside the perpendicular gate (retries)', () => {
+    const s = new Snapper(prepareTrack(straight));
+    const far = s.update(fx(60.005, 24.01)); // ~550 m east of the line
+    expect(far.onTrack).toBe(false);
+    expect(far.accepted).toBe(false);
+    // Progress was not latched: a subsequent good fix cold-starts cleanly at its true position.
+    const good = s.update(fx(60.001, 24));
+    expect(good.onTrack).toBe(true);
+    expect(good.progressM).toBeGreaterThan(90);
+    expect(good.progressM).toBeLessThan(140); // ~111 m, not dragged near the bogus first fix
+  });
+
+  it('does not teleport forward past +300 m through a long segment (B1)', () => {
+    // One 1113 m segment; cold-started at the start, a fix ~900 m ahead must not jump there.
+    const s = new Snapper(
+      prepareTrack([
+        { lat: 60, lon: 24 },
+        { lat: 60.01, lon: 24 },
+      ]),
+    );
+    s.update(fx(60, 24)); // progress ~0
+    const r = s.update(fx(60.008, 24)); // ~890 m along the same segment
+    expect(r.progressM).toBeLessThanOrEqual(SNAP_WINDOW_FWD_M + 1); // capped at +300 m
+    expect(r.onTrack).toBe(false); // clamped point is ~590 m away laterally -> off-gate
+  });
+
   it('reports off-track beyond the perpendicular gate without advancing progress', () => {
     const s = new Snapper(prepareTrack(straight));
     s.update(fx(60.001, 24)); // establish progress near the start
@@ -45,6 +77,7 @@ describe('Snapper — core behaviour', () => {
     const r = s.update(fx(60.0025, 24.002)); // ~110 m east of the line
     expect(r.perpendicularM).toBeGreaterThan(SNAP_PERP_GATE_M);
     expect(r.onTrack).toBe(false);
+    expect(r.accepted).toBe(false);
     expect(r.progressM).toBe(before); // progress held, not advanced onto the off-track fix
   });
 
@@ -97,7 +130,11 @@ describe('Snapper — replay integration (WR-013 test contract)', () => {
   it('figure-eight: passes the crossing without teleporting (max jump < 50 m)', () => {
     const track = prepareTrack(figureRoute);
     const s = new Snapper(track);
-    const progress = parseTraceToFixes(figureEightGpx).map((f) => s.update(f).progressM);
+    // Jitter the trace: on a clean trace global-nearest would ALSO pass, so this would not
+    // guard against a regression to global nearest-point. With 8 m noise the branches at the
+    // self-crossing (~4 km apart in progress) diverge — global nearest teleports, windowed does not.
+    const jittered = applyJitter(parseTraceToFixes(figureEightGpx), 8, mulberry32(7));
+    const progress = jittered.map((f) => s.update(f).progressM);
     let maxJump = 0;
     for (let i = 1; i < progress.length; i++) {
       maxJump = Math.max(maxJump, progress[i] - progress[i - 1]);

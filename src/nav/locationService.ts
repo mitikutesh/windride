@@ -26,16 +26,22 @@ const DEFAULT_OPTIONS: PositionOptions = {
   timeout: 15_000,
 };
 
+/** Coerce a possibly-null, possibly-NaN coordinate field to a finite number or undefined.
+ *  W3C Geolocation reports speed/heading as NaN when the device is stationary (every red light). */
+function finiteOrUndef(v: number | null): number | undefined {
+  return v != null && Number.isFinite(v) ? v : undefined;
+}
+
 function mapPosition(pos: GeolocationPosition): Fix {
   const c = pos.coords;
   return {
     lat: c.latitude,
     lon: c.longitude,
-    ele: c.altitude ?? undefined,
+    ele: finiteOrUndef(c.altitude),
     time: new Date(pos.timestamp).toISOString(),
-    speed: c.speed ?? undefined,
+    speed: finiteOrUndef(c.speed),
     accuracy: c.accuracy,
-    heading: c.heading ?? undefined,
+    heading: finiteOrUndef(c.heading),
   };
 }
 
@@ -57,6 +63,7 @@ export class GeolocationSource implements FixSource {
   ) {}
 
   start(onFix: (fix: Fix) => void, onError?: (err: Error) => void): void {
+    this.stop(); // FixSource contract: start() implies stopping any prior stream
     if (!this.geo) {
       onError?.(
         new GeolocationError('unsupported', 'Geolocation is not available in this browser'),

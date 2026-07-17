@@ -10,7 +10,7 @@ export interface Fix {
   time: string;
   /** Ground speed in m/s, when available. */
   speed?: number;
-  /** Horizontal accuracy in metres (snap gates on this — NAVIGATION_SPEC §2). */
+  /** Horizontal accuracy in metres, when available (surfaced for UI confidence; not yet gated on). */
   accuracy?: number;
   /** Heading in degrees (0..360), when available. */
   heading?: number;

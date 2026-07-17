@@ -90,11 +90,30 @@ describe('GeolocationSource', () => {
     expect((err as GeolocationError).kind).toBe('unsupported');
   });
 
+  it('drops NaN speed/heading (W3C reports NaN when stationary)', () => {
+    const f = fakeGeo();
+    const src = new GeolocationSource(f.geo);
+    const got: Fix[] = [];
+    src.start((fix) => got.push(fix));
+    f.emit({ latitude: 60, longitude: 24, altitude: NaN, accuracy: 8, speed: NaN, heading: NaN });
+    expect(got[0].speed).toBeUndefined();
+    expect(got[0].heading).toBeUndefined();
+    expect(got[0].ele).toBeUndefined();
+  });
+
   it('clears the watch on stop', () => {
     const f = fakeGeo();
     const src = new GeolocationSource(f.geo);
     src.start(() => {});
     src.stop();
+    expect(f.clearWatch).toHaveBeenCalledWith(42);
+  });
+
+  it('re-start stops the prior watch (FixSource contract)', () => {
+    const f = fakeGeo();
+    const src = new GeolocationSource(f.geo);
+    src.start(() => {});
+    src.start(() => {}); // must clear the first watch before opening the second
     expect(f.clearWatch).toHaveBeenCalledWith(42);
   });
 });
