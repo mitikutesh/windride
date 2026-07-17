@@ -104,6 +104,31 @@ describe('WR-019 shelter-aware scoring', () => {
     expect(ranked[0].candidate.id).toBe('sheltered');
   });
 
+  it('CrosswindSafety penalizes an exposed ≥13 m/s gust crosswind and not a calm twin', () => {
+    // bearing 135 into a SW (225) wind ⇒ pure crosswind; gust 16 ≥ 13 with exposure 1 flags it.
+    const gusty = candidate('gusty', 135);
+    const calm = candidate('calm', 135);
+    const wind = (gustMs: number): WindSample[][] =>
+      Array.from({ length: 10 }, () => [
+        { windMs: 8, windFromDeg: 225, gustMs, precipProb: 0, tempC: 15, time: '2026-07-10T09:00' },
+      ]);
+    const { ranked } = scoreCandidates(
+      [
+        { candidate: gusty, windBySegment: wind(16) },
+        { candidate: calm, windBySegment: wind(9) }, // below the 13 m/s flag
+      ],
+      OPTS,
+    );
+    const g = ranked.find((r) => r.candidate.id === 'gusty')!;
+    const c = ranked.find((r) => r.candidate.id === 'calm')!;
+    expect(g.sub.safety.raw).toBeGreaterThan(0); // crossPenalty accrued
+    expect(c.sub.safety.raw).toBe(0);
+    expect(g.evidence.gustyKm).toBeCloseTo(10, 6);
+    expect(g.evidence.maxGustMs).toBeCloseTo(16, 6);
+    expect(c.evidence.gustyKm).toBe(0);
+    expect(g.sub.safety.normalized).toBeLessThan(c.sub.safety.normalized); // safer = higher
+  });
+
   it('does NOT differentiate on shelter without a grid (headwind presence is not shelter)', () => {
     // A headwind and a tailwind candidate, both exposure 1.0, no shelter data → uniform 0.5 shelter
     // so presence-of-headwind can't leak into the shelter axis.
@@ -120,7 +145,9 @@ describe('WR-019 shelter-aware scoring', () => {
 
 describe('scoreCandidates — golden ranking (SW 8 m/s steady)', () => {
   // A heads NE (tailwind), C heads SE (crosswind), B heads SW (headwind). Hand-reasoned order:
-  // A wins WindComfort + is fastest; C keeps WindComfort but loses CrosswindSafety; B is headwind.
+  // A wins WindComfort + is fastest; C keeps WindComfort (crosswind, no headwind); B is headwind.
+  // NOTE: the golden gust is 12 m/s (< the 13 m/s WR-021 flag), so CrosswindSafety is uniform here
+  // and does not differentiate — the safety penalty path is exercised separately below.
   const inputs: CandidateWindInput[] = [
     { candidate: candidate('A', 45), windBySegment: steadyWind(10) },
     { candidate: candidate('B', 225), windBySegment: steadyWind(10) },

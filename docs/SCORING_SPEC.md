@@ -35,7 +35,11 @@ Monotonicity tests: more headwind ⇒ v never increases; steeper up ⇒ v never 
 ## 4. Sub-scores (scoring.ts) — each normalized 0–1 across the candidate set
 - WindComfort: 1 − Σ t·f(delta)·max(0,−v_par), where f emphasizes delta>150° (direct headwind).
 - Sequencing: bonus when headwind time concentrates in the first half of total time.
-- CrosswindSafety: penalty Σ t·gust_eff over segments with v_cross above threshold AND exposure ≥ 1.0.
+- CrosswindSafety: penalty Σ t·gust_eff over segments inside flagged exposed-crosswind gust
+  stretches — a stretch is exposure ≥ 1.0 AND gust_eff ≥ 13 m/s (settings 10–18) AND
+  v_cross ≥ 0.6·W_eff, contiguous flagged segments merged (bridging calm gaps < 150 m) into
+  stretches ≥ 300 m (single source: `engine/gustFlags.ts`, shared with the results chip, ride
+  HUD warning, and map markers).
 - Shelter (Epic 3): share of upwind time with exposure ≤ 0.6.
 - SurfaceMatch · Traffic (wayClass penalties; primary/secondary without cycleway = heavy) ·
   Scenery (forest/water adjacency share) · ClimbMatch, DistanceMatch (gaussian on target) ·

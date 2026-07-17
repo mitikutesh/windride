@@ -49,7 +49,7 @@ export function RouteCard({ scored, rank, selected, onSelect }: RouteCardProps) 
         <StatCell label="Direct headwind" value={e.directHeadwindKm.toFixed(1)} unit="km" />
       </div>
 
-      {e.gustyKm >= 0.3 ? (
+      {e.gustyKm > 0 ? (
         <p className="wr-card__gust" role="note">
           ⚠ {e.gustyKm.toFixed(1)} km exposed crosswind, gusts {Math.round(e.maxGustMs)} m/s
         </p>

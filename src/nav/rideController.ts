@@ -167,12 +167,14 @@ export class RideController {
     }
     this.lastOffRoute = offRoute;
 
-    // Upcoming exposed-crosswind gust stretch within 500 m — warn once (WR-021, NAVIGATION_SPEC §4).
+    // Exposed-crosswind gust stretch within 500 m ahead OR currently inside one — warn once on
+    // approach (WR-021, NAVIGATION_SPEC §4); inM ≤ 0 means the rider is in the stretch now.
     let gustAhead: RideState['gustAhead'] = null;
     for (const s of this.gustStretches) {
       const inM = s.startM - snap.progressM;
-      if (inM > 0 && inM <= 500) {
-        gustAhead = { inM, maxGustMs: s.maxGustMs };
+      const inside = snap.progressM >= s.startM && snap.progressM < s.endM;
+      if ((inM > 0 && inM <= 500) || inside) {
+        gustAhead = { inM: inside ? 0 : inM, maxGustMs: s.maxGustMs };
         if (!this.gustAnnounced.has(s.startM)) {
           this.gustAnnounced.add(s.startM);
           this.announcer.announce({

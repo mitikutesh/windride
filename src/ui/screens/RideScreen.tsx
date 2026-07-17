@@ -255,9 +255,11 @@ export function RideScreen() {
           </div>
         ) : null}
         {rideState?.gustAhead ? (
-          <div className="wr-ride__alert" role="alert">
-            ⚠ Crosswind gusts {Math.round(rideState.gustAhead.maxGustMs)} m/s in{' '}
-            {Math.round(rideState.gustAhead.inM)} m
+          // role=status (polite) + no changing distance in the text, so a screen reader isn't
+          // re-announced every fix on approach; the one-shot voice cue already gave the distance.
+          <div className="wr-ride__alert" role="status">
+            ⚠ Crosswind gusts up to {Math.round(rideState.gustAhead.maxGustMs)} m/s{' '}
+            {rideState.gustAhead.inM <= 0 ? 'now' : 'ahead'}
           </div>
         ) : null}
       </div>

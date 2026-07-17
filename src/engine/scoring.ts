@@ -7,7 +7,7 @@
  */
 import type { CandidateRoute, Segment, WindSample } from '../domain';
 import { explainCandidate } from './explain';
-import { detectGustStretches, flaggedSegmentIndices } from './gustFlags';
+import { detectGustStretches, flaggedSegmentIndices, isGustFlagged } from './gustFlags';
 import { decompose, type WindComponents } from './wind';
 import {
   DEFAULT_SPEED_SETTINGS,
@@ -317,7 +317,11 @@ function computeMetrics(a: CandidateAnalysis, opts: ScoreOptions): RawMetrics {
   const flagged = flaggedSegmentIndices(gustStretches);
   let crossPenalty = 0;
   a.segments.forEach((sa, i) => {
-    if (flagged.has(i)) crossPenalty += sa.timeS * sa.wind.gustEffMs;
+    // Penalise only genuinely flagged segments — not the calm segments a stretch bridges over —
+    // so the time-weighted gust penalty shares one domain with the reported peak gust.
+    if (flagged.has(i) && isGustFlagged(sa, opts.gustThresholdMs)) {
+      crossPenalty += sa.timeS * sa.wind.gustEffMs;
+    }
   });
   const gustyKm = gustStretches.reduce((sum, s) => sum + s.lengthM, 0) / M_PER_KM;
   const maxGustMs = gustStretches.reduce((m, s) => Math.max(m, s.maxGustMs), 0);

@@ -94,3 +94,51 @@ Shipped gust-exposure safety flags end-to-end, per SCORING_SPEC §4 / PRODUCT_SP
   unlike the SVG ride map.
 - No new `DEC-xxx` needed — the threshold defaults and merge constants were already pinned in
   SCORING_SPEC §4; this story implements them as specified.
+
+## Review pass — fixes
+
+Reviewed by a substitute senior reviewer (Opus) — the Fable 5 model was out of usage credits
+this session. Verdict was REQUEST-CHANGES; all SHOULD-FIXes and NITs below are applied and the
+gate is green.
+
+- **SF1 (spec/decision integrity):** the above Log claim ("no new DEC-xxx needed... already
+  pinned in SCORING_SPEC §4") was factually wrong — SCORING_SPEC §4 still described the *old*
+  per-segment CrosswindSafety (penalty over segments with v_cross above a threshold), and
+  DEC-015 still pinned `crossThreshold = 5 m/s`, both contradicted by this story's rewrite.
+  Fixed: `docs/SCORING_SPEC.md` §4 now describes the actual shipped rule (penalty over segments
+  inside flagged exposed-crosswind gust stretches — exposure ≥ 1.0 AND gust_eff ≥ 13 m/s AND
+  v_cross ≥ 0.6·W_eff, merged across calm gaps < 150 m into stretches ≥ 300 m, single source
+  `engine/gustFlags.ts`). Added `docs/DECISIONS.md` **DEC-026**, which records the intentional
+  narrowing (mild crosswind no longer penalized; only exposed high-gust crosswind corridors are)
+  and that it changes rankings vs. the old per-segment cross-threshold, and explicitly
+  **supersedes DEC-015's `crossThreshold = 5 m/s` default** (`crossThresholdMs` is now
+  `@deprecated`).
+- **SF2:** `crossPenalty` summed `gustEffMs` over *all* segment indices spanned by a stretch,
+  including the calm segments a stretch bridges — over-penalizing, and inconsistent with
+  `maxGustMs`, which is flagged-only. Fixed: `crossPenalty` now filters by `isGustFlagged` too,
+  so the time-weighted gust penalty and the reported peak gust share one domain; `gustyKm` still
+  spans the full corridor length (bridged gaps included).
+- **SF3:** the rewired safety-penalty path had no direct scoring test, and the golden's comment
+  ("C loses CrosswindSafety") was stale now that the golden's 12 m/s gust falls below the 13 m/s
+  flag threshold. Fixed: added `scoring.test.ts` — `'CrosswindSafety penalizes an exposed ≥13 m/s
+  gust crosswind and not a calm twin'` — an exposed 16 m/s gust crosswind candidate accrues
+  `sub.safety.raw > 0`, `gustyKm ≈ 10`, `maxGustMs 16`, while a 9 m/s twin gets `0` and a higher
+  normalized safety; corrected the golden comment to state CrosswindSafety is uniform there
+  (below the 13 m/s flag), rather than claiming candidate C loses it.
+- **SF4:** the ride gust banner used `role="alert"` with a per-fix-changing distance, spamming
+  screen readers at ~1 Hz on approach. Fixed: `role="status"` (polite) with a static "up to N
+  m/s ahead/now" — the live region no longer re-announces a changing distance every fix; the
+  one-shot voice cue already gave the distance once.
+- **NITs:** `gustAhead` no longer reports `null`/vanishes once inside the danger zone —
+  `inM ≤ 0` now reads "now" instead of dropping the HUD state; the `RouteCard` chip gate was
+  simplified to `gustyKm > 0`.
+- **SF5 (follow-up, not fixed this story):** `gustThresholdMs` is threaded only into scoring —
+  the ride SVG markers and HUD recompute `detectGustStretches` with the hardcoded default (13).
+  No active mismatch today (default 13 everywhere, no settings UI yet), but when a settings
+  threshold ships it must be threaded to all consumers (or the stretches exposed directly on
+  `ScoredCandidate`). Tracked as a follow-up for whichever story adds the settings control.
+- **Deferred NITs (noted, not addressed this pass):** the gust warning isn't gated by ride-pause
+  (matches the existing off-route-alert precedent); Results-screen MapLibre markers remain
+  deferred (see Scope note above); the results chip uses the `--head` token as text colour —
+  verify AA contrast later.
+- Gate after fixes: **294 tests**, lint clean, build OK.
