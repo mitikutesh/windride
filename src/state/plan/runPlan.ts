@@ -25,7 +25,7 @@ import { startTimeMessage } from '../../engine/startTime';
 
 export interface PlanInputs {
   distanceKm: number;
-  routeType: 'loop' | 'out-and-back';
+  routeType: 'loop' | 'out-and-back' | 'downwind';
   surface: 'road' | 'gravel';
   homeBeforeDark: boolean;
   avoidBusy: boolean;

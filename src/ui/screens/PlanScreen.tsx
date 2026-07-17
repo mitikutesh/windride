@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { ConditionsStrip, DistanceSlider, PrimaryButton, Segmented, Toggle } from '../components';
+import { DownwindResults } from '../components/DownwindResults';
 import { DEFAULT_START, usePlanStore } from '../../state/planStore';
 import { useSavedRoutesStore } from '../../state/savedRoutesStore';
 import { downloadText } from '../download';
@@ -15,6 +16,7 @@ export function PlanScreen() {
   const error = usePlanStore((s) => s.error);
   const setInput = usePlanStore((s) => s.setInput);
   const generate = usePlanStore((s) => s.generate);
+  const downwind = usePlanStore((s) => s.downwind);
   const savedRoutes = useSavedRoutesStore((s) => s.routes);
   const removeRoute = useSavedRoutesStore((s) => s.remove);
 
@@ -63,6 +65,7 @@ export function PlanScreen() {
           options={[
             { value: 'loop', label: 'Loop' },
             { value: 'out-and-back', label: 'Out & back' },
+            { value: 'downwind', label: 'Downwind' },
           ]}
         />
       </div>
@@ -141,7 +144,11 @@ export function PlanScreen() {
       </details>
 
       <PrimaryButton onClick={() => void generate()} disabled={busy}>
-        {status === 'loading' ? progress || 'Working…' : "Find today's route"}
+        {status === 'loading'
+          ? progress || 'Working…'
+          : inputs.routeType === 'downwind'
+            ? 'Find downwind rides'
+            : "Find today's route"}
       </PrimaryButton>
 
       {status === 'error' && error ? (
@@ -149,6 +156,8 @@ export function PlanScreen() {
           {error.message}
         </p>
       ) : null}
+
+      {inputs.routeType === 'downwind' ? <DownwindResults results={downwind} /> : null}
 
       {savedRoutes.length > 0 ? (
         <section className="wr-plan__saved" aria-label="Saved routes">

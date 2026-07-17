@@ -1,0 +1,38 @@
+[
+  {
+    "id": "helsinki",
+    "name": "Helsinki",
+    "lat": 60.1719,
+    "lon": 24.9414,
+    "modes": ["rail", "bus"]
+  },
+  { "id": "pasila", "name": "Pasila", "lat": 60.1986, "lon": 24.933, "modes": ["rail", "bus"] },
+  {
+    "id": "leppavaara",
+    "name": "Leppävaara",
+    "lat": 60.2192,
+    "lon": 24.813,
+    "modes": ["rail", "bus"]
+  },
+  { "id": "espoo", "name": "Espoo", "lat": 60.2052, "lon": 24.6522, "modes": ["rail"] },
+  { "id": "kauklahti", "name": "Kauklahti", "lat": 60.1897, "lon": 24.5806, "modes": ["rail"] },
+  { "id": "masala", "name": "Masala", "lat": 60.1519, "lon": 24.5497, "modes": ["rail"] },
+  { "id": "kirkkonummi", "name": "Kirkkonummi", "lat": 60.1189, "lon": 24.4383, "modes": ["rail"] },
+  {
+    "id": "tikkurila",
+    "name": "Tikkurila",
+    "lat": 60.2925,
+    "lon": 25.0448,
+    "modes": ["rail", "bus"]
+  },
+  { "id": "kerava", "name": "Kerava", "lat": 60.4036, "lon": 25.1039, "modes": ["rail", "bus"] },
+  { "id": "jarvenpaa", "name": "Järvenpää", "lat": 60.4728, "lon": 25.089, "modes": ["rail"] },
+  { "id": "jokela", "name": "Jokela", "lat": 60.5528, "lon": 24.9986, "modes": ["rail"] },
+  { "id": "hyvinkaa", "name": "Hyvinkää", "lat": 60.6317, "lon": 24.859, "modes": ["rail"] },
+  { "id": "riihimaki", "name": "Riihimäki", "lat": 60.7375, "lon": 24.7736, "modes": ["rail"] },
+  { "id": "lahti", "name": "Lahti", "lat": 60.9767, "lon": 25.6566, "modes": ["rail"] },
+  { "id": "hameenlinna", "name": "Hämeenlinna", "lat": 60.9959, "lon": 24.4643, "modes": ["rail"] },
+  { "id": "karjaa", "name": "Karjaa", "lat": 60.0708, "lon": 23.6647, "modes": ["rail"] },
+  { "id": "porvoo", "name": "Porvoo", "lat": 60.3925, "lon": 25.665, "modes": ["bus"] },
+  { "id": "lohja", "name": "Lohja", "lat": 60.2489, "lon": 24.0656, "modes": ["bus"] }
+]

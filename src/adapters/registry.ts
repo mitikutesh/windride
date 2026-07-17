@@ -4,6 +4,7 @@ import type { RouteProvider } from './routing';
 import type { WeatherProvider } from './weather';
 import { MockRouteProvider } from './routing/mock';
 import { OrsRouteProvider } from './routing/ors';
+import { DigitransitProvider, type TransitProvider } from './transit/digitransit';
 import { MockWeatherProvider } from './weather/mock';
 import { OpenMeteoProvider } from './weather/openMeteo';
 
@@ -22,4 +23,13 @@ export function getProviders(): Providers {
     return { weather: new OpenMeteoProvider(), routing: new OrsRouteProvider() };
   }
   return { weather: new MockWeatherProvider(), routing: new MockRouteProvider() };
+}
+
+/**
+ * Return-service provider for downwind endpoints (WR-026). Always the real Digitransit adapter — it
+ * self-degrades to a typed 'no-key' error when VITE_DIGITRANSIT_KEY is unset, and the planner then
+ * ranks by wind alone. There is no mock: without a key the downwind planner simply omits return copy.
+ */
+export function getTransitProvider(): TransitProvider {
+  return new DigitransitProvider();
 }

@@ -2,11 +2,12 @@
 // Inputs persist across reload via idb; the pipeline runs on mocks or live per VITE_LIVE_APIS.
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
-import { getProviders } from '../adapters/registry';
+import { getProviders, getTransitProvider } from '../adapters/registry';
 import { isProviderError, type ProviderError, type ProviderErrorKind } from '../adapters/errors';
 import { idbStateStorage } from './persist';
 import { useResultsStore } from './resultsStore';
 import { runPlan, type Conditions, type PlanInputs, type PlanProgress } from './plan/runPlan';
+import { runDownwindPlan, type DownwindResult } from './plan/runDownwindPlan';
 
 export type PlanStatus = 'idle' | 'locating' | 'loading' | 'ready' | 'error';
 export interface PlanError {
@@ -20,6 +21,8 @@ interface PlanState {
   status: PlanStatus;
   progress: string;
   error: PlanError | null;
+  /** Ranked downwind one-ways (WR-026), shown inline on the Plan screen. */
+  downwind: DownwindResult[];
   setInput: (patch: Partial<PlanInputs>) => void;
   locate: () => Promise<void>;
   loadConditions: () => Promise<void>;
@@ -64,6 +67,7 @@ export const usePlanStore = create<PlanState>()(
       status: 'idle',
       progress: '',
       error: null,
+      downwind: [],
 
       setInput: (patch) => set((s) => ({ inputs: { ...s.inputs, ...patch } })),
 
@@ -120,6 +124,44 @@ export const usePlanStore = create<PlanState>()(
       },
 
       generate: async () => {
+        // Downwind is its own pipeline (one-way point-to-point + transit return, WR-026) and its
+        // results render inline on the Plan screen rather than the loop Results grid.
+        if (get().inputs.routeType === 'downwind') {
+          set({
+            status: 'loading',
+            error: null,
+            progress: 'Finding downwind stations…',
+            downwind: [],
+          });
+          try {
+            const { start, distanceKm, surface } = get().inputs;
+            const results = await runDownwindPlan(
+              getProviders(),
+              { start, distanceKm, surface },
+              { now: Date.now(), transit: getTransitProvider() },
+            );
+            if (results.length === 0) {
+              set({
+                status: 'error',
+                progress: '',
+                error: {
+                  kind: 'badResponse',
+                  message:
+                    'No transit stations sit downwind at this distance today. Try a different distance, or loop/out-and-back mode.',
+                },
+              });
+              return;
+            }
+            set({ downwind: results, status: 'ready', progress: '' });
+          } catch (e) {
+            const error: PlanError = isProviderError(e)
+              ? { kind: e.kind, message: phrase(e) }
+              : { kind: 'network', message: (e as Error).message ?? 'Something went wrong.' };
+            set({ status: 'error', error, progress: '' });
+          }
+          return;
+        }
+
         set({ status: 'loading', error: null, progress: 'Drafting candidates…' });
         try {
           const out = await runPlan(getProviders(), get().inputs, {

@@ -1,0 +1,20 @@
+{
+  "data": {
+    "stopsByRadius": {
+      "edges": [
+        {
+          "node": {
+            "stop": {
+              "stoptimesWithoutPatterns": [
+                { "serviceDay": 1752710400, "scheduledDeparture": 66600, "realtimeDeparture": 66600 },
+                { "serviceDay": 1752710400, "scheduledDeparture": 68400, "realtimeDeparture": 68420 },
+                { "serviceDay": 1752710400, "scheduledDeparture": 70200, "realtimeDeparture": 70200 },
+                { "serviceDay": 1752710400, "scheduledDeparture": 72000, "realtimeDeparture": null }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  }
+}
