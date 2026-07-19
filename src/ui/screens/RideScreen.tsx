@@ -104,6 +104,16 @@ export function RideScreen() {
   // distance — otherwise it sits in the wrong wind band on headwind/tailwind routes.
   const dotFraction = rideState?.timeFraction ?? 0;
 
+  // Follow-the-rider map zoom (metres across the view). Auto-scales with speed — see further ahead
+  // when fast, tighter detail when slow/stopped — until the rider zooms manually (Auto restores it).
+  const [manualZoomM, setManualZoomM] = useState<number | null>(null);
+  const autoZoomM = Math.round(
+    Math.max(250, Math.min(1600, 300 + (rideState?.speedKmh ?? 0) * 35)),
+  );
+  const zoomM = manualZoomM ?? autoZoomM;
+  const zoomIn = () => setManualZoomM((z) => Math.max(120, Math.round((z ?? autoZoomM) / 1.6)));
+  const zoomOut = () => setManualZoomM((z) => Math.min(4000, Math.round((z ?? autoZoomM) * 1.6)));
+
   const handleFix = useCallback((fix: Fix) => {
     const controller = controllerRef.current;
     if (!controller) return;
@@ -287,7 +297,28 @@ export function RideScreen() {
             rideState ? { position: rideState.snapped, headingDeg: rideState.headingDeg } : null
           }
           batterySaver={batterySaver}
+          zoomM={zoomM}
         />
+        {rideState ? (
+          <div className="wr-ride__zoom">
+            <button type="button" aria-label="Zoom out" onClick={zoomOut}>
+              −
+            </button>
+            <button type="button" aria-label="Zoom in" onClick={zoomIn}>
+              +
+            </button>
+            {manualZoomM !== null ? (
+              <button
+                type="button"
+                className="wr-ride__zoom-auto"
+                aria-label="Auto zoom"
+                onClick={() => setManualZoomM(null)}
+              >
+                Auto
+              </button>
+            ) : null}
+          </div>
+        ) : null}
         {rideState?.offRoute === 'alert' && rideState.toTrack ? (
           <div className="wr-ride__alert" role="alert">
             <svg
