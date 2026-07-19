@@ -7,7 +7,7 @@
  */
 import type { CandidateAnalysis } from '../engine/scoring';
 import { haversineM } from '../engine/geometry';
-import type { LatLon } from '../domain';
+import type { CandidateRoute, LatLon } from '../domain';
 import type { Announcer } from './announcer';
 import { buildCuePoints, CueScheduler, type UnitSystem } from './cues';
 import type { Fix } from './fixSource';
@@ -64,47 +64,101 @@ export interface RideControllerOptions {
   unit?: UnitSystem;
 }
 
+/** What the reroute coordinator needs to ask the router for a fresh leg (WR follow-up, DEC-022). */
+export interface RerouteInputs {
+  current: LatLon;
+  route: CandidateRoute;
+  track: Track;
+  progressM: number;
+}
+
 export class RideController {
-  private readonly analysis: CandidateAnalysis;
   private readonly announcer: Announcer;
-  private readonly track: Track;
-  private readonly snapper: Snapper;
-  private readonly scheduler: CueScheduler;
-  private readonly monitor = new OffRouteMonitor();
-  private readonly eta = new EtaEstimator();
+  private readonly unit: UnitSystem;
+  // Derived from the active analysis; rebuilt by load() so a reroute can swap the whole route in.
+  private analysis!: CandidateAnalysis;
+  private track!: Track;
+  private snapper!: Snapper;
+  private scheduler!: CueScheduler;
+  private hudSegs!: ReturnType<typeof toWindHudSegments>;
+  private cuePoints!: ReturnType<typeof buildCuePoints>;
+  private gustStretches!: GustStretch[];
+  private segDistStart: number[] = [];
+  private segTimeStart: number[] = [];
+
+  private monitor = new OffRouteMonitor();
+  private readonly eta = new EtaEstimator(); // speed EMA survives a reroute — the rider is unchanged
   private readonly heading = new HeadingSmoother();
 
-  // Precomputed cumulative distance/time at each segment start, for modelled speed + remaining time.
-  private readonly segDistStart: number[] = [];
-  private readonly segTimeStart: number[] = [];
-  private readonly hudSegs;
-  private readonly cuePoints;
-
-  private readonly gustStretches: GustStretch[];
-  private readonly gustAnnounced = new Set<number>();
+  private gustAnnounced = new Set<number>();
   private pausedFlag = false;
   private lastFix: { p: LatLon; tMs: number } | null = null;
   private lastOffRoute: OffRouteState = 'on-route';
   private trailingStoppedS = 0;
+  // Latest snapped progress + raw position, so the reroute coordinator can act between fixes.
+  private lastProgressM = 0;
+  private lastPosition: LatLon | null = null;
 
   constructor(opts: RideControllerOptions) {
-    this.analysis = opts.analysis;
     this.announcer = opts.announcer;
-    this.track = prepareTrack(opts.analysis.candidate.polyline);
-    this.snapper = new Snapper(this.track);
-    this.cuePoints = buildCuePoints(opts.analysis.candidate.steps ?? [], this.track);
-    this.scheduler = new CueScheduler(this.cuePoints, opts.unit ?? 'metric');
-    this.hudSegs = toWindHudSegments(opts.analysis.segments);
-    this.gustStretches = detectGustStretches(opts.analysis.segments);
+    this.unit = opts.unit ?? 'metric';
+    this.load(opts.analysis);
+  }
 
+  /** (Re)build all route-derived state from an analysis — used by the constructor and applyReroute. */
+  private load(analysis: CandidateAnalysis): void {
+    this.analysis = analysis;
+    this.track = prepareTrack(analysis.candidate.polyline);
+    this.snapper = new Snapper(this.track);
+    this.cuePoints = buildCuePoints(analysis.candidate.steps ?? [], this.track);
+    this.scheduler = new CueScheduler(this.cuePoints, this.unit);
+    this.hudSegs = toWindHudSegments(analysis.segments);
+    this.gustStretches = detectGustStretches(analysis.segments);
+    this.gustAnnounced = new Set();
+    this.segDistStart = [];
+    this.segTimeStart = [];
     let d = 0;
     let t = 0;
-    for (const sa of opts.analysis.segments) {
+    for (const sa of analysis.segments) {
       this.segDistStart.push(d);
       this.segTimeStart.push(t);
       d += sa.seg.lengthM;
       t += sa.timeS;
     }
+  }
+
+  /** The route currently being navigated (swapped on reroute). */
+  get route(): CandidateRoute {
+    return this.analysis.candidate;
+  }
+
+  /** Inputs for a reroute attempt, or null before the first on-track fix. */
+  rerouteInputs(): RerouteInputs | null {
+    if (!this.lastPosition) return null;
+    return {
+      current: this.lastPosition,
+      route: this.analysis.candidate,
+      track: this.track,
+      progressM: this.lastProgressM,
+    };
+  }
+
+  /**
+   * Swap in a re-analysed spliced route after a successful reroute (DEC-022 wiring): reset the
+   * snapper (cold-start on the new geometry), off-route monitor and cues, and announce the change.
+   * The speed EMA and heading survive — the rider hasn't changed, only the line ahead.
+   */
+  applyReroute(analysis: CandidateAnalysis): void {
+    this.load(analysis);
+    this.monitor = new OffRouteMonitor();
+    this.lastOffRoute = 'on-route';
+    this.announcer.stop(); // drop stale turn cues for the old geometry
+    this.announcer.announce({
+      stepIndex: -3,
+      kind: 'turn',
+      text: 'New route, follow the track',
+      turnDistanceM: 0,
+    });
   }
 
   get paused(): boolean {
@@ -122,6 +176,8 @@ export class RideController {
 
   onFix(fix: Fix): RideState {
     const snap = this.snapper.update(fix);
+    this.lastProgressM = snap.progressM;
+    this.lastPosition = { lat: fix.lat, lon: fix.lon };
     const prevTMs = this.lastFix?.tMs;
     const measuredMs = this.speedOf(fix); // null when unknown (don't poison the EMA)
     const speedMs = measuredMs ?? 0;

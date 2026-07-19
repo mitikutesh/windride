@@ -228,3 +228,46 @@ describe('RideController', () => {
     expect(moved.autoPaused).toBe(false);
   });
 });
+
+describe('RideController.applyReroute (auto-reroute swap)', () => {
+  const wind: WindSample = {
+    windMs: 4,
+    windFromDeg: 200,
+    gustMs: 6,
+    precipProb: 0,
+    tempC: 15,
+    time: '2026-07-10T09:00',
+  };
+  function analysisFor(polyline: LatLon[], id: string) {
+    const segments = resample({ polyline });
+    return analyzeCandidate(
+      { id, polyline, segments, distanceM: polylineLengthM(polyline), ascentM: 0 },
+      segments.map(() => [wind]),
+      { targetDistanceM: polylineLengthM(polyline) },
+    );
+  }
+
+  it('swaps in a new route: geometry changes, cues rearm, fixes snap to the new line', () => {
+    const ann = fakeAnnouncer();
+    const controller = new RideController({ analysis: buildAnalysis(), announcer: ann });
+    controller.onFix({ lat: cleanRoute[0].lat, lon: cleanRoute[0].lon, time: '2026-07-10T09:00' });
+
+    // A distinct reroute route (a straight north line well away from the original).
+    const newLine: LatLon[] = [
+      { lat: 60.3, lon: 24.9 },
+      { lat: 60.31, lon: 24.9 },
+      { lat: 60.32, lon: 24.9 },
+    ];
+    ann.stop.mockClear();
+    ann.announce.mockClear();
+    controller.applyReroute(analysisFor(newLine, 'reroute'));
+
+    expect(controller.route.polyline).toEqual(newLine); // route swapped
+    expect(ann.stop).toHaveBeenCalled(); // stale cues dropped
+    expect(ann.announce).toHaveBeenCalled(); // "New route" cue
+
+    // A fix on the NEW line snaps on-track; the old geometry is gone.
+    const onNew = controller.onFix({ lat: 60.305, lon: 24.9, time: '2026-07-10T09:01', speed: 4 });
+    expect(onNew.onTrack).toBe(true);
+  });
+});

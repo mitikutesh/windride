@@ -22,6 +22,7 @@ import {
 import { resample, segmentMidpoint } from '../../engine/geometry';
 import { DEFAULT_WEIGHTS, scoreCandidates, type ScoredCandidate } from '../../engine/scoring';
 import { activeSpeedSettings } from '../calibrationStore';
+import { orsProfile } from './profiles';
 
 export interface DownwindInputs {
   start: LatLon;
@@ -82,8 +83,7 @@ export async function runDownwindPlan(
   opts: RunDownwindOpts,
 ): Promise<DownwindResult[]> {
   const lengthM = inputs.distanceKm * 1000;
-  // Bike-friendly paved for "Road" (not the ORS racing profile), tracks/unpaved for "Gravel".
-  const profile = inputs.surface === 'road' ? 'cycling-regular' : 'cycling-mountain';
+  const profile = orsProfile(inputs.surface);
   const stations = opts.stations ?? loadStations();
 
   // Wind at the DEPARTURE hour fixes the downwind direction (wind_to = wind_from + 180) — an evening

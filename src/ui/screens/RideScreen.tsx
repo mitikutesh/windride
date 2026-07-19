@@ -10,9 +10,13 @@ import {
   saveUnfinishedRide,
   type RideRecorder,
 } from '../../nav/recorder';
+import type { Rerouter } from '../../nav/offRoute';
+import { attemptReroute } from '../../nav/reroute';
 import { RideController, type RideState } from '../../nav/rideController';
-import { useCalibrationStore } from '../../state/calibrationStore';
+import type { CandidateAnalysis } from '../../engine/scoring';
+import { activeSpeedSettings, useCalibrationStore } from '../../state/calibrationStore';
 import { useNoveltyStore } from '../../state/noveltyStore';
+import { makeRerouter } from '../../state/rerouter';
 import { useResultsStore } from '../../state/resultsStore';
 import { useRidesStore } from '../../state/ridesStore';
 import { gpxFilename } from '../../utils/gpx';
@@ -59,6 +63,12 @@ export function RideScreen() {
   const controllerRef = useRef<RideController | null>(null);
   const recorderRef = useRef<RideRecorder>(nullRecorder);
   const sourceRef = useRef<GeolocationSource | null>(null);
+  // Auto-reroute (DEC-022 wiring): a Rerouter, the ORIGINAL plan analysis (for reference wind), an
+  // in-flight guard, and a backoff clock so a failed attempt doesn't hammer the router.
+  const rerouterRef = useRef<Rerouter | null>(null);
+  const refAnalysisRef = useRef<CandidateAnalysis | null>(null);
+  const reroutingRef = useRef(false);
+  const rerouteRetryAtRef = useRef(0);
 
   useWakeLock(status === 'riding');
 
@@ -99,13 +109,47 @@ export function RideScreen() {
     if (!controller) return;
     recorderRef.current.addFix(fix);
     if (recorderRef.current.lastError) setRecError(true); // recording stopped persisting
-    setRideState(controller.onFix(fix));
+    const state = controller.onFix(fix);
+    setRideState(state);
+
+    // Sustained off-route ⇒ fetch a fresh leg, splice + re-analyse it, and swap the route in
+    // (DEC-022). One attempt in flight at a time; failures back off, near-finish stops retrying.
+    if (
+      state.offRoute === 'alert' &&
+      rerouterRef.current &&
+      refAnalysisRef.current &&
+      !reroutingRef.current &&
+      Date.now() >= rerouteRetryAtRef.current
+    ) {
+      reroutingRef.current = true;
+      void attemptReroute(
+        rerouterRef.current,
+        controller,
+        refAnalysisRef.current,
+        activeSpeedSettings(),
+      )
+        .then((r) => {
+          if (r.result === 'failed')
+            rerouteRetryAtRef.current = Date.now() + (r.nextRetryMs ?? 5000);
+          else if (r.result === 'near-finish') rerouteRetryAtRef.current = Number.POSITIVE_INFINITY;
+        })
+        .catch(() => {
+          rerouteRetryAtRef.current = Date.now() + 5000;
+        })
+        .finally(() => {
+          reroutingRef.current = false;
+        });
+    }
   }, []);
 
   const start = useCallback(() => {
     if (!scored) return;
     const announcer = armAudio(cueMode); // unlock audio on this user gesture
     controllerRef.current = new RideController({ analysis: scored.analysis, announcer });
+    rerouterRef.current = makeRerouter();
+    refAnalysisRef.current = scored.analysis; // original forecast wind, for reroute re-analysis
+    reroutingRef.current = false;
+    rerouteRetryAtRef.current = 0;
     const name = `WindRide ${scored.evidence.distanceKm.toFixed(0)} km`;
     recorderRef.current = new IdbRideRecorder({
       rideId: crypto.randomUUID(),
@@ -182,6 +226,10 @@ export function RideScreen() {
     void loadRidePoints(unfinished.id).then((resumePoints) => {
       const announcer = armAudio(cueMode);
       controllerRef.current = new RideController({ analysis: scored.analysis, announcer });
+      rerouterRef.current = makeRerouter();
+      refAnalysisRef.current = scored.analysis;
+      reroutingRef.current = false;
+      rerouteRetryAtRef.current = 0;
       recorderRef.current = new IdbRideRecorder({
         rideId: unfinished.id, // keep the existing recording row — do NOT call start()
         name: unfinished.name,
