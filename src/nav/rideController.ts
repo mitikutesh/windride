@@ -105,11 +105,15 @@ export class RideController {
     this.load(opts.analysis);
   }
 
-  /** (Re)build all route-derived state from an analysis — used by the constructor and applyReroute. */
-  private load(analysis: CandidateAnalysis): void {
+  /**
+   * (Re)build all route-derived state from an analysis — used by the constructor and applyReroute.
+   * `seedProgressM` seeds the new snapper (reroute passes 0, the spliced leg's start) so it uses the
+   * windowed search from there instead of a global cold-start that could mis-latch on a loop.
+   */
+  private load(analysis: CandidateAnalysis, seedProgressM: number | null = null): void {
     this.analysis = analysis;
     this.track = prepareTrack(analysis.candidate.polyline);
-    this.snapper = new Snapper(this.track);
+    this.snapper = new Snapper(this.track, seedProgressM);
     this.cuePoints = buildCuePoints(analysis.candidate.steps ?? [], this.track);
     this.scheduler = new CueScheduler(this.cuePoints, this.unit);
     this.hudSegs = toWindHudSegments(analysis.segments);
@@ -149,7 +153,8 @@ export class RideController {
    * The speed EMA and heading survive — the rider hasn't changed, only the line ahead.
    */
   applyReroute(analysis: CandidateAnalysis): void {
-    this.load(analysis);
+    this.load(analysis, 0); // spliced leg starts at the rider ⇒ seed progress 0, windowed acquire
+    this.lastProgressM = 0; // the old-track progress no longer applies
     this.monitor = new OffRouteMonitor();
     this.lastOffRoute = 'on-route';
     this.announcer.stop(); // drop stale turn cues for the old geometry

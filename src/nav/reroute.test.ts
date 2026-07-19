@@ -58,6 +58,20 @@ describe('referenceWind', () => {
   it('is calm for an empty analysis', () => {
     expect(referenceWind({ segments: [] } as unknown as CandidateAnalysis).windMs).toBe(0);
   });
+  it('recovers wind from the least-sheltered segment, not a becalmed segment[0]', () => {
+    // segment[0] is fully sheltered (exposure 0 → effectiveMs 0): dividing there yields calm and
+    // would poison the whole reroute. A later exposed segment carries the real wind.
+    const sheltered: SegmentAnalysis = {
+      seg: { a: { lat: 60, lon: 24 }, b: { lat: 60, lon: 24 }, lengthM: 500, exposure: 0 },
+      wind: { effectiveMs: 0, windToDeg: 45, gustEffMs: 0 },
+      precipProb: 20,
+    } as unknown as SegmentAnalysis;
+    const exposed = analysisWith(1).segments[0]; // effectiveMs 8, exposure 1
+    const w = referenceWind({
+      segments: [sheltered, exposed],
+    } as unknown as CandidateAnalysis);
+    expect(w.windMs).toBeCloseTo(8, 6); // from the exposed segment, not the becalmed first one
+  });
 });
 
 describe('reanalyzeReroute', () => {
@@ -127,6 +141,19 @@ describe('attemptReroute', () => {
       speed,
     );
     expect(r).toEqual({ result: 'failed', nextRetryMs: 4000 });
+  });
+
+  it('skips applying when canApply is false (ride paused/ended while the leg loaded)', async () => {
+    const ctrl = fakeController(inputs);
+    const r = await attemptReroute(
+      rerouter(async () => ({ ok: true, route: line('spliced'), rejoinAtM: 600 })),
+      ctrl,
+      ref,
+      speed,
+      () => false, // ride is no longer live by the time the leg resolves
+    );
+    expect(r.result).toBe('skipped');
+    expect(ctrl.applied).toHaveLength(0); // nothing swapped into a non-live ride
   });
 
   it('skips before the first fix (no inputs)', async () => {

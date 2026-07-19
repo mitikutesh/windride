@@ -14,8 +14,12 @@ import type { RideController } from './rideController';
 
 /** A representative wind sample rebuilt from an analysis (ride wind is ~uniform). Pure. */
 export function referenceWind(ref: CandidateAnalysis): WindSample {
-  const s = ref.segments[0];
-  if (!s) return { windMs: 0, windFromDeg: 0, gustMs: 0, precipProb: 0, tempC: 0, time: '' };
+  if (ref.segments.length === 0) {
+    return { windMs: 0, windFromDeg: 0, gustMs: 0, precipProb: 0, tempC: 0, time: '' };
+  }
+  // Use the LEAST-sheltered segment: windMs = effectiveMs/exposure recovers the raw wind most
+  // reliably there (a fully-sheltered segment[0] with exposure 0 would otherwise read as calm).
+  const s = ref.segments.reduce((best, sa) => (sa.seg.exposure > best.seg.exposure ? sa : best));
   const exposure = s.seg.exposure || 1;
   return {
     windMs: s.wind.effectiveMs / exposure, // undo the exposure scaling applied at analysis time
@@ -51,6 +55,8 @@ export async function attemptReroute(
   controller: RideController,
   ref: CandidateAnalysis,
   speed: SpeedSettings,
+  /** Re-checked when the leg resolves — skip applying if the ride paused/ended mid-fetch. */
+  canApply?: () => boolean,
 ): Promise<{ result: RerouteResult; nextRetryMs?: number }> {
   const inputs = controller.rerouteInputs();
   if (!inputs) return { result: 'skipped' };
@@ -61,6 +67,7 @@ export async function attemptReroute(
     inputs.progressM,
   );
   if (outcome.ok) {
+    if (canApply && !canApply()) return { result: 'skipped' }; // ride paused/ended while loading
     controller.applyReroute(reanalyzeReroute(outcome.route, ref, speed));
     return { result: 'rerouted' };
   }

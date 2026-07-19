@@ -39,6 +39,9 @@ const median = (xs: number[]): number => {
 
 const DevReplayPanel = lazy(() => import('../components/DevReplayPanel'));
 
+/** Min gap between reroutes (success or failure) — protects the ORS free-tier budget when lost. */
+const REROUTE_COOLDOWN_MS = 20_000;
+
 type RideStatus = 'idle' | 'riding' | 'paused' | 'ended';
 
 /**
@@ -108,7 +111,7 @@ export function RideScreen() {
   // when fast, tighter detail when slow/stopped — until the rider zooms manually (Auto restores it).
   const [manualZoomM, setManualZoomM] = useState<number | null>(null);
   const autoZoomM = Math.round(
-    Math.max(250, Math.min(1600, 300 + (rideState?.speedKmh ?? 0) * 35)),
+    Math.max(250, Math.min(1600, 250 + (rideState?.speedKmh ?? 0) * 40)),
   );
   const zoomM = manualZoomM ?? autoZoomM;
   const zoomIn = () => setManualZoomM((z) => Math.max(120, Math.round((z ?? autoZoomM) / 1.6)));
@@ -122,10 +125,14 @@ export function RideScreen() {
     const state = controller.onFix(fix);
     setRideState(state);
 
-    // Sustained off-route ⇒ fetch a fresh leg, splice + re-analyse it, and swap the route in
-    // (DEC-022). One attempt in flight at a time; failures back off, near-finish stops retrying.
+    // Sustained off-route WHILE ACTIVELY RIDING ⇒ fetch a fresh leg, splice + re-analyse it, and swap
+    // the route in (DEC-022). One attempt in flight at a time; success + failure both cool down
+    // (never hammer the router / blow the free-tier budget); near-finish stops retrying. `paused`
+    // covers both pause and end (end() pauses the controller), so a reroute never fires or applies
+    // once the rider stops.
     if (
       state.offRoute === 'alert' &&
+      !controller.paused &&
       rerouterRef.current &&
       refAnalysisRef.current &&
       !reroutingRef.current &&
@@ -137,9 +144,11 @@ export function RideScreen() {
         controller,
         refAnalysisRef.current,
         activeSpeedSettings(),
+        () => !controller.paused, // don't apply/announce if the ride paused/ended mid-fetch
       )
         .then((r) => {
-          if (r.result === 'failed')
+          if (r.result === 'rerouted') rerouteRetryAtRef.current = Date.now() + REROUTE_COOLDOWN_MS;
+          else if (r.result === 'failed')
             rerouteRetryAtRef.current = Date.now() + (r.nextRetryMs ?? 5000);
           else if (r.result === 'near-finish') rerouteRetryAtRef.current = Number.POSITIVE_INFINITY;
         })

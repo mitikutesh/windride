@@ -62,13 +62,12 @@ export function RideMap({ scored, rider, batterySaver = false, zoomM }: RideMapP
   }, [fc, rider, zoomM]);
 
   const riderXY = rider ? project(rider.position.lon, rider.position.lat) : null;
-  // Gust-stretch warning markers at each stretch midpoint (WR-021).
+  // Gust-stretch warning markers at each stretch midpoint (WR-021). Detect once per route (heavy,
+  // over all segments); only the projection re-runs per fix as the follow-map pans/zooms.
+  const gustStretches = useMemo(() => detectGustStretches(scored.analysis.segments), [scored]);
   const gustMarkers = useMemo(
-    () =>
-      detectGustStretches(scored.analysis.segments).map((s) =>
-        project(s.midpoint.lon, s.midpoint.lat),
-      ),
-    [scored, project],
+    () => gustStretches.map((s) => project(s.midpoint.lon, s.midpoint.lat)),
+    [gustStretches, project],
   );
 
   return (

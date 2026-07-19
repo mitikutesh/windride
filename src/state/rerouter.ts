@@ -5,7 +5,10 @@ import { Rerouter } from '../nav/offRoute';
 import { orsProfile } from './plan/profiles';
 import { usePlanStore } from './planStore';
 
-/** A Rerouter wired to the live router, using the same bike profile the ride was planned with. */
+/**
+ * A Rerouter wired to the live router, using the current surface preference's bike profile (captured
+ * at ride start — it matches the plan unless the owner changed surface without re-planning).
+ */
 export function makeRerouter(): Rerouter {
   return new Rerouter(getProviders().routing, orsProfile(usePlanStore.getState().inputs.surface));
 }

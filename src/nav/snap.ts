@@ -127,8 +127,14 @@ export class Snapper {
   private readonly track: Track;
   private progressM: number | null = null;
 
-  constructor(track: Track) {
+  /**
+   * `initialProgressM` seeds progress so the FIRST fix uses the windowed search around it instead of
+   * a global nearest — used on reroute, where the spliced leg starts at the rider's position (0), so
+   * a global cold-start could otherwise mis-latch onto a far branch of a self-crossing route.
+   */
+  constructor(track: Track, initialProgressM: number | null = null) {
     this.track = track;
+    this.progressM = initialProgressM;
   }
 
   update(fix: Fix): SnapResult {

@@ -266,8 +266,9 @@ describe('RideController.applyReroute (auto-reroute swap)', () => {
     expect(ann.stop).toHaveBeenCalled(); // stale cues dropped
     expect(ann.announce).toHaveBeenCalled(); // "New route" cue
 
-    // A fix on the NEW line snaps on-track; the old geometry is gone.
-    const onNew = controller.onFix({ lat: 60.305, lon: 24.9, time: '2026-07-10T09:01', speed: 4 });
+    // A fix near the START of the new line (where the spliced leg begins, seed 0) snaps on-track;
+    // the old geometry is gone.
+    const onNew = controller.onFix({ lat: 60.301, lon: 24.9, time: '2026-07-10T09:01', speed: 4 });
     expect(onNew.onTrack).toBe(true);
   });
 });

@@ -56,6 +56,17 @@ describe('Snapper — core behaviour', () => {
     expect(good.progressM).toBeLessThan(140); // ~111 m, not dragged near the bogus first fix
   });
 
+  it('a progress seed constrains the first fix to a windowed search, not a global nearest', () => {
+    // After a reroute splice the rider is at the new leg's start; seeding progress 0 must keep the
+    // FIRST fix windowed so a later self-crossing branch cannot be latched at cold-start.
+    const far = fx(60.008, 24); // ~890 m along — well past the +300 m window
+    const cold = new Snapper(prepareTrack(straight)).update(far); // unseeded scans the whole track
+    expect(cold.progressM).toBeGreaterThan(800); // global nearest acquires the far point
+    const seeded = new Snapper(prepareTrack(straight), 0).update(far); // seeded at the leg start
+    expect(seeded.progressM).toBeLessThanOrEqual(SNAP_WINDOW_FWD_M + 1); // held inside [0, +300 m]
+    expect(seeded.onTrack).toBe(false); // clamped point is far laterally -> off-gate, no false latch
+  });
+
   it('does not teleport forward past +300 m through a long segment (B1)', () => {
     // One 1113 m segment; cold-started at the start, a fix ~900 m ahead must not jump there.
     const s = new Snapper(
