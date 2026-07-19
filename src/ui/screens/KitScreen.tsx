@@ -8,6 +8,7 @@ import {
   WindRibbon,
   type RibbonSegment,
 } from '../components';
+import { ApiKeysSettings } from '../components/ApiKeysSettings';
 import { CalibrationSettings } from '../components/CalibrationSettings';
 import { NoveltySettings } from '../components/NoveltySettings';
 import { StravaSettings } from '../components/StravaSettings';
@@ -80,6 +81,9 @@ export function KitScreen() {
 
       <h2>Roads explored</h2>
       <NoveltySettings />
+
+      <h2>API keys (bring your own)</h2>
+      <ApiKeysSettings />
 
       <h2>Strava (upload-only)</h2>
       <StravaSettings />

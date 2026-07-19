@@ -14,17 +14,42 @@ export interface Providers {
   routing: RouteProvider;
 }
 
+/** API keys a user can bring their own of (task #33). `ai` is reserved — no consumer yet. */
+export type ApiKeyName = 'ors' | 'digitransit' | 'ai';
+
+export interface RuntimeConfig {
+  /** Runtime keys entered by the user (idb-backed); each overrides its Vite-env fallback. */
+  keys: Partial<Record<ApiKeyName, string>>;
+  /** Master live-APIs switch override: true/false wins, null follows the build-time env default. */
+  liveApis: boolean | null;
+}
+
+// Module-level runtime config (task #33). Adapters stay self-contained — the state layer hydrates
+// the keychain from idb and pushes it in via setRuntimeConfig, so the registry never imports up.
+let runtime: RuntimeConfig = { keys: {}, liveApis: null };
+
+export function setRuntimeConfig(config: RuntimeConfig): void {
+  runtime = config;
+}
+
+/** A non-empty runtime key, else undefined so the adapter falls back to its Vite-env default. */
+function runtimeKey(name: ApiKeyName): string | undefined {
+  return runtime.keys[name] || undefined;
+}
+
 export function liveApisEnabled(): boolean {
-  return import.meta.env.VITE_LIVE_APIS === 'true';
+  // A runtime toggle (owner-set in Settings) wins; with none set, follow the build-time env default.
+  return runtime.liveApis ?? import.meta.env.VITE_LIVE_APIS === 'true';
 }
 
 export function getProviders(): Providers {
   if (liveApisEnabled()) {
     // Live weather: FMI HARMONIE (best Nordic wind) decorating Open-Meteo — FMI where it has data,
-    // Open-Meteo everywhere else and for daylight/recent-precip. Routing: live openrouteservice.
+    // Open-Meteo everywhere else and for daylight/recent-precip. Routing: live openrouteservice,
+    // keyed by the user's runtime ORS key when set, else the VITE_ORS_API_KEY fallback.
     return {
       weather: new FmiWeatherProvider({ fallback: new OpenMeteoProvider() }),
-      routing: new OrsRouteProvider(),
+      routing: new OrsRouteProvider({ apiKey: runtimeKey('ors') }),
     };
   }
   return { weather: new MockWeatherProvider(), routing: new MockRouteProvider() };
@@ -37,9 +62,16 @@ export function getProviders(): Providers {
  * ranking and never fires a live call while the app is meant to be running fully mocked/offline.
  */
 let transitSingleton: DigitransitProvider | undefined;
+let transitKeySnapshot: string | undefined;
 export function getTransitProvider(): TransitProvider {
   // Keyless (throws 'no-key' → wind-only ranking) when live APIs are off, so a stale key in .env
-  // can't fire real calls in mock mode. Live: a singleton, so its cache survives repeated plans.
+  // can't fire real calls in mock mode. Live: a singleton, so its cache survives repeated plans —
+  // rebuilt only when the user's runtime Digitransit key changes (rare).
   if (!liveApisEnabled()) return new DigitransitProvider({ apiKey: '' });
-  return (transitSingleton ??= new DigitransitProvider());
+  const key = runtimeKey('digitransit');
+  if (!transitSingleton || transitKeySnapshot !== key) {
+    transitSingleton = new DigitransitProvider(key ? { apiKey: key } : {});
+    transitKeySnapshot = key;
+  }
+  return transitSingleton;
 }

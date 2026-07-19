@@ -1,6 +1,7 @@
 // data/db.ts — IndexedDB schema for WindRide (WR-010, ARCHITECTURE §6).
 // v1 holds the `routes` store (planned routes). v2 adds `rides` + `ridePoints` (WR-017 recorder).
-// v3 adds `strava` (owner OAuth creds, WR-023). `riddenEdges` arrives with WR-028.
+// v3 adds `strava` (owner OAuth creds, WR-023). v4 adds `riddenEdges` (WR-028). v5 adds `config`
+// (bring-your-own API keys + live-APIs override, task #33).
 import { openDB, type IDBPDatabase } from 'idb';
 import type { RideSummary } from '../domain';
 import type { GpxTrack } from '../utils/gpx';
@@ -53,11 +54,12 @@ const RIDES = 'rides';
 const RIDE_POINTS = 'ridePoints';
 const STRAVA = 'strava';
 const RIDDEN_EDGES = 'riddenEdges';
+const CONFIG = 'config';
 
 let dbPromise: Promise<IDBPDatabase> | undefined;
 export function openWindrideDb(): Promise<IDBPDatabase> {
   if (!dbPromise) {
-    dbPromise = openDB(DB_NAME, 4, {
+    dbPromise = openDB(DB_NAME, 5, {
       upgrade(db) {
         if (!db.objectStoreNames.contains(ROUTES)) db.createObjectStore(ROUTES, { keyPath: 'id' });
         if (!db.objectStoreNames.contains(RIDES)) db.createObjectStore(RIDES, { keyPath: 'id' });
@@ -69,6 +71,9 @@ export function openWindrideDb(): Promise<IDBPDatabase> {
         // v4: ridden-road geohash cells for the Novelty sub-score (WR-028). The edge string IS the
         // key, so re-saving a ride is idempotent (a put on an existing key is a no-op change).
         if (!db.objectStoreNames.contains(RIDDEN_EDGES)) db.createObjectStore(RIDDEN_EDGES);
+        // v5: runtime config — bring-your-own API keys + a live-APIs override (task #33). Values are
+        // strings keyed by name; keys live here (local browser only), never in the shipped bundle.
+        if (!db.objectStoreNames.contains(CONFIG)) db.createObjectStore(CONFIG);
       },
     }).catch((e) => {
       dbPromise = undefined; // don't cache a rejection — allow a later retry
@@ -169,4 +174,21 @@ export async function getStravaCreds(): Promise<StravaCredsRecord | undefined> {
 
 export async function setStravaCreds(creds: Omit<StravaCredsRecord, 'key'>): Promise<void> {
   await (await openWindrideDb()).put(STRAVA, { key: 'creds', ...creds });
+}
+
+// --- runtime config: BYO API keys + live-APIs override (task #33) ---------------------------
+/** Load the whole config map (name → string value). Empty when nothing has been set. */
+export async function getConfig(): Promise<Record<string, string>> {
+  const db = await openWindrideDb();
+  // One pass each for keys and values (getAll preserves key order), not a get() per key.
+  const [names, values] = await Promise.all([db.getAllKeys(CONFIG), db.getAll(CONFIG)]);
+  return Object.fromEntries((names as string[]).map((n, i) => [n, values[i] as string]));
+}
+
+export async function setConfigValue(name: string, value: string): Promise<void> {
+  await (await openWindrideDb()).put(CONFIG, value, name);
+}
+
+export async function deleteConfigValue(name: string): Promise<void> {
+  await (await openWindrideDb()).delete(CONFIG, name);
 }

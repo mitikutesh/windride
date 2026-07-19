@@ -708,3 +708,27 @@
   gap: var(--space-2);
   max-width: 28rem;
 }
+
+/* Bring-your-own API keys (task #33). */
+.wr-keys {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  max-width: 28rem;
+}
+.wr-keys__row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--line);
+}
+.wr-keys__help {
+  margin: 0;
+  font-size: 0.85rem;
+}
+.wr-keys__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
