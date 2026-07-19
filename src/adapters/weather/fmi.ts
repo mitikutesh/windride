@@ -5,28 +5,56 @@
  * Data WFS is free, keyless, and CORS-open (Access-Control-Allow-Origin: *) — so a client-only PWA
  * can call it directly (adapters are the only place fetch may appear, CLAUDE.md rule 4).
  *
- * This provider is a DECORATOR over Open-Meteo: it upgrades `windAlong` to FMI where FMI has data
- * (real wind + gust, which the crosswind-safety score needs), and delegates everything else —
- * daylight, recent precipitation, and any point outside FMI's domain or any FMI failure — to the
- * Open-Meteo fallback. So it degrades gracefully worldwide with no registry coordinate logic.
+ * This provider is a DECORATOR over Open-Meteo: it upgrades `windAlong` to FMI's HARMONIE model
+ * (real wind + gust, which the crosswind-safety score needs) and delegates daylight + recent
+ * precipitation to the fallback. On any FMI failure, or a point/window FMI can't fully cover, the
+ * WHOLE call falls back to Open-Meteo — so the grid is always single-source and hour-aligned, and it
+ * degrades gracefully worldwide with no registry coordinate logic.
  *
  * HARMONIE is deterministic and has no probability-of-precipitation, so `precipProb` is ESTIMATED
- * from the modelled `precipitation1h` (mm) — a rain-intensity proxy, not a true POP. Documented in
- * `estimatePrecipProb` and surfaced honestly (the RainAvoid score reads it as an avoid-the-wet weight).
+ * from the modelled `precipitation1h` (mm) — a rain-intensity proxy, not a true POP (see
+ * `estimatePrecipProb`). Apparent temperature isn't a HARMONIE field either, so `feelsC` is derived
+ * from temperature + humidity + wind (Australian apparent-temperature formula).
  */
 import type { Daylight, LatLon, WindGrid, WindSample } from '../../domain';
 import { ProviderError } from '../errors';
+import { createWeatherCache, type WeatherCache } from './cache';
 import type { WeatherProvider } from './index';
 import { OpenMeteoProvider } from './openMeteo';
 
 const ENDPOINT = 'https://opendata.fmi.fi/wfs';
 const STORED_QUERY = 'fmi::forecast::harmonie::surface::point::multipointcoverage';
 const PARAMS = 'temperature,humidity,windspeedms,winddirection,windgust,precipitation1h';
+const TTL_MS = 30 * 60 * 1000;
+// FMI serves Finland/the Nordics; its unix times are UTC, so we render the local hour in Helsinki
+// time to honour WindSample.time's "local hour" contract (domain.ts) — matching Open-Meteo/mock.
+const TZ = 'Europe/Helsinki';
 
 /** HARMONIE has no POP; estimate a 0–100 "rain-ish" weight from modelled mm/h (documented proxy). */
 export function estimatePrecipProb(precipMm: number): number {
   if (!Number.isFinite(precipMm) || precipMm <= 0) return 0;
   return Math.min(100, Math.round(precipMm * 100)); // ~1 mm/h ⇒ 100; light drizzle ⇒ small
+}
+
+/** Australian apparent temperature (°C) from temp/humidity/wind — HARMONIE has no feels-like field. */
+export function apparentTempC(
+  tempC: number,
+  humidityPct: number,
+  windMs: number,
+): number | undefined {
+  if (!Number.isFinite(tempC) || !Number.isFinite(humidityPct) || !Number.isFinite(windMs)) {
+    return undefined;
+  }
+  const vapourPressure = (humidityPct / 100) * 6.105 * Math.exp((17.27 * tempC) / (237.7 + tempC));
+  return Math.round((tempC + 0.33 * vapourPressure - 0.7 * windMs - 4.0) * 10) / 10;
+}
+
+/** Local wall-clock hour ("YYYY-MM-DDTHH:MM", Helsinki time) from a UTC unix-seconds timestamp. */
+function localHour(timeS: number): string {
+  return new Date(timeS * 1000)
+    .toLocaleString('sv-SE', { timeZone: TZ })
+    .replace(' ', 'T')
+    .slice(0, 16);
 }
 
 function extractBlock(xml: string, tag: string): string | null {
@@ -42,8 +70,10 @@ const numbers = (s: string): number[] =>
 
 /**
  * Parse an FMI multipointcoverage response into an ordered WindSample[] (one row per forecast hour).
- * Pure. Returns [] when there's no usable data (empty coverage / all-NaN / point outside domain) so
- * the provider can fall back. Row i of the tuple list aligns with position i (lat lon unixtime).
+ * Pure. Returns the LEADING CONTIGUOUS run of fully-valid hours: on the first row with missing data
+ * (NaN = FMI "no data here") it STOPS rather than compacting, so a gap can never silently shift an
+ * hour index or under-fill the window — the provider then falls back if the run is too short. Row i
+ * of the tuple list aligns with position i (lat lon unixtime).
  */
 export function parseFmiForecast(xml: string): WindSample[] {
   const fields = [...xml.matchAll(/swe:field name="([^"]+)"/g)].map((m) => m[1]);
@@ -51,7 +81,7 @@ export function parseFmiForecast(xml: string): WindSample[] {
   const tupBlock = extractBlock(xml, 'gml:doubleOrNilReasonTupleList');
   if (!fields.length || !posBlock || !tupBlock) return [];
 
-  const pos = numbers(posBlock); // flat [lat, lon, time, lat, lon, time, ...]
+  const pos = numbers(posBlock); // flat [lat, lon, time, ...]
   const tup = numbers(tupBlock); // flat rows of `fields.length`
   const rows = Math.floor(pos.length / 3);
   const col = (row: number[], name: string) => row[fields.indexOf(name)] ?? NaN;
@@ -62,27 +92,35 @@ export function parseFmiForecast(xml: string): WindSample[] {
     const row = tup.slice(i * fields.length, (i + 1) * fields.length);
     const windMs = col(row, 'windspeedms');
     const windFromDeg = col(row, 'winddirection');
-    // A row with no wind is FMI signalling "no data here" (outside domain / gap) — skip it.
-    if (!Number.isFinite(windMs) || !Number.isFinite(windFromDeg) || !Number.isFinite(timeS)) {
-      continue;
-    }
+    const tempC = col(row, 'temperature');
+    // Stop at the first incomplete hour — never compact (that would misalign later hours).
+    if (![windMs, windFromDeg, tempC, timeS].every(Number.isFinite)) break;
     const gust = col(row, 'windgust');
-    out.push({
+    const sample: WindSample = {
       windMs,
-      windFromDeg,
-      gustMs: Number.isFinite(gust) ? gust : windMs, // fall back to steady wind if gust missing
+      windFromDeg: ((windFromDeg % 360) + 360) % 360,
+      gustMs: Number.isFinite(gust) ? gust : windMs, // steady wind if gust missing (never higher)
       precipProb: estimatePrecipProb(col(row, 'precipitation1h')),
-      tempC: col(row, 'temperature'),
-      time: new Date(timeS * 1000).toISOString().slice(0, 16), // "YYYY-MM-DDTHH:MM"
-    });
+      tempC,
+      time: localHour(timeS),
+    };
+    const feels = apparentTempC(tempC, col(row, 'humidity'), windMs);
+    if (feels !== undefined) sample.feelsC = feels;
+    out.push(sample);
   }
   return out;
+}
+
+function fmiCacheKey(points: LatLon[], hours: number, nowMs: number): string {
+  const pts = points.map((p) => `${p.lat.toFixed(3)},${p.lon.toFixed(3)}`).join('|');
+  return `fmi#${pts}#h${hours}#${new Date(nowMs).toISOString().slice(0, 13)}`; // date-hour bucket
 }
 
 export interface FmiOptions {
   fetchFn?: typeof fetch;
   now?: () => number;
   endpoint?: string;
+  cache?: WeatherCache;
   /** Where non-wind calls and out-of-domain / failed wind calls go. Defaults to Open-Meteo. */
   fallback?: WeatherProvider;
 }
@@ -91,12 +129,14 @@ export class FmiWeatherProvider implements WeatherProvider {
   private readonly fetchFn: typeof fetch;
   private readonly now: () => number;
   private readonly endpoint: string;
+  private readonly cache: WeatherCache;
   private readonly fallback: WeatherProvider;
 
   constructor(opts: FmiOptions = {}) {
     this.fetchFn = opts.fetchFn ?? fetch.bind(globalThis);
     this.now = opts.now ?? (() => Date.now());
     this.endpoint = opts.endpoint ?? ENDPOINT;
+    this.cache = opts.cache ?? createWeatherCache(this.now);
     this.fallback = opts.fallback ?? new OpenMeteoProvider();
   }
 
@@ -111,7 +151,7 @@ export class FmiWeatherProvider implements WeatherProvider {
       latlon: `${p.lat},${p.lon}`,
       parameters: PARAMS,
       starttime: iso(startMs),
-      endtime: iso(startMs + hours * 3_600_000),
+      endtime: iso(startMs + hours * 3_600_000), // hours+1 inclusive rows — a one-hour buffer
       timestep: '60',
     });
     return `${this.endpoint}?${params.toString()}`;
@@ -129,16 +169,25 @@ export class FmiWeatherProvider implements WeatherProvider {
     return parseFmiForecast(await res.text());
   }
 
-  async windAlong(points: LatLon[], hours: number): Promise<WindGrid> {
+  private async fetchGrid(points: LatLon[], hours: number): Promise<WindGrid> {
     try {
       const grid = await Promise.all(points.map((p) => this.fetchPoint(p, hours)));
-      // Any point with no FMI data (outside the domain) ⇒ fall back for the whole call so the grid
-      // is consistent (one source), matching the app's spatially-uniform wind assumption.
-      if (grid.some((col) => col.length === 0)) return this.fallback.windAlong(points, hours);
+      // Every point needs `hours` contiguous valid samples; if any is short (gap / outside domain /
+      // partial coverage) fall back for the WHOLE call, keeping the grid single-source + hour-aligned.
+      if (grid.some((col) => col.length < hours)) return this.fallback.windAlong(points, hours);
       return grid.map((col) => col.slice(0, hours));
     } catch {
       return this.fallback.windAlong(points, hours);
     }
+  }
+
+  async windAlong(points: LatLon[], hours: number): Promise<WindGrid> {
+    const key = fmiCacheKey(points, hours, this.now());
+    const cached = await this.cache.get(key);
+    if (cached) return cached;
+    const grid = await this.fetchGrid(points, hours);
+    await this.cache.set(key, grid, this.now() + TTL_MS);
+    return grid;
   }
 
   daylight(p: LatLon): Promise<Daylight> {
