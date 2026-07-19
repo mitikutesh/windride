@@ -18,7 +18,8 @@ describe('getProviders', () => {
     vi.stubEnv('VITE_LIVE_APIS', 'true');
     expect(liveApisEnabled()).toBe(true);
     const providers = getProviders();
-    expect(providers.weather.constructor.name).toBe('OpenMeteoProvider');
+    // FMI HARMONIE (decorating Open-Meteo) is the live weather source; ORS the live router.
+    expect(providers.weather.constructor.name).toBe('FmiWeatherProvider');
     expect(providers.routing.constructor.name).toBe('OrsRouteProvider');
   });
 });

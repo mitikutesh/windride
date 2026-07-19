@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<wfs:FeatureCollection
+    timeStamp="2026-07-19T10:03:34Z"
+    numberMatched="1"
+    numberReturned="1"
+    xmlns:wfs="http://www.opengis.net/wfs/2.0"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns:xlink="http://www.w3.org/1999/xlink"
+    xmlns:om="http://www.opengis.net/om/2.0"
+    xmlns:omso="http://inspire.ec.europa.eu/schemas/omso/3.0"
+    xmlns:ompr="http://inspire.ec.europa.eu/schemas/ompr/3.0"
+    xmlns:gml="http://www.opengis.net/gml/3.2"
+    xmlns:gmd="http://www.isotc211.org/2005/gmd"
+    xmlns:gco="http://www.isotc211.org/2005/gco"
+    xmlns:swe="http://www.opengis.net/swe/2.0"
+    xmlns:gmlcov="http://www.opengis.net/gmlcov/1.0"
+    xmlns:sam="http://www.opengis.net/sampling/2.0"
+    xmlns:sams="http://www.opengis.net/samplingSpatial/2.0"
+    xmlns:target="http://xml.fmi.fi/namespace/om/atmosphericfeatures/1.1"
+    xsi:schemaLocation="http://www.opengis.net/wfs/2.0 http://schemas.opengis.net/wfs/2.0/wfs.xsd
+    http://www.opengis.net/gmlcov/1.0 http://schemas.opengis.net/gmlcov/1.0/gmlcovAll.xsd
+    http://www.opengis.net/sampling/2.0 http://schemas.opengis.net/sampling/2.0/samplingFeature.xsd
+    http://www.opengis.net/samplingSpatial/2.0 http://schemas.opengis.net/samplingSpatial/2.0/spatialSamplingFeature.xsd
+    http://www.opengis.net/swe/2.0 http://schemas.opengis.net/sweCommon/2.0/swe.xsd
+    http://inspire.ec.europa.eu/schemas/omso/3.0 https://inspire.ec.europa.eu/schemas/omso/3.0/SpecialisedObservations.xsd
+    http://inspire.ec.europa.eu/schemas/ompr/3.0 https://inspire.ec.europa.eu/schemas/ompr/3.0/Processes.xsd
+    http://xml.fmi.fi/namespace/om/atmosphericfeatures/1.1 https://xml.fmi.fi/schema/om/atmosphericfeatures/1.1/atmosphericfeatures.xsd">
+
+    <wfs:member>
+        <omso:GridSeriesObservation gml:id="WFS-wDZCmchvMfcWYeiEF2jC90IK_IqJTowu4WbbpdOs2_llx4efR060YeW3fu05XTrn15ZsOPK6dcN.nd0dOtvXZ008N.nd0x7.2Xlhz5YWliy59O6pp25bVX8KdmwSxwmNj5c61ItCnHdOmjNk2Z2XdkqaduW1V_CnZsFP8JwZtO7JOy4eWXn0rYdmnJIZmfLv05OdaS1iwYMXLRo4dGvL577.WS_v7ZeXflp6YcWzLE0tmXtl2VPPDLUzNm_Hh2Za1M2m_GkruvTM4a23D4iaefTDux5aVq6EBrbdPPnp3Z6mXx0rGnYZzK278mXZXxow8tu_dpy3.ePDuyad2Htpw3.fXlmw48rK4YeWHbWt0y7eGXlh6deWWtDR126cmnp5rW76d2Tnwy5cm3nW1307smTTyy4.mnfurQ76d2TP159K3uHLLj08NPTD0079zHQ3OfTfyy5OPXLy839OSvcLNt0unWbfyy48PPo6daMPLbv3acrp1z68s2HHldOuG_Tu6OnW3rs6aeG_Tu6Y9_bLyw58rQ6aduWn0y8J.Qmh007ctrfuy1jVakMA">
+	                 <om:phenomenonTime>
+                <gml:TimePeriod gml:id="time-interval-1-1">
+                    <gml:beginPosition>2026-07-19T10:00:00Z</gml:beginPosition>
+                    <gml:endPosition>2026-07-19T18:00:00Z</gml:endPosition>
+                </gml:TimePeriod>
+            </om:phenomenonTime>
+            <om:resultTime>
+                <gml:TimeInstant gml:id="time-1-1">
+                    <gml:timePosition>2026-07-19T09:05:26Z</gml:timePosition>
+                </gml:TimeInstant>
+            </om:resultTime>
+
+	    <om:procedure xlink:href="http://xml.fmi.fi/inspire/process/harmonie_scandinavia_surface"/>
+            <om:parameter>
+                <om:NamedValue>
+                    <om:name xlink:href="http://xml.fmi.fi/inspire/process/harmonie_scandinavia_surface"/>
+                    <om:value>
+                        <gml:TimeInstant gml:id="analysis-time-1-1">
+                            <gml:timePosition>2026-07-19T06:00:00Z</gml:timePosition>
+                        </gml:TimeInstant>
+                    </om:value>
+                </om:NamedValue>
+            </om:parameter>
+            <om:observedProperty  xlink:href="https://opendata.fmi.fi/meta?observableProperty=forecast&amp;param=temperature,humidity,windspeedms,winddirection,windgust,precipitation1h&amp;language=eng"/>
+	                <om:featureOfInterest>
+                <sams:SF_SpatialSamplingFeature gml:id="enn-s-1-1-">
+          <sam:sampledFeature>
+		<target:LocationCollection gml:id="sampled-target-1-1">
+		    <target:member>
+		    <target:Location gml:id="forloc-geoid--10019448-pos">
+		        <gml:identifier codeSpace="http://xml.fmi.fi/namespace/stationcode/geoid">-10019448</gml:identifier>
+			<gml:name codeSpace="http://xml.fmi.fi/namespace/locationcode/name">Central Helsinki</gml:name>
+			<gml:name codeSpace="http://xml.fmi.fi/namespace/locationcode/geoid">-10019448</gml:name>
+			<target:representativePoint xlink:href="#point--10019448"/>
+			<target:country codeSpace="http://xml.fmi.fi/namespace/location/country">Finland</target:country>
+			<target:timezone>Europe/Helsinki</target:timezone>
+			<target:region codeSpace="http://xml.fmi.fi/namespace/location/region">Helsinki</target:region>	   			
+		    </target:Location></target:member>
+		</target:LocationCollection>
+ 	   </sam:sampledFeature>
+                <sams:shape>
+                    <gml:MultiPoint gml:id="sf-1-1-">
+                        <gml:pointMembers>	
+                           <gml:Point gml:id="point--10019448" srsName="http://www.opengis.net/def/crs/EPSG/0/4326" srsDimension="2">
+                               <gml:name>Central Helsinki</gml:name>
+                               <gml:pos>60.17000 24.94000 </gml:pos>
+                           </gml:Point>
+                        </gml:pointMembers>
+                    </gml:MultiPoint>
+                </sams:shape>
+            </sams:SF_SpatialSamplingFeature>
+        </om:featureOfInterest>
+              <om:result>
+        <gmlcov:MultiPointCoverage gml:id="mpcv-1-1">
+          <gml:domainSet>
+            <gmlcov:SimpleMultiPoint gml:id="mp-1-1" srsName="http://xml.fmi.fi/gml/crs/compoundCRS.php?crs=4326&amp;time=unixtime" srsDimension="3">
+              <gmlcov:positions>
+                60.17000 24.94000  1784455200
+                60.17000 24.94000  1784458800
+                60.17000 24.94000  1784462400
+                60.17000 24.94000  1784466000
+                60.17000 24.94000  1784469600
+                60.17000 24.94000  1784473200
+                60.17000 24.94000  1784476800
+                60.17000 24.94000  1784480400
+                60.17000 24.94000  1784484000
+                </gmlcov:positions>
+            </gmlcov:SimpleMultiPoint>
+          </gml:domainSet>
+          <gml:rangeSet>
+            <gml:DataBlock>
+              <gml:rangeParameters/>
+              <gml:doubleOrNilReasonTupleList>
+                18.4 74.9 4.87 300.0 9.5 0.0 
+                19.5 69.5 4.29 317.0 8.3 0.0 
+                20.0 66.8 4.17 333.0 7.8 0.0 
+                20.0 64.2 3.79 341.0 7.9 0.0 
+                20.4 61.8 3.9 346.0 7.2 0.0 
+                20.0 61.6 4.18 356.0 7.6 0.0 
+                19.3 61.8 4.91 13.0 8.4 0.0 
+                18.8 63.4 4.14 26.0 8.4 0.0 
+                18.3 64.9 4.34 37.0 7.1 0.0 
+                </gml:doubleOrNilReasonTupleList>
+            </gml:DataBlock>
+          </gml:rangeSet>
+          <gml:coverageFunction>
+            <gml:CoverageMappingRule>
+              <gml:ruleDefinition>Linear</gml:ruleDefinition>
+            </gml:CoverageMappingRule>
+          </gml:coverageFunction>
+          <gmlcov:rangeType>
+            <swe:DataRecord>
+              <swe:field name="temperature"  xlink:href="https://opendata.fmi.fi/meta?observableProperty=forecast&amp;param=temperature&amp;language=eng"/>
+              <swe:field name="humidity"  xlink:href="https://opendata.fmi.fi/meta?observableProperty=forecast&amp;param=humidity&amp;language=eng"/>
+              <swe:field name="windspeedms"  xlink:href="https://opendata.fmi.fi/meta?observableProperty=forecast&amp;param=windspeedms&amp;language=eng"/>
+              <swe:field name="winddirection"  xlink:href="https://opendata.fmi.fi/meta?observableProperty=forecast&amp;param=winddirection&amp;language=eng"/>
+              <swe:field name="windgust"  xlink:href="https://opendata.fmi.fi/meta?observableProperty=forecast&amp;param=windgust&amp;language=eng"/>
+              <swe:field name="precipitation1h"  xlink:href="https://opendata.fmi.fi/meta?observableProperty=forecast&amp;param=precipitation1h&amp;language=eng"/>
+              </swe:DataRecord>
+          </gmlcov:rangeType>
+        </gmlcov:MultiPointCoverage>
+      </om:result>
+
+        </omso:GridSeriesObservation>
+    </wfs:member>
+  
+</wfs:FeatureCollection>

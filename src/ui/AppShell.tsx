@@ -43,7 +43,8 @@ export function AppShell({ route, children }: AppShellProps) {
       <main className="wr-shell__main">{children}</main>
 
       <footer className="wr-shell__footer">
-        © OpenStreetMap contributors · Weather by Open-Meteo (CC-BY 4.0)
+        © OpenStreetMap contributors · Weather by the Finnish Meteorological Institute &amp;
+        Open-Meteo (CC-BY 4.0)
       </footer>
     </div>
   );

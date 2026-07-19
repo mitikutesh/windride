@@ -5,6 +5,7 @@ import type { WeatherProvider } from './weather';
 import { MockRouteProvider } from './routing/mock';
 import { OrsRouteProvider } from './routing/ors';
 import { DigitransitProvider, type TransitProvider } from './transit/digitransit';
+import { FmiWeatherProvider } from './weather/fmi';
 import { MockWeatherProvider } from './weather/mock';
 import { OpenMeteoProvider } from './weather/openMeteo';
 
@@ -19,8 +20,12 @@ export function liveApisEnabled(): boolean {
 
 export function getProviders(): Providers {
   if (liveApisEnabled()) {
-    // Live weather (WR-004) + live openrouteservice routing (WR-005).
-    return { weather: new OpenMeteoProvider(), routing: new OrsRouteProvider() };
+    // Live weather: FMI HARMONIE (best Nordic wind) decorating Open-Meteo — FMI where it has data,
+    // Open-Meteo everywhere else and for daylight/recent-precip. Routing: live openrouteservice.
+    return {
+      weather: new FmiWeatherProvider({ fallback: new OpenMeteoProvider() }),
+      routing: new OrsRouteProvider(),
+    };
   }
   return { weather: new MockWeatherProvider(), routing: new MockRouteProvider() };
 }
