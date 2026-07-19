@@ -19,6 +19,7 @@
     "probe:weather": "node scripts/probe-weather.mjs",
     "probe:ors": "node scripts/probe-ors.mjs",
     "probe:digitransit": "node scripts/probe-digitransit.mjs",
+    "try:live": "vite-node scripts/try-live.ts",
     "accept": "vite-node scripts/accept.ts",
     "replay": "vite-node scripts/replay.ts",
     "gen:traces": "vite-node scripts/gen-traces.ts"
