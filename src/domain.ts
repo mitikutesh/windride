@@ -64,7 +64,10 @@ export type CandidateRoute = {
   steps?: TurnStep[];
 };
 
-export type RouteProfile = 'cycling-regular' | 'cycling-road';
+// ORS cycling profiles. NB: 'cycling-road' is the RACING profile — it prefers main/state roads and
+// shuns cycleways (~17% state road in Helsinki), so the app maps "Road" to 'cycling-regular'
+// (bike-friendly: ~57% cycleways) and "Gravel" to 'cycling-mountain' (prefers tracks/unpaved).
+export type RouteProfile = 'cycling-regular' | 'cycling-road' | 'cycling-mountain';
 
 export type RoundTripParams = {
   start: LatLon;

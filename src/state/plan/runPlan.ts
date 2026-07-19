@@ -107,7 +107,9 @@ export async function runPlan(
   opts: RunPlanOpts,
 ): Promise<PlanOutput> {
   const lengthM = inputs.distanceKm * 1000;
-  const profile = inputs.surface === 'road' ? 'cycling-road' : 'cycling-regular';
+  // "Road" = bike-friendly paved cycling (cycleways + quiet roads), NOT the ORS racing profile that
+  // hugs state/main roads; "Gravel" = tracks/unpaved where they exist.
+  const profile = inputs.surface === 'road' ? 'cycling-regular' : 'cycling-mountain';
 
   opts.onProgress?.({ phase: 'candidates', done: 0, total: 0 });
   const genOpts =

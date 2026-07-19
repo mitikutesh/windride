@@ -82,7 +82,8 @@ export async function runDownwindPlan(
   opts: RunDownwindOpts,
 ): Promise<DownwindResult[]> {
   const lengthM = inputs.distanceKm * 1000;
-  const profile = inputs.surface === 'road' ? 'cycling-road' : 'cycling-regular';
+  // Bike-friendly paved for "Road" (not the ORS racing profile), tracks/unpaved for "Gravel".
+  const profile = inputs.surface === 'road' ? 'cycling-regular' : 'cycling-mountain';
   const stations = opts.stations ?? loadStations();
 
   // Wind at the DEPARTURE hour fixes the downwind direction (wind_to = wind_from + 180) — an evening
