@@ -12,7 +12,7 @@ import type { Announcer } from './announcer';
 import { buildCuePoints, CueScheduler, type UnitSystem } from './cues';
 import type { Fix } from './fixSource';
 import { EtaEstimator } from './eta';
-import { HeadingSmoother } from './heading';
+import { blendHeading, HeadingSmoother } from './heading';
 import { classifyWindKind, type WindKind } from '../engine/wind';
 import { detectGustStretches, type GustStretch } from '../engine/gustFlags';
 import { bearingToTrack, OffRouteMonitor, type OffRouteState } from './offRoute';
@@ -89,6 +89,10 @@ export class RideController {
   private monitor = new OffRouteMonitor();
   private readonly eta = new EtaEstimator(); // speed EMA survives a reroute — the rider is unchanged
   private readonly heading = new HeadingSmoother();
+  // Latest device-compass heading (task #32) + last speed, so the blended display heading can be
+  // recomputed on a compass event between GPS fixes (a stationary rider turning the phone).
+  private compassDeg: number | null = null;
+  private lastSpeedMs = 0;
 
   private gustAnnounced = new Set<number>();
   private pausedFlag = false;
@@ -179,6 +183,18 @@ export class RideController {
     this.pausedFlag = false;
   }
 
+  /**
+   * Feed the latest device-compass heading (deg, 0..360), or null to drop the compass. Returns the
+   * current blended display heading so the map arrow can rotate between GPS fixes — e.g. a stopped
+   * rider turning the phone, when no new fix (and so no new RideState) is coming (task #32).
+   */
+  setCompassHeading(deg: number | null): number | null {
+    this.compassDeg = deg;
+    // Reuses the last fix's speed to weight the blend — up to ~1 fix (~1 s) stale right after a
+    // stop/start, which just delays the travel↔compass handoff by one fix; onFix reconciles it.
+    return blendHeading(this.heading.current, this.compassDeg, this.lastSpeedMs);
+  }
+
   onFix(fix: Fix): RideState {
     const snap = this.snapper.update(fix);
     this.lastProgressM = snap.progressM;
@@ -186,7 +202,11 @@ export class RideController {
     const prevTMs = this.lastFix?.tMs;
     const measuredMs = this.speedOf(fix); // null when unknown (don't poison the EMA)
     const speedMs = measuredMs ?? 0;
-    const headingDeg = this.heading.update(fix);
+    this.lastSpeedMs = speedMs;
+    // Display heading = GPS travel bearing blended with the device compass by speed (task #32):
+    // travel when moving, compass when stopped. This per-fix value feeds the whole RideState — map
+    // arrow, wind HUD, off-route arrow (the between-fix compass refinement below reaches only the map).
+    const headingDeg = blendHeading(this.heading.update(fix), this.compassDeg, speedMs);
 
     // Auto-pause: accumulate trailing sub-threshold time, reset on movement (NAVIGATION_SPEC §6).
     const dtS = prevTMs !== undefined ? (Date.parse(fix.time) - prevTMs) / 1000 : 0;

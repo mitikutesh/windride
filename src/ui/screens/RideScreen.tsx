@@ -3,6 +3,7 @@ import { deleteRide, getRecordingRide, type RecordedRide } from '../../data/db';
 import { armAudio, type CueMode } from '../../nav/announcer';
 import type { Fix } from '../../nav/fixSource';
 import { GeolocationSource } from '../../nav/locationService';
+import { CompassHeadingSource } from '../../nav/compass';
 import {
   IdbRideRecorder,
   loadRidePoints,
@@ -66,6 +67,10 @@ export function RideScreen() {
   const controllerRef = useRef<RideController | null>(null);
   const recorderRef = useRef<RideRecorder>(nullRecorder);
   const sourceRef = useRef<GeolocationSource | null>(null);
+  const compassRef = useRef<CompassHeadingSource | null>(null);
+  // Freshest blended heading for the map arrow (task #32) — refreshed per fix and, between fixes,
+  // by compass events so the arrow swings when a stopped rider turns the phone.
+  const [mapHeading, setMapHeading] = useState<number | null>(null);
   // Auto-reroute (DEC-022 wiring): a Rerouter, the ORIGINAL plan analysis (for reference wind), an
   // in-flight guard, and a backoff clock so a failed attempt doesn't hammer the router.
   const rerouterRef = useRef<Rerouter | null>(null);
@@ -96,6 +101,8 @@ export function RideScreen() {
   useEffect(
     () => () => {
       sourceRef.current?.stop();
+      compassRef.current?.stop();
+      compassRef.current = null; // avoid a late permission resolve re-arming after unmount
       controllerRef.current?.pause();
       void recorderRef.current.flush();
     },
@@ -124,6 +131,7 @@ export function RideScreen() {
     if (recorderRef.current.lastError) setRecError(true); // recording stopped persisting
     const state = controller.onFix(fix);
     setRideState(state);
+    setMapHeading(state.headingDeg); // per-fix blended heading; compass events refine it between fixes
 
     // Sustained off-route WHILE ACTIVELY RIDING ⇒ fetch a fresh leg, splice + re-analyse it, and swap
     // the route in (DEC-022). One attempt in flight at a time; success + failure both cool down
@@ -161,6 +169,22 @@ export function RideScreen() {
     }
   }, []);
 
+  // Device-compass heading (task #32). MUST run inside the Start/Resume gesture — iOS gates the
+  // sensor behind requestPermission(), which only works from a user activation. Denial/unsupported
+  // is silent: the GPS travel bearing still drives the arrow.
+  const startCompass = useCallback(() => {
+    compassRef.current?.stop(); // never leave a prior stream running
+    const compass = new CompassHeadingSource();
+    compassRef.current = compass;
+    void CompassHeadingSource.requestPermission().then((perm) => {
+      if (perm !== 'granted' || compassRef.current !== compass) return; // denied, or superseded
+      compass.start((deg) => {
+        const blended = controllerRef.current?.setCompassHeading(deg);
+        if (blended != null) setMapHeading(blended);
+      });
+    });
+  }, []);
+
   const start = useCallback(() => {
     if (!scored) return;
     const announcer = armAudio(cueMode); // unlock audio on this user gesture
@@ -186,7 +210,8 @@ export function RideScreen() {
     const source = new GeolocationSource();
     sourceRef.current = source;
     source.start(handleFix, (err) => setGpsError(err.message || 'Location unavailable'));
-  }, [scored, cueMode, handleFix, ranked]);
+    startCompass(); // still inside the Start gesture — required for the iOS permission prompt
+  }, [scored, cueMode, handleFix, ranked, startCompass]);
 
   const pause = useCallback(() => {
     controllerRef.current?.pause();
@@ -207,6 +232,8 @@ export function RideScreen() {
 
   const end = useCallback(() => {
     sourceRef.current?.stop();
+    compassRef.current?.stop();
+    compassRef.current = null; // so a late requestPermission() resolve can't re-arm the sensor
     controllerRef.current?.pause();
     const analysis = scored?.analysis;
     void recorderRef.current.finish().then(({ gpx, summary, points }) => {
@@ -242,6 +269,7 @@ export function RideScreen() {
   const canResume = !!unfinished && !!scored && unfinished.routeId === scored.candidate.id;
   const resumeUnfinished = useCallback(() => {
     if (!unfinished || !scored) return;
+    startCompass(); // request the compass now, while still in the Resume gesture (iOS requirement)
     void loadRidePoints(unfinished.id).then((resumePoints) => {
       const announcer = armAudio(cueMode);
       controllerRef.current = new RideController({ analysis: scored.analysis, announcer });
@@ -265,7 +293,7 @@ export function RideScreen() {
       sourceRef.current = source;
       source.start(handleFix, (err) => setGpsError(err.message || 'Location unavailable'));
     });
-  }, [unfinished, scored, ranked, cueMode, handleFix]);
+  }, [unfinished, scored, ranked, cueMode, handleFix, startCompass]);
 
   const unfinishedPrompt = unfinished ? (
     <div className="wr-ride__resume" role="alertdialog" aria-label="Unfinished ride">
@@ -303,7 +331,9 @@ export function RideScreen() {
         <RideMap
           scored={scored}
           rider={
-            rideState ? { position: rideState.snapped, headingDeg: rideState.headingDeg } : null
+            rideState
+              ? { position: rideState.snapped, headingDeg: mapHeading ?? rideState.headingDeg }
+              : null
           }
           batterySaver={batterySaver}
           zoomM={zoomM}

@@ -272,3 +272,63 @@ describe('RideController.applyReroute (auto-reroute swap)', () => {
     expect(onNew.onTrack).toBe(true);
   });
 });
+
+describe('RideController — compass-blended heading (task #32)', () => {
+  const wind: WindSample = {
+    windMs: 4,
+    windFromDeg: 200,
+    gustMs: 6,
+    precipProb: 0,
+    tempC: 15,
+    time: '2026-07-10T09:00',
+  };
+  function eastLine() {
+    const line: LatLon[] = [
+      { lat: 60, lon: 24 },
+      { lat: 60, lon: 24.05 },
+    ];
+    const segments = resample({ polyline: line });
+    return analyzeCandidate(
+      {
+        id: 'east',
+        polyline: line,
+        segments,
+        distanceM: polylineLengthM(line),
+        ascentM: 0,
+        steps: [],
+      },
+      segments.map(() => [wind]),
+      { targetDistanceM: polylineLengthM(line) },
+    );
+  }
+  /** Smallest absolute angular difference in degrees. */
+  const angDiff = (a: number, b: number) => Math.abs(((a - b + 540) % 360) - 180);
+  const dLon = 11 / (111_320 * Math.cos((60 * Math.PI) / 180)); // ~11 m east at 60°N
+
+  it('trusts the GPS travel bearing over a wayward compass while moving', () => {
+    const controller = new RideController({ analysis: eastLine(), announcer: fakeAnnouncer() });
+    controller.setCompassHeading(270); // phone pointing west in a bag
+    controller.onFix({ lat: 60, lon: 24, time: '2026-07-10T09:00:00Z' });
+    // ~11 m east in 1 s ⇒ ~11 m/s, well above the GPS-trust threshold.
+    const s = controller.onFix({ lat: 60, lon: 24 + dLon, time: '2026-07-10T09:00:01Z' });
+    expect(s.headingDeg).not.toBeNull();
+    expect(angDiff(s.headingDeg!, 90)).toBeLessThan(5); // points east (travel), not west (compass)
+  });
+
+  it('uses the device compass when stopped (GPS course is unreliable)', () => {
+    const controller = new RideController({ analysis: eastLine(), announcer: fakeAnnouncer() });
+    controller.setCompassHeading(270);
+    // Two fixes at the same point ⇒ speed 0, no travel bearing → the compass is all we have.
+    controller.onFix({ lat: 60, lon: 24, time: '2026-07-10T09:00:00Z' });
+    const s = controller.onFix({ lat: 60, lon: 24, time: '2026-07-10T09:00:01Z' });
+    expect(s.headingDeg).toBeCloseTo(270, 3);
+  });
+
+  it('setCompassHeading returns the blended heading for between-fix map updates', () => {
+    const controller = new RideController({ analysis: eastLine(), announcer: fakeAnnouncer() });
+    // No fix yet (no travel, speed 0) ⇒ the compass passes straight through.
+    expect(controller.setCompassHeading(123)).toBeCloseTo(123, 3);
+    // Dropping the compass falls back to the (still unknown) travel bearing → null.
+    expect(controller.setCompassHeading(null)).toBeNull();
+  });
+});
