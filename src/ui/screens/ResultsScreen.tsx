@@ -4,6 +4,7 @@ import { RouteMap } from '../components/RouteMap';
 import { HeatStrip } from '../components/HeatStrip';
 import { FeelsChart } from '../components/FeelsChart';
 import { WinterCaution } from '../components/WinterCaution';
+import { WindLegend } from '../components/WindLegend';
 import { PrimaryButton } from '../components';
 import { useResultsStore } from '../../state/resultsStore';
 import { useSavedRoutesStore } from '../../state/savedRoutesStore';
@@ -74,6 +75,7 @@ export function ResultsScreen() {
       <div className="wr-results__cards">
         <h1>Your routes</h1>
         <WinterCaution winter={winter} />
+        <WindLegend />
         {!shelterDataAvailable ? (
           <p className="wr-muted">No shelter data here — wind shown without forest sheltering.</p>
         ) : null}

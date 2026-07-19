@@ -511,6 +511,49 @@
   font-weight: 600;
 }
 
+/* Wind colour legend (route line + ribbon key). */
+.wr-legend {
+  margin: var(--space-2) 0;
+}
+.wr-legend__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+}
+.wr-legend__item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--fs-small);
+  color: var(--text2);
+}
+.wr-legend__swatch {
+  width: 16px;
+  height: 6px;
+  border-radius: 3px;
+  flex: none;
+}
+.wr-legend__swatch--tail {
+  background: var(--tail);
+}
+.wr-legend__swatch--cross {
+  background: var(--cross);
+}
+.wr-legend__swatch--head {
+  background: var(--head);
+}
+.wr-legend__swatch--shelter {
+  background: var(--shelter);
+}
+.wr-legend__note {
+  margin: var(--space-1) 0 0;
+  font-size: var(--fs-small);
+  color: var(--text2);
+}
+
 /* Novelty "% new roads" chip (WR-028). */
 .wr-card__novelty {
   margin: var(--space-1) 0 0;

@@ -67,6 +67,26 @@ export function RouteMap({ candidates, selectedId, onSelect }: RouteMapProps) {
         layout: { 'line-cap': 'round', 'line-join': 'round' },
         paint: { 'line-color': ['get', 'color'], 'line-width': 5 },
       });
+      // Direction arrows along the selected route (WR follow-up): the polyline is in the exact order
+      // the wind engine scored (start → around → home), so arrows show which way to ride the loop.
+      const arrow = makeArrowIcon();
+      if (arrow && !map.hasImage('wr-arrow')) map.addImage('wr-arrow', arrow, { pixelRatio: 2 });
+      if (map.hasImage('wr-arrow')) {
+        map.addLayer({
+          id: 'wr-selected-arrows',
+          type: 'symbol',
+          source: 'wr-selected',
+          layout: {
+            'symbol-placement': 'line',
+            'symbol-spacing': 70,
+            'icon-image': 'wr-arrow',
+            'icon-size': 0.85,
+            'icon-rotation-alignment': 'map',
+            'icon-allow-overlap': true,
+            'icon-ignore-placement': true,
+          },
+        });
+      }
       map.on('click', 'wr-ghosts', (e) => {
         const id = e.features?.[0]?.properties?.id;
         if (typeof id === 'string') onSelectRef.current(id);
@@ -96,6 +116,34 @@ export function RouteMap({ candidates, selectedId, onSelect }: RouteMapProps) {
 
 function emptyFC() {
   return { type: 'FeatureCollection' as const, features: [] };
+}
+
+/** A right-pointing chevron (light fill + dark halo) for the along-route direction arrows. */
+function makeArrowIcon(): ImageData | null {
+  const scale = 2; // draw at 2× for a crisp icon (added with pixelRatio: 2)
+  const size = 24 * scale;
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return null;
+  ctx.scale(scale, scale);
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  const chevron = () => {
+    ctx.beginPath();
+    ctx.moveTo(7, 5);
+    ctx.lineTo(17, 12);
+    ctx.lineTo(7, 19);
+    ctx.stroke();
+  };
+  ctx.strokeStyle = MAP_COLORS.arrowHalo;
+  ctx.lineWidth = 6;
+  chevron();
+  ctx.strokeStyle = MAP_COLORS.arrow;
+  ctx.lineWidth = 3;
+  chevron();
+  return ctx.getImageData(0, 0, size, size);
 }
 
 function draw(

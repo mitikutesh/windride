@@ -14,10 +14,13 @@ export const WIND_COLORS: Record<WindKind, string> = {
   shelter: '#3e8763',
 };
 
-/** Map chrome colours (also mirrored from tokens.css: --text2 ghost, --sky start marker). */
+/** Map chrome colours (mirrored from tokens.css: ghost=--text2, start=--sky, arrow=--text,
+ *  arrowHalo=--bg). windColors.test.ts keeps these in sync. */
 export const MAP_COLORS = {
   ghost: '#8ca1c0',
   start: '#4da3ff',
+  arrow: '#edf3fb',
+  arrowHalo: '#0a1220',
 };
 
 export function windColor(kind: WindKind): string {

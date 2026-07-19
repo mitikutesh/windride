@@ -17,8 +17,10 @@ describe('windColors mirror (WR-009 technical note)', () => {
     expect(WIND_COLORS.shelter).toBe(tokenHex('shelter'));
   });
 
-  it('mirrors the map-chrome colours (ghost = --text2, start = --sky)', () => {
+  it('mirrors the map-chrome colours (ghost = --text2, start = --sky, arrow = --text, halo = --bg)', () => {
     expect(MAP_COLORS.ghost).toBe(tokenHex('text2'));
     expect(MAP_COLORS.start).toBe(tokenHex('sky'));
+    expect(MAP_COLORS.arrow).toBe(tokenHex('text'));
+    expect(MAP_COLORS.arrowHalo).toBe(tokenHex('bg'));
   });
 });
