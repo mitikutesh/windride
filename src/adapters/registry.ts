@@ -42,6 +42,11 @@ export function liveApisEnabled(): boolean {
   return runtime.liveApis ?? import.meta.env.VITE_LIVE_APIS === 'true';
 }
 
+/** True when live routing has a key from ANY source: the runtime override or the Vite-env fallback. */
+export function hasRoutingKey(): boolean {
+  return Boolean(runtimeKey('ors') || import.meta.env.VITE_ORS_API_KEY);
+}
+
 export function getProviders(): Providers {
   if (liveApisEnabled()) {
     // Live weather: FMI HARMONIE (best Nordic wind) decorating Open-Meteo — FMI where it has data,

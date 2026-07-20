@@ -251,6 +251,18 @@ button {
   color: var(--on-aurora);
   font-weight: 600;
 }
+/* First-run "add your API key" prompt (shared-build onboarding). */
+.wr-keyprompt {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--cross);
+  border-left-width: 4px;
+  border-radius: var(--radius-card);
+  background: color-mix(in srgb, var(--cross) 12%, var(--surface));
+}
 .wr-results__cards {
   display: flex;
   flex-direction: column;

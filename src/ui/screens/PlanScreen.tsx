@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { ConditionsStrip, DistanceSlider, PrimaryButton, Segmented, Toggle } from '../components';
 import { DownwindResults } from '../components/DownwindResults';
+import { MissingKeyBanner } from '../components/MissingKeyBanner';
 import { suggestWinter } from '../../engine/winter';
 import { DEFAULT_START, usePlanStore } from '../../state/planStore';
 import { useNoveltyStore } from '../../state/noveltyStore';
@@ -55,6 +56,7 @@ export function PlanScreen() {
   return (
     <section className="wr-screen wr-plan">
       <h1>Plan a ride</h1>
+      <MissingKeyBanner />
       <ConditionsStrip conditions={conditions} />
 
       <DistanceSlider value={inputs.distanceKm} onChange={(km) => setInput({ distanceKm: km })} />

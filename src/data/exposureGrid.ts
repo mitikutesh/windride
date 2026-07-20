@@ -88,7 +88,9 @@ export function exposureAt(grid: DecodedGrid | null, lat: number, lon: number): 
  */
 export async function loadExposureGrid(
   fetchFn: typeof fetch = fetch,
-  url = '/data/exposure-uusimaa.json',
+  // BASE_URL-relative so this same-origin fetch resolves under a subpath deploy (e.g. /windride/),
+  // not just the site root — Vite can't rewrite a runtime fetch string like it does asset URLs.
+  url = `${import.meta.env.BASE_URL}data/exposure-uusimaa.json`,
 ): Promise<DecodedGrid | null> {
   let res: Response;
   try {

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import golden from '../../fixtures/exposure/golden-grid.json';
 import {
   decodeExposureGrid,
@@ -93,4 +93,17 @@ describe('loadExposureGrid', () => {
     expect(await loadExposureGrid(notFound)).toBeNull();
     expect(await loadExposureGrid(throws)).toBeNull();
   });
+
+  it('fetches relative to the app base so it resolves under a subpath deploy', async () => {
+    vi.stubEnv('BASE_URL', '/windride/');
+    const calls: string[] = [];
+    const fetchFn = ((url: string) => {
+      calls.push(url);
+      return Promise.resolve({ ok: true, json: () => Promise.resolve(file) });
+    }) as unknown as typeof fetch;
+    await loadExposureGrid(fetchFn);
+    expect(calls[0]).toBe('/windride/data/exposure-uusimaa.json'); // not the origin-root path
+  });
 });
+
+afterEach(() => vi.unstubAllEnvs());

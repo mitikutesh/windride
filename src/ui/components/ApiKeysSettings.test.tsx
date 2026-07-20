@@ -32,4 +32,18 @@ describe('ApiKeysSettings', () => {
     fireEvent.click(screen.getByRole('switch', { name: /Use live APIs/i }));
     await waitFor(() => expect(useKeychainStore.getState().liveApis).toBe(true));
   });
+
+  it('does not warn about a missing routing key when the env fallback provides one', async () => {
+    vi.stubEnv('VITE_ORS_API_KEY', 'env-fallback');
+    await useKeychainStore.getState().setLiveApis(true);
+    render(<ApiKeysSettings />);
+    expect(screen.queryByText(/no routing key is set/i)).not.toBeInTheDocument();
+  });
+
+  it('warns when live is on and no routing key exists from any source', async () => {
+    vi.stubEnv('VITE_ORS_API_KEY', ''); // no env fallback either
+    await useKeychainStore.getState().setLiveApis(true);
+    render(<ApiKeysSettings />);
+    expect(screen.getByText(/no routing key is set/i)).toBeInTheDocument();
+  });
 });

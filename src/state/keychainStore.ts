@@ -7,7 +7,12 @@
 // never in the shipped bundle (mirrors the Strava-secret rule, DEC-027).
 import { create } from 'zustand';
 import { getConfig, setConfigValue, deleteConfigValue } from '../data/db';
-import { type ApiKeyName, liveApisEnabled, setRuntimeConfig } from '../adapters/registry';
+import {
+  type ApiKeyName,
+  hasRoutingKey,
+  liveApisEnabled,
+  setRuntimeConfig,
+} from '../adapters/registry';
 
 // Re-exported so UI can name key types without importing adapters (ARCHITECTURE §3 boundary).
 export type { ApiKeyName };
@@ -100,4 +105,9 @@ export const useKeychainStore = create<KeychainState>((set, get) => ({
 /** The effective live-APIs state right now (override if set, else the build default). */
 export function effectiveLiveApis(): boolean {
   return liveApisEnabled();
+}
+
+/** True when a routing key exists from any source (a runtime key or the build-time env fallback). */
+export function routingKeyAvailable(): boolean {
+  return hasRoutingKey();
 }

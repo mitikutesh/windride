@@ -1,0 +1,55 @@
+name: Deploy to GitHub Pages
+
+# Builds the PWA and publishes it to GitHub Pages. One-time setup: repo Settings → Pages →
+# Source = "GitHub Actions". After that this runs on every push to main (or manually).
+#
+# The build bakes NO secret keys: VITE_LIVE_APIS=true ships a live-by-default app, and each user
+# brings their own API key via Kit → "API keys" (idb, local to their browser). The MissingKeyBanner
+# guides first-time visitors to add one. Never add VITE_ORS_API_KEY here — it would be public.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Allow only one concurrent deployment; don't cancel an in-progress run.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Lint + test + acceptance (keep the deployed build green, matching CI)
+        run: npm run lint && npm test && npm run accept
+      - name: Build (subpath base, live-on, no baked keys)
+        run: npm run build
+        env:
+          VITE_BASE: /windride/
+          VITE_LIVE_APIS: 'true'
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

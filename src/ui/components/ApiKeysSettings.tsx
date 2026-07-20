@@ -3,6 +3,7 @@ import {
   API_KEY_NAMES,
   type ApiKeyName,
   effectiveLiveApis,
+  routingKeyAvailable,
   useKeychainStore,
 } from '../../state/keychainStore';
 import { PrimaryButton } from './PrimaryButton';
@@ -111,7 +112,9 @@ export function ApiKeysSettings() {
   const hydrate = useKeychainStore((s) => s.hydrate);
   const liveApis = useKeychainStore((s) => s.liveApis); // subscribe so the toggle re-renders
   const setLiveApis = useKeychainStore((s) => s.setLiveApis);
-  const orsSet = useKeychainStore((s) => Boolean(s.keys.ors));
+  const orsSet = useKeychainStore((s) => Boolean(s.keys.ors)); // subscribe for reactivity
+  // A key from EITHER the box here or the build-time env fallback counts — don't nag when routing works.
+  const hasRouting = orsSet || routingKeyAvailable();
   useEffect(() => {
     void hydrate();
   }, [hydrate]);
@@ -132,7 +135,7 @@ export function ApiKeysSettings() {
         onChange={(on) => void setLiveApis(on)}
         label="Use live APIs (call real providers with your keys)"
       />
-      {live && !orsSet ? (
+      {live && !hasRouting ? (
         <p className="wr-muted">Live mode is on but no routing key is set — add one below.</p>
       ) : null}
 

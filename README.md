@@ -67,5 +67,22 @@ back (see `docs/API_NOTES.md` §4 and `docs/DECISIONS.md` DEC-027).
 
 Once set up, finished rides in Ride History get a "Send to Strava" button.
 
+## Deploy (GitHub Pages)
+
+WindRide is a static PWA (no backend), so it hosts anywhere. A GitHub Pages workflow is included
+(`.github/workflows/deploy.yml`):
+
+1. One-time: repo **Settings → Pages → Source = "GitHub Actions"**.
+2. Push to `main` (or run the "Deploy to GitHub Pages" workflow manually). It builds with
+   `VITE_BASE=/windride/` and publishes to `https://<user>.github.io/windride/`.
+
+**Keys are never baked into the deployed build.** It ships live-by-default (`VITE_LIVE_APIS=true`)
+with no API key, so every visitor brings their own via **Kit → API keys** (stored in their own
+browser only). First-timers see a prompt on the Plan screen linking there. Never put
+`VITE_ORS_API_KEY` in the workflow — a `VITE_`-prefixed value is bundled into the public JS.
+
+To host elsewhere (Netlify, Vercel, Cloudflare Pages): `npm run build` and serve `dist/` at the
+site root (omit `VITE_BASE`); set `VITE_LIVE_APIS=true` for the build.
+
 License: private personal project (no license granted). Map data © OpenStreetMap contributors
 (ODbL). Weather by Open-Meteo (CC-BY 4.0) — attribution is wired into the UI by WR-002.
