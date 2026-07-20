@@ -51,12 +51,13 @@ export function RideMap({ scored, rider, batterySaver = false, zoomM }: RideMapP
   zoomRef.current = zoomM;
 
   useEffect(() => {
-    if (!containerRef.current || mapRef.current) return;
+    const container = containerRef.current;
+    if (!container || mapRef.current) return;
     const first = scoredRef.current.candidate.polyline[0];
     let map: maplibregl.Map;
     try {
       map = new maplibregl.Map({
-        container: containerRef.current,
+        container,
         style: STYLE,
         center: [first?.lon ?? 24.65, first?.lat ?? 60.17],
         zoom: 12,
@@ -68,8 +69,14 @@ export function RideMap({ scored, rider, batterySaver = false, zoomM }: RideMapP
       return;
     }
     mapRef.current = map;
+    // The container grows when the ride goes full-screen (idle preview → live) while the SAME map is
+    // reused; resize the canvas whenever the box changes, else it stays sized to the small preview
+    // and renders as a blank dark panel.
+    const resizeObserver = new ResizeObserver(() => map.resize());
+    resizeObserver.observe(container);
     map.on('load', () => {
       readyRef.current = true;
+      map.resize(); // in case the container settled its size after map creation
       addRasterBasemaps(map, basemapRef.current);
       map.addSource('wr-route', { type: 'geojson', data: routeToWindGeoJSON(scoredRef.current) });
       map.addLayer({
@@ -115,6 +122,7 @@ export function RideMap({ scored, rider, batterySaver = false, zoomM }: RideMapP
       updateCamera(map, riderRef.current, zoomRef.current, true, scoredRef.current); // no ease on init
     });
     return () => {
+      resizeObserver.disconnect();
       map.remove();
       mapRef.current = null;
       readyRef.current = false;
