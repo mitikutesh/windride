@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { loadRidePoints } from '../../nav/recorder';
 import { useRidesStore } from '../../state/ridesStore';
+import { RideRecap } from './RideRecap';
 import { gpxFilename, toGpx } from '../../utils/gpx';
 import { formatDurationHM, localYMD, metresToKm, msToKmh } from '../../utils/units';
 import { downloadText } from '../download';
@@ -75,6 +76,7 @@ export function RideHistory() {
                 Delete
               </button>
             </div>
+            <RideRecap ride={r} />
           </li>
         ))}
       </ul>

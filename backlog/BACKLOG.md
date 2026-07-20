@@ -72,7 +72,7 @@ parallel with Epic 5.
 | WR-046 | Natural-language planning (text → Plan inputs) | 044 | M | DONE |
 | WR-047 | AI route discovery → validate → wind-scored | 044 | L | DONE |
 | WR-048 | Scenic photos + POI highlights (Wikimedia/Mapillary) | 047 | M | DONE |
-| WR-049 | Post-ride AI summary (plan vs ride) | 044 | S | TODO |
+| WR-049 | Post-ride AI summary (plan vs ride) | 044 | S | DONE |
 | WR-050 | Capability readiness + honest missing/failing messaging (AI, Strava, keys) | 044 | M | TODO |
 
 ## Sequencing rules

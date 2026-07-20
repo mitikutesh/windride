@@ -907,3 +907,11 @@
   font-size: 0.75rem;
   margin-top: var(--space-2);
 }
+
+/* Post-ride AI recap (WR-049). */
+.wr-recap {
+  margin-top: var(--space-2);
+}
+.wr-recap__summary {
+  font-weight: 600;
+}
