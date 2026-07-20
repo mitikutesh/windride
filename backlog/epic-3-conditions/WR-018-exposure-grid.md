@@ -139,3 +139,33 @@ the gate is green.
   revisit once real spot-checks are available.
 - **Gate:** 265 tests, lint clean, build OK. `build_grid.py` still needs a manual, offline run
   to produce the real `public/data/exposure-uusimaa.json` (DEC-024) — nothing above changes that.
+
+## Log — 2026-07-20 (task #29: real grid generated + toolchain repair)
+
+Ran the deferred manual build and shipped `public/data/exposure-uusimaa.json`. The pinned toolchain
+was dead on arrival, so the OSM-reading layer was replaced:
+
+- **`pyrosm` → `geopandas`+`pyogrio` (GDAL OSM driver).** pyrosm 0.6.2 (its last release, 2022) has
+  no Apple-Silicon/py3.11 wheel and its source build fails on modern setuptools
+  (`PyrobufDistribution … has no attribute 'dry_run'`). Swapped `load_polygons` to read the
+  `multipolygons` layer (landuse/natural/leisure are promoted columns) + the `lines` layer for
+  `natural=coastline` (in `other_tags`) so the sea coast still drives water-adjacency. `requirements.txt`
+  now pins geopandas 1.0.1 / pyogrio 0.10.0 / shapely 2.0.6 / numpy 2.1.3.
+- **Source:** Geofabrik does NOT subdivide Finland (the old Uusimaa URL 302s to the homepage), so the
+  extract now comes from the OSM-France server (`.../europe/finland/uusimaa-latest.osm.pbf`, 127 MB),
+  cached under `tools/exposure_grid/.cache/` (gitignored).
+- **Coverage:** `DEFAULT_BBOX = (24.3, 60.0, 25.4, 60.5)` — the Helsinki region / core Uusimaa where
+  rides happen, read via a spatial filter. Deriving from the full maakunta bounds (Hanko→Loviisa)
+  would ~10× the cell count for areas nobody rides; out-of-grid lookups degrade to neutral 1.0.
+- **Robustness:** `make_valid` on load + a per-cell try/except (raw OSM polygons self-intersect;
+  GEOS threw `TopologyException` mid-run otherwise).
+- **Result:** 244×223 = 54,412 cells, **0.07 MB** JSON (budget 5 MB), ~35 s.
+- **Spot-checks (app sampling math):** Nuuksio forest interior 0.35–0.5 (a Nuuksio-area block is
+  ~49% cells `<0.5`); Helsinki/Lauttasaari coast → 1.15; open/CBD mid ~0.7–1.0. Region-wide: mean
+  0.80, 20% at 1.15, 26% `<0.55`.
+- **Known limitation (not changed here — deliberate WR-018 model):** inland lakes trigger the same
+  1.15 adjacency as the open sea, so lake-dense forest (Nuuksio) shows exposed cells around every
+  pond. Refining adjacency to sea-coast + large water bodies only is a candidate follow-up (would
+  need a DEC + a classify.py change + test updates), left for the owner to decide rather than change
+  scoring silently.
+- **Gate:** classifier `pytest` 8 passed; app lint clean; 485 tests; build OK (asset bundled).

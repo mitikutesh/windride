@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 """Build the wind-exposure grid JSON from an OSM extract (WR-018, offline one-time).
 
-Downloads the Geofabrik Uusimaa extract (cached by pyrosm), classifies land cover onto a 250 m
-grid, and writes public/data/exposure-uusimaa.json in the compact format src/data/exposureGrid.ts
-reads. Re-runnable for other regions via --region / --bbox.
+Downloads the Geofabrik Uusimaa extract (cached under .cache/), reads land cover with GDAL's OSM
+driver via geopandas/pyogrio, classifies it onto a 250 m grid, and writes
+public/data/exposure-uusimaa.json in the compact format src/data/exposureGrid.ts reads.
+Re-runnable for other regions via --region / --pbf / --bbox.
 
     uv run build_grid.py                        # Uusimaa, 250 m, default output
     uv run build_grid.py --region Uusimaa --cell 250
+    uv run build_grid.py --pbf /path/to/local.osm.pbf   # skip the download
     uv run build_grid.py --bbox 24.5 60.1 25.3 60.4 --out public/data/exposure-helsinki.json
 
 NEVER run in CI (network + heavy). This is a manual preprocessing step; commit the output JSON.
@@ -17,10 +19,11 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import urllib.request
 from pathlib import Path
 
 import numpy as np
-from shapely import union_all
+from shapely import make_valid, union_all
 from shapely.geometry import box
 from shapely.strtree import STRtree
 
@@ -35,41 +38,84 @@ from classify import (
 
 M_PER_DEG_LAT = 111_320.0
 
+# Region .osm.pbf extracts (keyless, public). Geofabrik does NOT subdivide Finland, so Uusimaa comes
+# from the OSM-France extract server (proper maakunta extracts). Add regions here, or pass --pbf.
+EXTRACTS = {
+    "Uusimaa": "http://download.openstreetmap.fr/extracts/europe/finland/uusimaa-latest.osm.pbf",
+}
+CACHE_DIR = Path(__file__).resolve().parent / ".cache"
 
-def load_polygons(region: str | None, pbf: str | None):
-    """Return (features, water_geoms): classified polygons and water polygons, via pyrosm."""
-    from pyrosm import OSM, get_data  # imported lazily so tests don't need pyrosm
+# Grid coverage when --bbox isn't given: the Helsinki region / core Uusimaa where rides actually
+# happen (Espoo–Helsinki–Vantaa–Sipoo + Nuuksio + the coast). Deriving from the full extract bounds
+# would cover the whole maakunta (Hanko→Loviisa) and blow up the cell count for little benefit —
+# routes outside the grid degrade to neutral shelter in exposureGrid.ts. (minLon, minLat, maxLon, maxLat)
+DEFAULT_BBOX = (24.3, 60.0, 25.4, 60.5)
 
-    fp = pbf or get_data(region or "Uusimaa")
-    osm = OSM(fp)
-    landuse = osm.get_landuse()
-    natural = osm.get_natural()
 
+def _resolve_pbf(region: str | None, pbf: str | None) -> str:
+    """Return a local .osm.pbf path — a passed --pbf, or the cached/downloaded region extract."""
+    if pbf:
+        return pbf
+    name = region or "Uusimaa"
+    url = EXTRACTS.get(name)
+    if not url:
+        raise SystemExit(f"No extract URL for region {name!r}; pass --pbf /path/to.osm.pbf")
+    CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    dest = CACHE_DIR / Path(url).name
+    if not dest.exists():
+        print(f"downloading {url}\n     -> {dest}")
+        urllib.request.urlretrieve(url, dest)
+        # A redirect to an HTML index (region not found) writes a tiny page, not a PBF — fail loud.
+        if dest.stat().st_size < 1_000_000:
+            dest.unlink(missing_ok=True)
+            raise SystemExit(f"Download from {url} was not a PBF (too small) — check the URL/region.")
+    return str(dest)
+
+
+def load_polygons(region: str | None, pbf: str | None, bbox: tuple[float, float, float, float]):
+    """Return (features, water_geoms) from an OSM .pbf via GDAL's OSM driver (geopandas/pyogrio).
+
+    Reads only features within `bbox` (spatial filter at read time). Land-cover areas come from the
+    `multipolygons` layer (landuse/natural/leisure are promoted columns there). The open sea has no
+    polygon in the extract, so the coast is `natural=coastline` LINES — GDAL keeps those in the
+    `lines` layer with the tag inside `other_tags`; we pull them into `water` so coastal cells get
+    the adjacency override (classify.py).
+    """
+    import geopandas as gpd  # lazy so the classifier unit tests need no geo deps
+
+    fp = _resolve_pbf(region, pbf)
     features = []  # (category, shapely geometry)
     water = []
-    seen: set = set()  # dedupe features shared across GDFs (e.g. landuse=forest + natural=wood)
-    for gdf in (landuse, natural):
-        if gdf is None:
+
+    polys = gpd.read_file(
+        fp,
+        layer="multipolygons",
+        engine="pyogrio",
+        columns=["landuse", "natural", "leisure"],
+        bbox=bbox,
+    )
+    for geom, landuse, natural, leisure in zip(
+        polys.geometry, polys["landuse"], polys["natural"], polys["leisure"]
+    ):
+        if geom is None or geom.is_empty:
             continue
-        for _, row in gdf.iterrows():
-            geom = row.geometry
-            if geom is None or geom.is_empty:
-                continue
-            oid = row.get("id")
-            if oid is not None and oid in seen:
-                continue
-            if oid is not None:
-                seen.add(oid)
-            tags = {
-                k: row[k]
-                for k in ("landuse", "natural", "leisure")
-                if isinstance(row.get(k), str)
-            }
-            cat = category_for_tags(tags)
-            if cat == "water":
+        geom = make_valid(geom)  # raw OSM polygons self-intersect; GEOS ops throw on invalid input
+        tags = {
+            k: v
+            for k, v in (("landuse", landuse), ("natural", natural), ("leisure", leisure))
+            if isinstance(v, str)
+        }
+        cat = category_for_tags(tags)
+        if cat == "water":
+            water.append(geom)
+        elif cat is not None:
+            features.append((cat, geom))
+
+    lines = gpd.read_file(fp, layer="lines", engine="pyogrio", columns=["other_tags"], bbox=bbox)
+    for geom, other in zip(lines.geometry, lines["other_tags"]):
+        if geom is not None and not geom.is_empty and isinstance(other, str):
+            if '"natural"=>"coastline"' in other:
                 water.append(geom)
-            elif cat is not None:
-                features.append((cat, geom))
     return features, water
 
 
@@ -96,9 +142,17 @@ def build(features, water, bbox, cell_m: float):
             )
             cell_area = cell.area
 
+            # GEOS can still throw on a stray invalid geometry even after make_valid; skip the
+            # offending polygon for this cell rather than aborting a multi-minute run.
             touches_water = False
             if water_tree is not None:
-                touches_water = any(water[i].intersects(cell) for i in water_tree.query(cell))
+                for i in water_tree.query(cell):
+                    try:
+                        if water[i].intersects(cell):
+                            touches_water = True
+                            break
+                    except Exception:
+                        continue
 
             areas: dict[str, float] = {}
             if not touches_water and feat_tree is not None:
@@ -106,7 +160,10 @@ def build(features, water, bbox, cell_m: float):
                 # same-category polygons aren't double-counted (BLOCKER: forest+wood duplicates).
                 per_cat: dict[str, list] = {}
                 for i in feat_tree.query(cell):
-                    inter = feat_geoms[i].intersection(cell)
+                    try:
+                        inter = feat_geoms[i].intersection(cell)
+                    except Exception:
+                        continue
                     if not inter.is_empty:
                         per_cat.setdefault(features[i][0], []).append(inter)
                 for cat, geoms in per_cat.items():
@@ -142,22 +199,21 @@ def write_json(factors, meta: dict, out: Path) -> None:
 
 def main() -> None:
     ap = argparse.ArgumentParser(description="Build the WindRide wind-exposure grid.")
-    ap.add_argument("--region", default="Uusimaa", help="pyrosm/Geofabrik region name")
+    ap.add_argument("--region", default="Uusimaa", help="extract region name (see EXTRACTS)")
     ap.add_argument("--pbf", help="path to a local .osm.pbf instead of downloading")
     ap.add_argument("--cell", type=float, default=250.0, help="cell size in metres")
-    ap.add_argument("--bbox", nargs=4, type=float, metavar=("MINLON", "MINLAT", "MAXLON", "MAXLAT"))
+    ap.add_argument(
+        "--bbox",
+        nargs=4,
+        type=float,
+        metavar=("MINLON", "MINLAT", "MAXLON", "MAXLAT"),
+        help=f"grid coverage; defaults to the Helsinki region {DEFAULT_BBOX}",
+    )
     ap.add_argument("--out", default="public/data/exposure-uusimaa.json")
     args = ap.parse_args()
 
-    features, water = load_polygons(args.region, args.pbf)
-    if args.bbox:
-        bbox = tuple(args.bbox)
-    else:
-        # Derive bbox from the union of feature bounds.
-        geoms = [g for _, g in features] + water
-        xs1, ys1, xs2, ys2 = zip(*(g.bounds for g in geoms))
-        bbox = (min(xs1), min(ys1), max(xs2), max(ys2))
-
+    bbox = tuple(args.bbox) if args.bbox else DEFAULT_BBOX
+    features, water = load_polygons(args.region, args.pbf, bbox)
     factors, meta = build(features, water, bbox, args.cell)
     write_json(factors, meta, Path(args.out))
 
