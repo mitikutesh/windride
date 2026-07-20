@@ -1,0 +1,72 @@
+name: Deploy to AWS (S3 + CloudFront)
+
+# WR-037 — publish the built PWA to S3 behind CloudFront, authenticating to AWS via GitHub OIDC
+# (no long-lived AWS keys in the repo). Runs on manual dispatch, or on push to main once enabled.
+# The app ships live-but-KEYLESS — no VITE_*_API_KEY is provided here, so every visitor brings
+# their own key (DEC-036). One-time AWS setup (bucket, CloudFront, OIDC role, ACM cert) lives in
+# infra/ (AWS CDK) — see infra/README.md.
+
+on:
+  workflow_dispatch:
+  # push:
+  #   branches: [main]   # uncomment to deploy on every green push to main
+
+permissions:
+  id-token: write # required for OIDC role assumption
+  contents: read
+
+concurrency:
+  group: deploy-aws
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      # Gate before publishing: lint + unit tests + the v0.1 honesty acceptance harness must pass.
+      - run: npm run lint
+      - run: npm test
+      - run: npm run accept
+
+      # Root-hosted (VITE_BASE=/) and live-but-keyless (no key baked in).
+      - run: npm run build
+        env:
+          VITE_BASE: /
+          VITE_LIVE_APIS: 'true'
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      # Default everything to no-cache (safe: nothing over-cached) and prune stale keys with --delete.
+      # ONLY genuinely content-hashed files (Vite's assets/*, workbox-*.js) are then re-stamped
+      # immutable — NOT index.html/sw.js/manifest, and NOT unhashed runtime files like data/*.json
+      # or icons/fonts, which must stay revalidatable so a regenerated exposure grid isn't year-stale.
+      - name: Upload (no-cache default, prune stale)
+        run: |
+          aws s3 sync dist "s3://${{ vars.SITE_BUCKET }}" --delete --cache-control "no-cache"
+
+      - name: Re-stamp content-hashed assets as immutable
+        run: |
+          aws s3 cp "s3://${{ vars.SITE_BUCKET }}" "s3://${{ vars.SITE_BUCKET }}" --recursive \
+            --metadata-directive REPLACE \
+            --cache-control "public,max-age=31536000,immutable" \
+            --exclude "*" --include "assets/*" --include "workbox-*.js"
+
+      - name: Invalidate CloudFront (entry + unhashed runtime files)
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id "${{ vars.CLOUDFRONT_DISTRIBUTION_ID }}" \
+            --paths "/" "/index.html" "/sw.js" "/manifest.webmanifest" "/data/*"

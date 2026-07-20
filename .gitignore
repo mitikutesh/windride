@@ -8,6 +8,9 @@ dev-dist/
 *.local
 *.tsbuildinfo
 
+# AWS CDK synth output (infra/)
+cdk.out/
+
 # Env / secrets (see .env.example for required keys)
 .env
 .env.*

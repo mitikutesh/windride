@@ -54,7 +54,7 @@ Test contract · Technical notes · Out of scope · Log.
 ## Epic 5 · Accounts & Cloud (v0.5) — "optional free account; your keys never leave the browser"
 | ID | Story | Deps | Size | Status |
 |---|---|---|---|---|
-| WR-037 | AWS static hosting + custom domain (S3/CloudFront/ACM, OIDC deploy) | — | M | TODO |
+| WR-037 | AWS static hosting + custom domain (S3/CloudFront/ACM, OIDC deploy) | — | M | DONE |
 | WR-038 | Serverless backend skeleton (CDK, Lambda Function URLs, DynamoDB) | 037 | L | TODO |
 | WR-039 | Auth: free registration + login (Cognito), progressive | 038 | L | TODO |
 | WR-040 | User profile + free-subscription entitlement | 039 | M | TODO |
