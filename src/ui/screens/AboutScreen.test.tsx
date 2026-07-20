@@ -15,8 +15,9 @@ describe('<AboutScreen />', () => {
     const table = screen.getByRole('table');
     const wind = within(table).getByRole('row', { name: /Wind comfort/i });
     expect(within(wind).getByText('0.28')).toBeInTheDocument();
-    // A few more weighted sub-scores are present.
+    // A few more weighted sub-scores are present, incl. Novelty (live in the engine — WR-028).
     expect(within(table).getByRole('row', { name: /Crosswind safety/i })).toBeInTheDocument();
     expect(within(table).getByRole('row', { name: /Robustness/i })).toBeInTheDocument();
+    expect(within(table).getByRole('row', { name: /Novelty/i })).toBeInTheDocument();
   });
 });

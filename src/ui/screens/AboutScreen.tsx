@@ -29,6 +29,7 @@ const SCORES: ScoreRow[] = [
   { name: 'Climb match', weight: '0.06', what: 'hits your elevation preference' },
   { name: 'Distance match', weight: '0.05', what: 'lands near your target distance' },
   { name: 'Rain avoidance', weight: '0.04', what: 'dodges forecast showers' },
+  { name: 'Novelty', weight: '0.04', what: 'rewards roads you haven’t ridden before' },
   { name: 'Sequencing', weight: '0.02', what: 'bonus for headwind early, tailwind home' },
 ];
 

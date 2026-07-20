@@ -45,6 +45,8 @@ Monotonicity tests: more headwind ⇒ v never increases; steeper up ⇒ v never 
   Scenery (forest/water adjacency share) · ClimbMatch, DistanceMatch (gaussian on target) ·
   RainAvoid: 1 − Σ t·precipProb.
 - Robustness (Epic 4): min WindComfort over wind_from ∈ {−30°,0°,+30°}.
+- Novelty (Epic 4, WR-028): share of segments on roads NOT in the ridden-edges set (geohash of
+  own recordings only — never Strava). Rewards exploring roads you haven't ridden.
 
 ## 5. Hard constraints (filter before scoring)
 |distance − target| ≤ 15% · finish ≤ sunset − 20 min when "home before dark" · no ferries.
@@ -53,9 +55,10 @@ Monotonicity tests: more headwind ⇒ v never increases; steeper up ⇒ v never 
 ```
 score = 100 * Σ w_k * S_k   // defaults (settings-tunable):
 wind .28  robustness .10  safety .10  shelter .06  surface .12
-traffic .10  scenery .07  climb .06  distance .05  rain .04  sequencing .02
+traffic .10  scenery .07  climb .06  distance .05  rain .04  sequencing .02  novelty .04
 ```
-(Until Epic 3/4 ship, renormalize weights over available sub-scores.)
+(Until Epic 3/4 ship, renormalize weights over available sub-scores. Weights need not sum to 1 —
+the engine's default set sums to 1.04; the total is used comparatively across the candidate set.)
 
 ## 7. Invariant tests (fixtures/golden/)
 - **Loop cancellation:** for any closed polyline, Σ L_i·cos(delta_i to a fixed wind) ≈ 0
