@@ -52,6 +52,32 @@ export const dynamoProfileStore = {
   },
 };
 
+/** Sync document access (WR-041). One SYNC item per user holding non-secret data (routes + prefs).
+ *  The server is opaque about contents — the client guarantees no API keys are ever included. */
+Object.assign(dynamoProfileStore, {
+  async getSyncDoc(userId) {
+    const { GetCommand } = await import('@aws-sdk/lib-dynamodb');
+    const db = await client();
+    const r = await db.send(
+      new GetCommand({ TableName: TABLE(), Key: { PK: `USER#${userId}`, SK: 'SYNC' } }),
+    );
+    return r.Item ? { doc: r.Item.doc ?? null, updatedAt: r.Item.updatedAt ?? null } : { doc: null, updatedAt: null };
+  },
+
+  async putSyncDoc(userId, doc) {
+    const { PutCommand } = await import('@aws-sdk/lib-dynamodb');
+    const db = await client();
+    const updatedAt = new Date().toISOString();
+    await db.send(
+      new PutCommand({
+        TableName: TABLE(),
+        Item: { PK: `USER#${userId}`, SK: 'SYNC', doc, updatedAt },
+      }),
+    );
+    return { updatedAt };
+  },
+});
+
 function toProfile(item) {
   return {
     userId: item.userId,

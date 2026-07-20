@@ -58,7 +58,7 @@ Test contract · Technical notes · Out of scope · Log.
 | WR-038 | Serverless backend skeleton (CDK, Lambda Function URLs, DynamoDB) | 037 | L | DONE |
 | WR-039 | Auth: free registration + login (Cognito), progressive | 038 | L | DONE |
 | WR-040 | User profile + free-subscription entitlement | 039 | M | DONE |
-| WR-041 | Cross-device sync of non-secret data (keys never sync) | 040 | L | TODO |
+| WR-041 | Cross-device sync of non-secret data (keys never sync) | 040 | L | DONE |
 | WR-042 | GDPR: privacy policy, data export, account deletion | 040 | M | TODO |
 | WR-043 | Accounts-era UX + honest copy update | 041,042 | S | TODO |
 

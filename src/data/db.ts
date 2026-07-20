@@ -115,6 +115,30 @@ export async function deleteRoute(id: string): Promise<void> {
   await (await openWindrideDb()).delete(ROUTES, id);
 }
 
+// Route deletion tombstones (WR-041): id → ISO deletedAt, kept in CONFIG so a delete survives a
+// cross-device sync (a pulled copy of a deleted route must not resurrect it).
+const ROUTE_TOMBSTONES = 'routeTombstones';
+
+export async function getRouteTombstones(): Promise<Record<string, string>> {
+  const raw = (await getConfig())[ROUTE_TOMBSTONES];
+  if (!raw) return {};
+  try {
+    return JSON.parse(raw) as Record<string, string>;
+  } catch {
+    return {};
+  }
+}
+
+export async function addRouteTombstone(id: string, at: string): Promise<void> {
+  const t = await getRouteTombstones();
+  t[id] = at;
+  await setConfigValue(ROUTE_TOMBSTONES, JSON.stringify(t));
+}
+
+export async function setRouteTombstones(t: Record<string, string>): Promise<void> {
+  await setConfigValue(ROUTE_TOMBSTONES, JSON.stringify(t));
+}
+
 // --- rides (WR-017) ------------------------------------------------------------------------
 export async function createRide(ride: RecordedRide): Promise<void> {
   await (await openWindrideDb()).put(RIDES, ride);

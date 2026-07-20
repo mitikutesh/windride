@@ -12,7 +12,17 @@ export interface Profile {
   createdAt: string;
 }
 
+/** The server's view of the sync document — opaque JSON + a last-write timestamp. Never holds keys. */
+export interface SyncPull {
+  doc: unknown;
+  updatedAt: string | null;
+}
+
 export interface ApiClient {
   /** GET /me — the caller's profile + entitlement (created on first call). Needs a valid id token. */
   getMe(idToken: string): Promise<Profile>;
+  /** GET /sync — pull the caller's synced document (saved routes + prefs). */
+  getSync(idToken: string): Promise<SyncPull>;
+  /** PUT /sync — replace the caller's synced document. `doc` must contain NO secrets (DEC-040). */
+  putSync(idToken: string, doc: unknown): Promise<{ updatedAt: string }>;
 }

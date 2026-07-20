@@ -1,4 +1,4 @@
-// WindRide API Lambda — one function behind a Function URL, routing by path (WR-038, WR-040). The
+// WindRide API Lambda — one function behind a Function URL, routing by path (WR-038/040/041). The
 // Function URL is PUBLIC (authType NONE), so authed routes verify the Cognito JWT here (WR-040).
 // Plain ESM JS (no build step) so `Code.fromAsset` zips it as-is and `cdk synth` needs no Docker.
 // Route logic is pure + injectable (verify/store) for unit tests; the real deps are built lazily.
@@ -15,6 +15,19 @@ function bearer(event) {
   return raw.startsWith('Bearer ') ? raw.slice(7) : '';
 }
 
+/** Parse a Function URL request body (handles base64). Returns {} when empty, null when malformed. */
+function readBody(event) {
+  if (!event?.body) return {};
+  const raw = event.isBase64Encoded
+    ? Buffer.from(event.body, 'base64').toString('utf8')
+    : event.body;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
 let defaultVerify;
 function getVerify() {
   if (!defaultVerify) {
@@ -27,23 +40,59 @@ function getVerify() {
   return defaultVerify;
 }
 
-/** GET /me — verify the caller's JWT, then return (creating if needed) their profile + entitlement. */
-async function handleMe(event, deps) {
+/** Verify the caller's JWT. Returns { claims } or { error } (a ready 401 response). */
+async function authenticate(event, deps) {
   const token = bearer(event);
-  if (!token) return json(401, { error: 'missing bearer token' });
+  if (!token) return { error: json(401, { error: 'missing bearer token' }) };
   const verify = deps.verify ?? getVerify();
-  let claims;
   try {
-    claims = await verify(token);
+    return { claims: await verify(token) };
   } catch {
-    return json(401, { error: 'invalid token' });
+    return { error: json(401, { error: 'invalid token' }) };
+  }
+}
+
+/** GET /me — the caller's profile + entitlement (created on first call). */
+async function handleMe(event, deps) {
+  const { claims, error } = await authenticate(event, deps);
+  if (error) return error;
+  const store = deps.store ?? dynamoProfileStore;
+  try {
+    return json(200, await store.getOrCreateProfile(claims.sub, claims.email ?? ''));
+  } catch {
+    return json(500, { error: 'could not load profile' });
+  }
+}
+
+/** GET /sync — pull the caller's synced document (saved routes + prefs). NEVER any API key. */
+async function handleSyncGet(event, deps) {
+  const { claims, error } = await authenticate(event, deps);
+  if (error) return error;
+  const store = deps.store ?? dynamoProfileStore;
+  try {
+    return json(200, await store.getSyncDoc(claims.sub));
+  } catch {
+    return json(500, { error: 'could not read sync' });
+  }
+}
+
+/** PUT /sync — replace the caller's synced document. The client guarantees it holds no secrets. */
+async function handleSyncPut(event, deps) {
+  const { claims, error } = await authenticate(event, deps);
+  if (error) return error;
+  const body = readBody(event);
+  if (body === null || typeof body.doc !== 'object' || body.doc === null || Array.isArray(body.doc)) {
+    return json(400, { error: 'bad sync body' });
+  }
+  // Size cap — a DynamoDB item maxes at 400 KB; reject well before that so we never 500 on write.
+  if (JSON.stringify(body.doc).length > 256 * 1024) {
+    return json(413, { error: 'sync document too large' });
   }
   const store = deps.store ?? dynamoProfileStore;
   try {
-    const profile = await store.getOrCreateProfile(claims.sub, claims.email ?? '');
-    return json(200, profile);
+    return json(200, await store.putSyncDoc(claims.sub, body.doc));
   } catch {
-    return json(500, { error: 'could not load profile' });
+    return json(500, { error: 'could not write sync' });
   }
 }
 
@@ -56,6 +105,8 @@ export async function route(event, deps = {}) {
     return json(200, { status: 'ok', version: process.env.BUILD_VERSION ?? 'dev' });
   }
   if (method === 'GET' && path === '/me') return handleMe(event, deps);
+  if (method === 'GET' && path === '/sync') return handleSyncGet(event, deps);
+  if (method === 'PUT' && path === '/sync') return handleSyncPut(event, deps);
   return json(404, { error: 'not found', path });
 }
 

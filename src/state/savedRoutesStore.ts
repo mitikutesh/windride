@@ -1,6 +1,6 @@
 // state/savedRoutesStore.ts — saved planned routes (WR-010). UI reads this; it owns the idb calls.
 import { create } from 'zustand';
-import { deleteRoute, listRoutes, saveRoute, type SavedRoute } from '../data/db';
+import { addRouteTombstone, deleteRoute, listRoutes, saveRoute, type SavedRoute } from '../data/db';
 
 interface SavedRoutesState {
   routes: SavedRoute[];
@@ -32,6 +32,8 @@ export const useSavedRoutesStore = create<SavedRoutesState>((set, get) => ({
   remove: async (id) => {
     try {
       await deleteRoute(id);
+      // Tombstone the deletion so a cross-device sync doesn't resurrect the route (WR-041).
+      await addRouteTombstone(id, new Date().toISOString());
       await get().refresh();
     } catch {
       set({ error: 'Could not delete the route.' });

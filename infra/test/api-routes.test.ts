@@ -15,7 +15,18 @@ const fakeStore = {
     entitlement: 'free',
     createdAt: '2026-07-20T00:00:00Z',
   }),
+  getSyncDoc: async () => ({ doc: { savedRoutes: [], prefs: {} }, updatedAt: 't1' }),
+  putSyncDoc: async () => ({ updatedAt: 't2' }),
 };
+
+const okVerify = async () => ({ sub: 'u1', email: 'a@b.co' });
+const syncPut = (body: unknown, auth = 'Bearer good') => ({
+  requestContext: { http: { method: 'PUT' } },
+  rawPath: '/sync',
+  headers: { authorization: auth },
+  body: JSON.stringify(body),
+  isBase64Encoded: false,
+});
 
 describe('API /me route (WR-040)', () => {
   it('returns the profile + free entitlement for a valid token', async () => {
@@ -70,5 +81,42 @@ describe('API /me route (WR-040)', () => {
     const res = await route({ requestContext: { http: { method: 'GET' } }, rawPath: '/health' });
     expect(res.statusCode).toBe(200);
     expect(JSON.parse(res.body).status).toBe('ok');
+  });
+
+  it('GET /sync returns the caller’s doc for a valid token', async () => {
+    const res = await route(
+      { requestContext: { http: { method: 'GET' } }, rawPath: '/sync', headers: { authorization: 'Bearer good' } },
+      { verify: okVerify, store: fakeStore },
+    );
+    expect(res.statusCode).toBe(200);
+    expect(JSON.parse(res.body).updatedAt).toBe('t1');
+  });
+
+  it('PUT /sync stores the doc and returns the new timestamp', async () => {
+    const res = await route(syncPut({ doc: { savedRoutes: [], prefs: {} } }), {
+      verify: okVerify,
+      store: fakeStore,
+    });
+    expect(res.statusCode).toBe(200);
+    expect(JSON.parse(res.body).updatedAt).toBe('t2');
+  });
+
+  it('PUT /sync rejects a body with no doc object (or an array doc) → 400', async () => {
+    expect((await route(syncPut({ notDoc: true }), { verify: okVerify, store: fakeStore })).statusCode).toBe(400);
+    expect((await route(syncPut({ doc: [] }), { verify: okVerify, store: fakeStore })).statusCode).toBe(400);
+  });
+
+  it('PUT /sync rejects an over-large doc → 413 (never 500)', async () => {
+    const huge = { doc: { savedRoutes: [], blob: 'x'.repeat(300 * 1024) } };
+    const res = await route(syncPut(huge), { verify: okVerify, store: fakeStore });
+    expect(res.statusCode).toBe(413);
+  });
+
+  it('/sync requires auth → 401 without a token', async () => {
+    const res = await route(
+      { requestContext: { http: { method: 'GET' } }, rawPath: '/sync', headers: {} },
+      { verify: okVerify, store: fakeStore },
+    );
+    expect(res.statusCode).toBe(401);
   });
 });

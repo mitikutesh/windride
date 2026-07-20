@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useAuthStore } from '../../state/authStore';
 import { useProfileStore } from '../../state/profileStore';
+import { useSyncStore } from '../../state/syncStore';
 import { PrimaryButton } from './PrimaryButton';
 
 /**
@@ -25,6 +26,10 @@ export function AuthPanel() {
   const profile = useProfileStore((s) => s.profile);
   const apiConfigured = useProfileStore((s) => s.configured);
   const loadProfile = useProfileStore((s) => s.load);
+  const syncStatus = useSyncStore((s) => s.status);
+  const lastSyncedAt = useSyncStore((s) => s.lastSyncedAt);
+  const syncError = useSyncStore((s) => s.error);
+  const syncNow = useSyncStore((s) => s.syncNow);
 
   const [mode, setMode] = useState<'signin' | 'register'>('signin');
   const [email, setEmail] = useState('');
@@ -63,6 +68,24 @@ export function AuthPanel() {
             Plan: <strong>{profile.entitlement}</strong> — cross-device sync is available on this
             account. Your API keys stay in this browser and are never synced.
           </p>
+        ) : null}
+        {apiConfigured ? (
+          <div className="wr-auth__sync">
+            <button
+              type="button"
+              className="wr-navlink"
+              disabled={syncStatus === 'syncing'}
+              onClick={() => void syncNow()}
+            >
+              {syncStatus === 'syncing' ? 'Syncing…' : 'Sync saved routes now'}
+            </button>
+            {syncStatus === 'ready' && lastSyncedAt ? (
+              <span className="wr-muted"> Synced.</span>
+            ) : null}
+            {syncStatus === 'error' && syncError ? (
+              <span className="wr-muted"> {syncError}</span>
+            ) : null}
+          </div>
         ) : null}
         <button type="button" className="wr-btn-secondary" onClick={signOut}>
           Sign out

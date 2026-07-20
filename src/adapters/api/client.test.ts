@@ -44,6 +44,22 @@ describe('HttpApiClient.getMe', () => {
     expect(isProviderError(err) && err.code).toBe('no-config');
   });
 
+  it('getSync GETs /sync; putSync PUTs /sync with a {doc} body + JSON content-type', async () => {
+    const get = fakeFetch({ body: { doc: { savedRoutes: [] }, updatedAt: 't' } });
+    await new HttpApiClient({ baseUrl: 'https://x', fetchFn: get.fn }).getSync('tok');
+    expect(get.calls[0].url).toBe('https://x/sync');
+
+    const put = fakeFetch({ body: { updatedAt: 't2' } });
+    await new HttpApiClient({ baseUrl: 'https://x', fetchFn: put.fn }).putSync('tok', {
+      savedRoutes: [],
+    });
+    expect(put.calls[0].init.method).toBe('PUT');
+    expect(JSON.parse(put.calls[0].init.body as string).doc).toEqual({ savedRoutes: [] });
+    expect((put.calls[0].init.headers as Record<string, string>)['content-type']).toBe(
+      'application/json',
+    );
+  });
+
   it('maps a network throw to a network error', async () => {
     const err = await new HttpApiClient({
       baseUrl: 'https://x',

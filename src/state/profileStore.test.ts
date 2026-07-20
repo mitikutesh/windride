@@ -5,7 +5,12 @@ import { useProfileStore } from './profileStore';
 const PROFILE: Profile = { userId: 'u1', email: 'a@b.co', entitlement: 'free', createdAt: '2026' };
 
 function client(over: Partial<ApiClient> = {}): ApiClient {
-  return { getMe: async () => PROFILE, ...over };
+  const base: ApiClient = {
+    getMe: async () => PROFILE,
+    getSync: async () => ({ doc: null, updatedAt: null }),
+    putSync: async () => ({ updatedAt: 't' }),
+  };
+  return { ...base, ...over };
 }
 
 beforeEach(() => useProfileStore.getState().reset());

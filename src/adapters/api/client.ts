@@ -4,7 +4,7 @@
  * (CLAUDE.md rule 4). Base URL is PUBLIC config (VITE_API_URL). No BYO key ever goes to the backend.
  */
 import { ProviderError } from '../errors';
-import type { ApiClient, Profile } from './types';
+import type { ApiClient, Profile, SyncPull } from './types';
 
 /** True when the build knows where the backend lives (VITE_API_URL set). */
 export function apiConfigured(): boolean {
@@ -25,12 +25,17 @@ export class HttpApiClient implements ApiClient {
     this.fetchFn = opts.fetchFn ?? fetch.bind(globalThis);
   }
 
-  async getMe(idToken: string): Promise<Profile> {
+  private async call(path: string, idToken: string, init: RequestInit = {}): Promise<unknown> {
     if (!this.base) throw new ProviderError('badResponse', 'Backend not configured', 'no-config');
     let res: Response;
     try {
-      res = await this.fetchFn(`${this.base}/me`, {
-        headers: { authorization: `Bearer ${idToken}` },
+      res = await this.fetchFn(`${this.base}${path}`, {
+        ...init,
+        headers: {
+          authorization: `Bearer ${idToken}`,
+          ...(init.body ? { 'content-type': 'application/json' } : {}),
+          ...init.headers,
+        },
       });
     } catch {
       throw new ProviderError('network', 'Backend request failed');
@@ -38,6 +43,21 @@ export class HttpApiClient implements ApiClient {
     if (res.status === 401) throw new ProviderError('badResponse', 'Session expired', 'auth');
     if (res.status === 429) throw new ProviderError('quota', 'Rate limited');
     if (!res.ok) throw new ProviderError('badResponse', `Backend HTTP ${res.status}`);
-    return (await res.json()) as Profile;
+    return res.json();
+  }
+
+  async getMe(idToken: string): Promise<Profile> {
+    return (await this.call('/me', idToken)) as Profile;
+  }
+
+  async getSync(idToken: string): Promise<SyncPull> {
+    return (await this.call('/sync', idToken)) as SyncPull;
+  }
+
+  async putSync(idToken: string, doc: unknown): Promise<{ updatedAt: string }> {
+    return (await this.call('/sync', idToken, {
+      method: 'PUT',
+      body: JSON.stringify({ doc }),
+    })) as { updatedAt: string };
   }
 }
