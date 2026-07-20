@@ -1,0 +1,193 @@
+import { useState } from 'react';
+import { useAuthStore } from '../../state/authStore';
+import { PrimaryButton } from './PrimaryButton';
+
+/**
+ * Account sign up / in / out, confirmation, and password reset (WR-039). Progressive: the whole app
+ * works signed-out — an account is optional (it unlocks cross-device sync later, WR-040/041). The
+ * AI/BYO keys are never part of the account (DEC-040). Pure view over authStore; when the build has
+ * no Cognito pool it says so plainly.
+ */
+export function AuthPanel() {
+  const status = useAuthStore((s) => s.status);
+  const session = useAuthStore((s) => s.session);
+  const error = useAuthStore((s) => s.error);
+  const configured = useAuthStore((s) => s.configured);
+  const signUp = useAuthStore((s) => s.signUp);
+  const confirm = useAuthStore((s) => s.confirm);
+  const resend = useAuthStore((s) => s.resend);
+  const signIn = useAuthStore((s) => s.signIn);
+  const requestReset = useAuthStore((s) => s.requestReset);
+  const confirmReset = useAuthStore((s) => s.confirmReset);
+  const signOut = useAuthStore((s) => s.signOut);
+
+  const [mode, setMode] = useState<'signin' | 'register'>('signin');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [code, setCode] = useState('');
+  const busy = status === 'authenticating';
+
+  const err = error ? (
+    <p className="wr-muted" role="alert">
+      {error}
+    </p>
+  ) : null;
+
+  if (!configured) {
+    return (
+      <p className="wr-muted">
+        Accounts aren’t set up in this build yet. Everything works without one — your keys and data
+        stay in this browser. An optional account will later sync your saved routes across devices.
+      </p>
+    );
+  }
+
+  if (status === 'authenticated' && session) {
+    return (
+      <div className="wr-auth">
+        <p>
+          Signed in as <strong>{session.email}</strong>.
+        </p>
+        <button type="button" className="wr-btn-secondary" onClick={signOut}>
+          Sign out
+        </button>
+      </div>
+    );
+  }
+
+  if (status === 'awaiting-confirmation') {
+    return (
+      <form
+        className="wr-auth"
+        onSubmit={(e) => {
+          e.preventDefault();
+          void confirm(code.trim());
+        }}
+      >
+        <p className="wr-muted">
+          We emailed you a confirmation code. Enter it to finish registering.
+        </p>
+        <label className="wr-field__label">
+          Confirmation code
+          <input
+            className="wr-input"
+            value={code}
+            inputMode="numeric"
+            onChange={(e) => setCode(e.target.value)}
+          />
+        </label>
+        <PrimaryButton type="submit" disabled={busy || code.trim().length === 0}>
+          {busy ? 'Confirming…' : 'Confirm'}
+        </PrimaryButton>
+        <button type="button" className="wr-navlink" onClick={() => void resend()}>
+          Resend code
+        </button>
+        {err}
+      </form>
+    );
+  }
+
+  if (status === 'awaiting-reset') {
+    return (
+      <form
+        className="wr-auth"
+        onSubmit={(e) => {
+          e.preventDefault();
+          void confirmReset(code.trim(), password);
+        }}
+      >
+        <p className="wr-muted">Enter the reset code we emailed you and choose a new password.</p>
+        <label className="wr-field__label">
+          Reset code
+          <input
+            className="wr-input"
+            value={code}
+            inputMode="numeric"
+            onChange={(e) => setCode(e.target.value)}
+          />
+        </label>
+        <label className="wr-field__label">
+          New password
+          <input
+            className="wr-input"
+            type="password"
+            autoComplete="new-password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+        </label>
+        <PrimaryButton
+          type="submit"
+          disabled={busy || code.trim().length === 0 || password.length === 0}
+        >
+          {busy ? 'Saving…' : 'Set new password'}
+        </PrimaryButton>
+        {err}
+      </form>
+    );
+  }
+
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (mode === 'register') void signUp(email.trim(), password);
+    else void signIn(email.trim(), password);
+  };
+
+  return (
+    <form className="wr-auth" onSubmit={submit}>
+      <div className="wr-auth__modes">
+        <button
+          type="button"
+          className={`wr-navlink${mode === 'signin' ? ' wr-navlink--active' : ''}`}
+          onClick={() => setMode('signin')}
+        >
+          Sign in
+        </button>
+        <button
+          type="button"
+          className={`wr-navlink${mode === 'register' ? ' wr-navlink--active' : ''}`}
+          onClick={() => setMode('register')}
+        >
+          Register
+        </button>
+      </div>
+      <label className="wr-field__label">
+        Email
+        <input
+          className="wr-input"
+          type="email"
+          autoComplete="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+        />
+      </label>
+      <label className="wr-field__label">
+        Password
+        <input
+          className="wr-input"
+          type="password"
+          autoComplete={mode === 'register' ? 'new-password' : 'current-password'}
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+        />
+      </label>
+      <PrimaryButton
+        type="submit"
+        disabled={busy || email.trim().length === 0 || password.length === 0}
+      >
+        {busy ? 'Working…' : mode === 'register' ? 'Create account' : 'Sign in'}
+      </PrimaryButton>
+      {mode === 'signin' ? (
+        <button
+          type="button"
+          className="wr-navlink"
+          disabled={email.trim().length === 0}
+          onClick={() => void requestReset(email.trim())}
+        >
+          Forgot password?
+        </button>
+      ) : null}
+      {err}
+    </form>
+  );
+}

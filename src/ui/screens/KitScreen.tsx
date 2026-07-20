@@ -9,6 +9,7 @@ import {
   type RibbonSegment,
 } from '../components';
 import { ApiKeysSettings } from '../components/ApiKeysSettings';
+import { AuthPanel } from '../components/AuthPanel';
 import { CalibrationSettings } from '../components/CalibrationSettings';
 import { NoveltySettings } from '../components/NoveltySettings';
 import { StravaSettings } from '../components/StravaSettings';
@@ -81,6 +82,9 @@ export function KitScreen() {
 
       <h2>Roads explored</h2>
       <NoveltySettings />
+
+      <h2>Account (optional)</h2>
+      <AuthPanel />
 
       <h2>API keys (bring your own)</h2>
       <ApiKeysSettings />

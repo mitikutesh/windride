@@ -9,6 +9,10 @@ interface ImportMetaEnv {
   readonly VITE_DIGITRANSIT_KEY?: string;
   /** Master switch for live API calls. Must be false in tests/CI (CLAUDE.md rule 3). */
   readonly VITE_LIVE_APIS?: string;
+  /** Cognito pool region — PUBLIC config (WR-039), safe to bundle. Unset ⇒ accounts off. */
+  readonly VITE_COGNITO_REGION?: string;
+  /** Cognito public web-client id — PUBLIC config (WR-039), not a secret. Unset ⇒ accounts off. */
+  readonly VITE_COGNITO_CLIENT_ID?: string;
 }
 
 interface ImportMeta {

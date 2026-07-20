@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { App } from 'aws-cdk-lib';
+import { AuthStack } from '../lib/auth-stack';
 import { BackendStack } from '../lib/backend-stack';
 import { HostingStack } from '../lib/hosting-stack';
 
@@ -20,6 +21,8 @@ const hosting = new HostingStack(app, 'WindRideHosting', {
   domainName,
   certificateArn: app.node.tryGetContext('certificateArn'),
 });
+
+new AuthStack(app, 'WindRideAuth', { env });
 
 new BackendStack(app, 'WindRideBackend', {
   env,
