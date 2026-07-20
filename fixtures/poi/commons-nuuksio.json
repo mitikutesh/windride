@@ -1,0 +1,40 @@
+{
+  "batchcomplete": "",
+  "query": {
+    "pages": {
+      "111": {
+        "pageid": 111,
+        "ns": 6,
+        "title": "File:Nuuksio lake view.jpg",
+        "coordinates": [{ "lat": 60.31, "lon": 24.51, "primary": "" }],
+        "imageinfo": [
+          {
+            "thumburl": "https://upload.wikimedia.org/wikipedia/commons/thumb/a/aa/Nuuksio.jpg/320px-Nuuksio.jpg",
+            "descriptionurl": "https://commons.wikimedia.org/wiki/File:Nuuksio_lake_view.jpg",
+            "extmetadata": {
+              "Artist": { "value": "<a href=\"//commons.wikimedia.org/wiki/User:Jane\">Jane Doe</a>" },
+              "LicenseShortName": { "value": "CC BY-SA 4.0" },
+              "LicenseUrl": { "value": "https://creativecommons.org/licenses/by-sa/4.0/" }
+            }
+          }
+        ]
+      },
+      "222": {
+        "pageid": 222,
+        "ns": 6,
+        "title": "File:Forest trail.png",
+        "imageinfo": [
+          {
+            "thumburl": "https://upload.wikimedia.org/wikipedia/commons/thumb/b/bb/Trail.png/320px-Trail.png",
+            "descriptionurl": "https://commons.wikimedia.org/wiki/File:Forest_trail.png"
+          }
+        ]
+      },
+      "333": {
+        "pageid": 333,
+        "ns": 6,
+        "title": "File:No thumbnail here.jpg"
+      }
+    }
+  }
+}

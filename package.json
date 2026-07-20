@@ -20,6 +20,7 @@
     "probe:ors": "node scripts/probe-ors.mjs",
     "probe:digitransit": "node scripts/probe-digitransit.mjs",
     "probe:ai": "node scripts/probe-ai.mjs",
+    "probe:poi": "node scripts/probe-poi.mjs",
     "try:live": "vite-node scripts/try-live.ts",
     "accept": "vite-node scripts/accept.ts",
     "replay": "vite-node scripts/replay.ts",

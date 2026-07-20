@@ -4,6 +4,7 @@ import { RouteMap } from '../components/RouteMap';
 import { HeatStrip } from '../components/HeatStrip';
 import { FeelsChart } from '../components/FeelsChart';
 import { RideBriefing } from '../components/RideBriefing';
+import { ScenicSpots } from '../components/ScenicSpots';
 import { WinterCaution } from '../components/WinterCaution';
 import { WindLegend } from '../components/WindLegend';
 import { PrimaryButton } from '../components';
@@ -125,6 +126,13 @@ export function ResultsScreen() {
         <details className="wr-results__detail">
           <summary>Elevation & feels-like — {selected.evidence.distanceKm.toFixed(1)} km</summary>
           <FeelsChart points={buildFeelsProfile(selected.analysis.segments)} />
+        </details>
+
+        <details className="wr-results__detail">
+          <summary>Scenic spots along this route</summary>
+          <ScenicSpots
+            route={{ id: selected.candidate.id, polyline: selected.candidate.polyline }}
+          />
         </details>
 
         {aiReady ? (
