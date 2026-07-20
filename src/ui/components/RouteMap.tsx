@@ -50,12 +50,21 @@ export function RouteMap({ candidates, selectedId, onSelect }: RouteMapProps) {
         center: [24.65, 60.17],
         zoom: 9,
         attributionControl: { compact: false },
+        // Free drag/pinch to explore the routes; north-up only (rotate/tilt off) so the wind
+        // arrows and shelter cues stay legible.
+        dragRotate: false,
+        pitchWithRotate: false,
+        touchPitch: false,
       });
     } catch {
       setFailed(true); // no WebGL (tests / battery saver) — show the fallback
       return;
     }
     mapRef.current = map;
+    map.touchZoomRotate.disableRotation(); // two-finger pinch zooms without spinning the map
+    // Explicit +/- buttons top-left: the basemap switcher owns the top-right, and the (non-compact)
+    // attribution runs along the bottom edge.
+    map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-left');
     map.on('load', () => {
       readyRef.current = true;
       // Raster basemaps first (over the vector base) so the route layers added below sit on top.

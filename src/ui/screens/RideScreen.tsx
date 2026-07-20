@@ -125,6 +125,10 @@ export function RideScreen() {
   const zoomIn = () => setManualZoomM((z) => Math.max(120, Math.round((z ?? autoZoomM) / 1.6)));
   const zoomOut = () => setManualZoomM((z) => Math.min(4000, Math.round((z ?? autoZoomM) * 1.6)));
 
+  // Follow-the-rider camera vs free-look. The map flips this to false when the rider drags/pinches
+  // to look around; the Recenter control puts it back. Reset to true whenever a ride (re)starts.
+  const [following, setFollowing] = useState(true);
+
   // While riding the map goes full-screen with a minimal HUD; the rest of the numbers live behind
   // a Details toggle so the map dominates (the thing you actually look at on the bike).
   const [detailsOpen, setDetailsOpen] = useState(false);
@@ -210,6 +214,7 @@ export function RideScreen() {
     });
     recorderRef.current.start();
     setStatus('riding');
+    setFollowing(true); // start locked onto the rider
     setGpsError(null);
     // Live GPS; the dev replay panel can also drive handleFix.
     const source = new GeolocationSource();
@@ -228,6 +233,7 @@ export function RideScreen() {
     controllerRef.current?.resume();
     recorderRef.current.resume();
     setStatus('riding');
+    setFollowing(true);
   }, []);
 
   const downloadGpx = (gpx: string, distanceM: number) => {
@@ -294,6 +300,7 @@ export function RideScreen() {
       });
       setUnfinished(null);
       setStatus('riding');
+      setFollowing(true);
       const source = new GeolocationSource();
       sourceRef.current = source;
       source.start(handleFix, (err) => setGpsError(err.message || 'Location unavailable'));
@@ -343,25 +350,41 @@ export function RideScreen() {
         }
         batterySaver={batterySaver}
         zoomM={zoomM}
+        following={following}
+        onFollowChange={setFollowing}
       />
       {rideState ? (
         <div className="wr-ride__zoom">
-          <button type="button" aria-label="Zoom out" onClick={zoomOut}>
-            −
-          </button>
-          <button type="button" aria-label="Zoom in" onClick={zoomIn}>
-            +
-          </button>
-          {manualZoomM !== null ? (
+          {following ? (
+            <>
+              <button type="button" aria-label="Zoom out" onClick={zoomOut}>
+                −
+              </button>
+              <button type="button" aria-label="Zoom in" onClick={zoomIn}>
+                +
+              </button>
+              {manualZoomM !== null ? (
+                <button
+                  type="button"
+                  className="wr-ride__zoom-auto"
+                  aria-label="Auto zoom"
+                  onClick={() => setManualZoomM(null)}
+                >
+                  Auto
+                </button>
+              ) : null}
+            </>
+          ) : (
+            // Free-look: pinch/drag control the view; this snaps back to following the rider.
             <button
               type="button"
-              className="wr-ride__zoom-auto"
-              aria-label="Auto zoom"
-              onClick={() => setManualZoomM(null)}
+              className="wr-ride__zoom-auto wr-ride__recenter"
+              aria-label="Recenter map on rider"
+              onClick={() => setFollowing(true)}
             >
-              Auto
+              Recenter
             </button>
-          ) : null}
+          )}
         </div>
       ) : null}
       {rideState?.offRoute === 'alert' && rideState.toTrack ? (

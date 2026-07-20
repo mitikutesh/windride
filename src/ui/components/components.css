@@ -417,6 +417,11 @@
   font-size: var(--fs-small);
   font-weight: 600;
 }
+/* The Recenter pill carries a word, not a glyph — let it grow past the 44px zoom-button square. */
+.wr-ride__zoom .wr-ride__recenter {
+  width: auto;
+  padding-inline: var(--space-3);
+}
 .wr-ride__alert {
   position: absolute;
   inset-inline: var(--space-3);

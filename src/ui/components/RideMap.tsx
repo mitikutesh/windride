@@ -25,6 +25,13 @@ interface RideMapProps {
   batterySaver?: boolean;
   /** Metres across the view — the follow-camera zoom when riding (else the whole route is fit). */
   zoomM?: number | null;
+  /**
+   * Follow-the-rider camera on (true) or free-look (false). While false the map stays exactly where
+   * the rider dragged/pinched it — the auto-recenter is suspended (Google-Maps navigation pattern).
+   */
+  following?: boolean;
+  /** Called with false the moment the rider pans/pinches the map, so the parent can offer "Recenter". */
+  onFollowChange?: (following: boolean) => void;
 }
 
 /**
@@ -32,7 +39,14 @@ interface RideMapProps {
  * shared switcher) with the wind-coloured route + direction arrows on top, a heading-oriented rider
  * marker, and a follow-the-rider camera. Degrades to a message where WebGL is unavailable.
  */
-export function RideMap({ scored, rider, batterySaver = false, zoomM }: RideMapProps) {
+export function RideMap({
+  scored,
+  rider,
+  batterySaver = false,
+  zoomM,
+  following = true,
+  onFollowChange,
+}: RideMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const riderMarkerRef = useRef<maplibregl.Marker | null>(null);
@@ -41,6 +55,10 @@ export function RideMap({ scored, rider, batterySaver = false, zoomM }: RideMapP
   const [basemap, setBasemap] = useState(DEFAULT_BASEMAP);
   const basemapRef = useRef(basemap);
   basemapRef.current = basemap;
+  // The one-shot 'you took control' callback, mirrored so the once-attached gesture listeners
+  // always call the latest handler.
+  const onFollowChangeRef = useRef(onFollowChange);
+  onFollowChangeRef.current = onFollowChange;
 
   // Mirror latest props for the async 'load' handler so first paint uses current data.
   const scoredRef = useRef(scored);
@@ -62,13 +80,25 @@ export function RideMap({ scored, rider, batterySaver = false, zoomM }: RideMapP
         center: [first?.lon ?? 24.65, first?.lat ?? 60.17],
         zoom: 12,
         attributionControl: { compact: true },
-        interactive: false, // locked follow-the-rider nav view; zoom via the ride controls
+        // Interactive so the rider can drag/pinch to look around the route mid-ride (the follow
+        // camera resumes on Recenter). North-up only: rotate/tilt off keeps the wind cues legible.
+        dragRotate: false,
+        pitchWithRotate: false,
+        touchPitch: false,
       });
     } catch {
       setFailed(true); // no WebGL (tests / battery saver) — show the fallback
       return;
     }
     mapRef.current = map;
+    map.touchZoomRotate.disableRotation(); // two-finger pinch zooms without spinning the map
+    // Any hands-on gesture drops the follow camera into free-look. dragstart is user-only;
+    // zoomstart also fires from the programmatic follow ease, so require a real originalEvent.
+    const onGesture = () => onFollowChangeRef.current?.(false);
+    map.on('dragstart', onGesture);
+    map.on('zoomstart', (e) => {
+      if ((e as { originalEvent?: unknown }).originalEvent) onGesture();
+    });
     // The container grows when the ride goes full-screen (idle preview → live) while the SAME map is
     // reused; resize the canvas whenever the box changes, else it stays sized to the small preview
     // and renders as a blank dark panel.
@@ -140,13 +170,14 @@ export function RideMap({ scored, rider, batterySaver = false, zoomM }: RideMapP
     (map.getSource('wr-gusts') as maplibregl.GeoJSONSource | undefined)?.setData(gustFC(scored));
   }, [scored]);
 
-  // Rider marker + follow camera on each fix / zoom change.
+  // Rider marker moves on every fix; the camera only follows while `following` (free-look leaves the
+  // rider's chosen viewport untouched). Flipping `following` back on (Recenter) recenters here.
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !readyRef.current) return;
     updateRider(map, riderMarkerRef, rider);
-    updateCamera(map, rider, zoomM, batterySaver, scored);
-  }, [rider, zoomM, batterySaver, scored]);
+    if (following) updateCamera(map, rider, zoomM, batterySaver, scored);
+  }, [rider, zoomM, batterySaver, scored, following]);
 
   // Basemap switch (Streets = raster hidden → vector base).
   useEffect(() => {
