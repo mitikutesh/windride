@@ -5,6 +5,13 @@ Isolated AWS CDK (TypeScript) project for WindRide's cloud (Epic 5). Self-contai
 it, and it never touches the app.
 
 - **WR-037** `HostingStack` — S3 (private, OAC) + CloudFront + optional custom domain/ACM cert.
+- **WR-038** `BackendStack` — one Node Lambda behind a Function URL + a DynamoDB single table.
+
+> **The Function URL is PUBLIC** (`authType: NONE` — no platform auth). The skeleton only serves
+> `GET /health`. Every authenticated route added later (WR-040 `/me`, WR-041 sync) **MUST verify
+> the Cognito JWT inside the handler** — there is no gateway doing it. The single-table key design
+> (`PK=USER#<sub>`, `SK` per record type; one partition per user) is documented in
+> `lib/backend-stack.ts`.
 
 Region defaults to **eu-north-1** (Stockholm, EU data residency). CloudFront is global; a custom
 domain's ACM certificate **must** be in **us-east-1**.
@@ -34,6 +41,15 @@ These are the CI-safe checks. Everything below needs the owner's AWS credentials
    (Omit both `-c` flags to deploy without a custom domain — you'll get a `*.cloudfront.net` URL.)
    If using a custom domain, point its DNS (Route 53 alias or a CNAME) at the CloudFront domain from
    the stack outputs.
+
+   Then deploy the backend (after hosting — it references the CloudFront domain for CORS):
+   ```bash
+   npx cdk deploy WindRideBackend
+   ```
+   Smoke-test the health endpoint from the `ApiUrl` stack output:
+   ```bash
+   curl "$API_URL/health"   # → {"status":"ok","version":"dev"}
+   ```
 4. **OIDC deploy role:** create an IAM role trusting GitHub's OIDC provider
    (`token.actions.githubusercontent.com`). No long-lived keys. Scope it tightly:
    - **Trust:** pin the `sub` claim to this repo AND a single ref/environment, e.g.

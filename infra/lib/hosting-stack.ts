@@ -24,6 +24,8 @@ export interface HostingStackProps extends StackProps {
  */
 export class HostingStack extends Stack {
   readonly bucketName: string;
+  /** The CloudFront domain (e.g. d123.cloudfront.net) — the backend allows it as a CORS origin. */
+  readonly distributionDomainName: string;
 
   constructor(scope: Construct, id: string, props: HostingStackProps = {}) {
     super(scope, id, props);
@@ -74,6 +76,8 @@ export class HostingStack extends Stack {
       ],
       priceClass: cloudfront.PriceClass.PRICE_CLASS_100, // NA + EU edges — cheapest, covers Nordics
     });
+
+    this.distributionDomainName = distribution.distributionDomainName;
 
     new CfnOutput(this, 'SiteBucketName', { value: bucket.bucketName });
     new CfnOutput(this, 'DistributionId', { value: distribution.distributionId });

@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { App } from 'aws-cdk-lib';
+import { BackendStack } from '../lib/backend-stack';
 import { HostingStack } from '../lib/hosting-stack';
 
 // Config comes from CDK context (‑c key=value) or env — never hard-coded secrets. Region defaults
@@ -12,8 +13,21 @@ const env = {
   region: process.env.CDK_DEFAULT_REGION ?? 'eu-north-1',
 };
 
-new HostingStack(app, 'WindRideHosting', {
+const domainName: string | undefined = app.node.tryGetContext('domainName');
+
+const hosting = new HostingStack(app, 'WindRideHosting', {
   env,
-  domainName: app.node.tryGetContext('domainName'),
+  domainName,
   certificateArn: app.node.tryGetContext('certificateArn'),
+});
+
+new BackendStack(app, 'WindRideBackend', {
+  env,
+  // Let the deployed site call the API — the custom domain (if any) AND the CloudFront domain, so
+  // the default (no-custom-domain) deploy still works. localhost is added inside the stack for dev.
+  allowedOrigins: [
+    ...(domainName ? [`https://${domainName}`] : []),
+    `https://${hosting.distributionDomainName}`,
+  ],
+  buildVersion: app.node.tryGetContext('buildVersion'),
 });
