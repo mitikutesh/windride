@@ -18,6 +18,7 @@ export function RideHistory() {
   const refresh = useRidesStore((s) => s.refresh);
   const remove = useRidesStore((s) => s.remove);
   const strava = useRidesStore((s) => s.strava);
+  const stravaError = useRidesStore((s) => s.stravaError);
   const sendToStrava = useRidesStore((s) => s.sendToStrava);
 
   useEffect(() => {
@@ -63,8 +64,11 @@ export function RideHistory() {
                   className="wr-navlink"
                   disabled={strava[r.id] === 'pending'}
                   onClick={() => void sendToStrava(r.id)}
+                  title={strava[r.id] === 'error' ? stravaError[r.id] : undefined}
                 >
-                  {STRAVA_LABEL[strava[r.id] ?? ''] ?? 'Send to Strava'}
+                  {strava[r.id] === 'error' && stravaError[r.id]
+                    ? stravaError[r.id]
+                    : (STRAVA_LABEL[strava[r.id] ?? ''] ?? 'Send to Strava')}
                 </button>
               )}
               <button type="button" className="wr-navlink" onClick={() => void remove(r.id)}>

@@ -22,7 +22,7 @@ async function seedFinishedRide(id: string): Promise<void> {
 describe('ridesStore.sendToStrava', () => {
   beforeEach(async () => {
     for (const r of await listRides()) await deleteRide(r.id);
-    useRidesStore.setState({ rides: [], strava: {}, error: null });
+    useRidesStore.setState({ rides: [], strava: {}, stravaError: {}, error: null });
     // Clear any creds from a prior test.
     const db = await (await import('../data/db')).openWindrideDb();
     await db.delete('strava', 'creds');
@@ -57,6 +57,20 @@ describe('ridesStore.sendToStrava', () => {
     await useRidesStore.getState().refresh(); // now the ride carries stravaActivityId
     await useRidesStore.getState().sendToStrava('c', second);
     expect(second).not.toHaveBeenCalled();
+  });
+
+  it('surfaces the specific failure reason, not just a generic error', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    await setStravaCreds({ clientId: '1', clientSecret: 's', refreshToken: 'r' });
+    await seedFinishedRide('e');
+    await useRidesStore.getState().refresh();
+    const { ProviderError } = await import('../adapters/errors');
+    const send = vi
+      .fn()
+      .mockRejectedValue(new ProviderError('badResponse', 'Strava upload auth failed', 'auth'));
+    await useRidesStore.getState().sendToStrava('e', send);
+    expect(useRidesStore.getState().strava['e']).toBe('error');
+    expect(useRidesStore.getState().stravaError['e']).toBe('Strava upload auth failed — retry');
   });
 
   it('flags duplicate as its own state', async () => {

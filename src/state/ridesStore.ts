@@ -15,9 +15,25 @@ interface RidesState {
   rides: RecordedRide[];
   error: string | null;
   strava: Record<string, StravaStatus>;
+  /** Human reason for the last Strava failure per ride — so the UI shows *why*, not just "failed". */
+  stravaError: Record<string, string>;
   refresh: () => Promise<void>;
   remove: (id: string) => Promise<void>;
   sendToStrava: (id: string, send?: StravaSend) => Promise<void>;
+}
+
+/**
+ * A short, actionable reason for a Strava failure. Distinguishes the two calls that fail differently:
+ * a token-refresh auth error means the client id/secret/refresh token are wrong; an upload auth error
+ * means the token lacks the `activity:write` scope. Network/rate are phoned through plainly.
+ */
+function stravaFailureReason(e: unknown): string {
+  if (isProviderError(e)) {
+    if (e.kind === 'quota' || e.code === 'rate') return 'Rate-limited — retry later';
+    if (e.kind === 'network') return 'Network error — retry';
+    return `${e.message} — retry`; // auth / upload / timeout carry a specific message
+  }
+  return 'Strava failed — retry';
 }
 
 async function defaultSend(gpx: string, name: string, externalId: string): Promise<number> {
@@ -31,6 +47,7 @@ export const useRidesStore = create<RidesState>((set, get) => ({
   rides: [],
   error: null,
   strava: {},
+  stravaError: {},
   refresh: async () => {
     try {
       set({ rides: (await listRides()).filter((r) => r.status === 'finished'), error: null });
@@ -49,7 +66,10 @@ export const useRidesStore = create<RidesState>((set, get) => ({
       set((s) => ({ strava: { ...s.strava, [id]: 'no-creds' } }));
       return;
     }
-    set((s) => ({ strava: { ...s.strava, [id]: 'pending' } }));
+    set((s) => ({
+      strava: { ...s.strava, [id]: 'pending' },
+      stravaError: { ...s.stravaError, [id]: '' }, // clear any prior reason on retry
+    }));
     try {
       const points = await loadRidePoints(id);
       const gpx = toGpx({ name: ride.name, points });
@@ -59,7 +79,11 @@ export const useRidesStore = create<RidesState>((set, get) => ({
       await get().refresh();
     } catch (e) {
       const dup = isProviderError(e) && e.code === 'duplicate';
-      set((s) => ({ strava: { ...s.strava, [id]: dup ? 'duplicate' : 'error' } }));
+      if (!dup) console.warn('[Strava] upload failed', e); // full error for DevTools
+      set((s) => ({
+        strava: { ...s.strava, [id]: dup ? 'duplicate' : 'error' },
+        stravaError: dup ? s.stravaError : { ...s.stravaError, [id]: stravaFailureReason(e) },
+      }));
     }
   },
 }));
