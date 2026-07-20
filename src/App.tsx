@@ -5,6 +5,8 @@ import { PlanScreen } from './ui/screens/PlanScreen';
 import { ResultsScreen } from './ui/screens/ResultsScreen';
 import { KitScreen } from './ui/screens/KitScreen';
 import { RideScreen } from './ui/screens/RideScreen';
+import { HelpScreen } from './ui/screens/HelpScreen';
+import { AboutScreen } from './ui/screens/AboutScreen';
 import { useKeychainStore } from './state/keychainStore';
 
 /** WindRide app root (WR-002): design-token shell + hash-routed screens. */
@@ -21,6 +23,16 @@ export function App() {
   if (route === 'ride') return <RideScreen />;
 
   const screen =
-    route === 'results' ? <ResultsScreen /> : route === 'kit' ? <KitScreen /> : <PlanScreen />;
+    route === 'results' ? (
+      <ResultsScreen />
+    ) : route === 'kit' ? (
+      <KitScreen />
+    ) : route === 'help' ? (
+      <HelpScreen />
+    ) : route === 'about' ? (
+      <AboutScreen />
+    ) : (
+      <PlanScreen />
+    );
   return <AppShell route={route}>{screen}</AppShell>;
 }

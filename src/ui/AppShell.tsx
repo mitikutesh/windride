@@ -9,6 +9,8 @@ const NAV: NavItem[] = [
   { route: 'plan', label: 'Plan' },
   { route: 'results', label: 'Results' },
   { route: 'kit', label: 'Kit' },
+  { route: 'help', label: 'Help' },
+  { route: 'about', label: 'About' },
 ];
 
 interface AppShellProps {

@@ -3,8 +3,8 @@ import { useEffect, useState } from 'react';
 // Minimal hash router (WR-002). A dependency-free stand-in until routing needs grow;
 // hash routes work offline in a PWA without server history fallback. Real screens land in
 // WR-008 (Plan) / WR-009 (Results).
-export type Route = 'plan' | 'results' | 'kit' | 'ride';
-const ROUTES: readonly Route[] = ['plan', 'results', 'kit', 'ride'];
+export type Route = 'plan' | 'results' | 'kit' | 'ride' | 'help' | 'about';
+const ROUTES: readonly Route[] = ['plan', 'results', 'kit', 'ride', 'help', 'about'];
 
 function parseHash(): Route {
   const raw = window.location.hash.replace(/^#\/?/, '');

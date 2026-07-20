@@ -86,6 +86,8 @@ button {
 }
 .wr-shell__nav {
   display: flex;
+  flex-wrap: wrap; /* Plan/Results/Kit/Help/About stay on-screen on narrow phones */
+  justify-content: flex-end;
   gap: var(--space-1);
 }
 .wr-navlink {
@@ -147,6 +149,82 @@ button {
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-4);
+}
+
+/* --- Help / About prose (docs) ------------------------------------------------------- */
+.wr-doc {
+  line-height: 1.6;
+}
+/* .wr-screen supplies a space-3 flex gap between blocks; zero native margins so it doesn't double. */
+.wr-doc h1,
+.wr-doc h2,
+.wr-doc p,
+.wr-doc ul,
+.wr-doc ol {
+  margin: 0;
+}
+.wr-doc h2 {
+  margin-top: var(--space-3); /* extra breathing room before a section (adds to the flex gap) */
+}
+.wr-doc ul,
+.wr-doc ol {
+  padding-left: var(--space-4);
+}
+.wr-doc li + li {
+  margin-top: var(--space-1);
+}
+.wr-doc__steps li + li {
+  margin-top: var(--space-2);
+}
+.wr-link {
+  color: var(--sky);
+  text-decoration: underline;
+}
+.wr-link:hover {
+  color: var(--text);
+}
+.wr-doc__faq {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+  padding: var(--space-2) var(--space-3);
+}
+.wr-doc__faq > summary {
+  display: flex;
+  align-items: center;
+  min-height: var(--hit-min);
+  font-weight: 600;
+  cursor: pointer;
+}
+.wr-doc__faq[open] > summary {
+  margin-bottom: var(--space-2);
+}
+.wr-doc__faq > p {
+  color: var(--text2);
+  margin: 0;
+}
+.wr-doc__tablewrap {
+  overflow-x: auto; /* the score table scrolls rather than pushing the page wide on phones */
+}
+.wr-doc__scores {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-small);
+}
+.wr-doc__scores th,
+.wr-doc__scores td {
+  padding: var(--space-2);
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid var(--line);
+}
+.wr-doc__scores thead th {
+  color: var(--text2);
+  font-weight: 600;
+}
+.wr-doc__scores tbody th {
+  font-weight: 600;
+  white-space: nowrap;
 }
 
 /* --- Plan screen (WR-008) ---------------------------------------------------------------- */
