@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
 import {
+  AI_PROVIDERS,
   API_KEY_NAMES,
   type ApiKeyName,
   effectiveLiveApis,
+  isAiProvider,
   routingKeyAvailable,
   useKeychainStore,
 } from '../../state/keychainStore';
@@ -10,16 +12,16 @@ import { PrimaryButton } from './PrimaryButton';
 import { Toggle } from './Toggle';
 
 /**
- * Bring-your-own API keys (task #33). Any user enters their own keys here; they live only in this
- * browser (idb) and are sent only to the service they belong to — never bundled or uploaded (mirrors
- * the Strava-secret rule, DEC-027). A live-APIs toggle lets a build shipped with live off still go
- * live once the user supplies keys. The `ai` key is stored but reserved — no feature consumes it yet.
+ * Bring-your-own API keys (task #33, WR-044). Any user enters their own keys here; they live only in
+ * this browser (idb) and are sent only to the service they belong to — never bundled or uploaded
+ * (mirrors the Strava-secret rule, DEC-027; never synced server-side, DEC-040). A live-APIs toggle
+ * lets a build shipped with live off still go live once the user supplies keys. AI is bring-your-own
+ * too: pick a provider, paste that provider's key, and the optional AI features (WR-045+) turn on.
  */
 interface KeyMeta {
   name: ApiKeyName;
   label: string;
   help: string;
-  reserved?: boolean;
 }
 
 const KEY_META: Record<ApiKeyName, KeyMeta> = {
@@ -36,8 +38,7 @@ const KEY_META: Record<ApiKeyName, KeyMeta> = {
   ai: {
     name: 'ai',
     label: 'AI key',
-    help: 'Reserved for upcoming AI features — stored securely here, but nothing uses it yet.',
-    reserved: true,
+    help: 'Powers the optional AI features. Pick your provider above, then paste that provider’s key.',
   },
 };
 
@@ -62,7 +63,6 @@ function KeyRow({ meta }: { meta: KeyMeta }) {
     <div className="wr-keys__row">
       <label className="wr-field__label">
         {meta.label}
-        {meta.reserved ? <span className="wr-muted"> · reserved</span> : null}
         <input
           className="wr-input"
           type="password"
@@ -108,6 +108,46 @@ function KeyRow({ meta }: { meta: KeyMeta }) {
   );
 }
 
+/** The AI provider picker (WR-044): each user chooses their own provider; the `ai` key is theirs. */
+function AiProviderPicker() {
+  const provider = useKeychainStore((s) => s.aiProvider);
+  const setAiProvider = useKeychainStore((s) => s.setAiProvider);
+  const active = provider ? AI_PROVIDERS.find((p) => p.id === provider) : undefined;
+
+  return (
+    <div className="wr-keys__row">
+      <label className="wr-field__label">
+        AI provider
+        <select
+          className="wr-input"
+          value={provider ?? ''}
+          onChange={(e) => void setAiProvider(isAiProvider(e.target.value) ? e.target.value : null)}
+        >
+          <option value="">None — AI features off</option>
+          {AI_PROVIDERS.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.label}
+            </option>
+          ))}
+        </select>
+      </label>
+      <p className="wr-muted wr-keys__help">
+        {active ? (
+          <>
+            {active.help}{' '}
+            <a className="wr-link" href={active.keysUrl} target="_blank" rel="noopener noreferrer">
+              Get a key
+            </a>
+            .
+          </>
+        ) : (
+          'Choose a provider to turn on ride briefings, natural-language planning and route discovery. You bring your own key — it stays in this browser.'
+        )}
+      </p>
+    </div>
+  );
+}
+
 export function ApiKeysSettings() {
   const hydrate = useKeychainStore((s) => s.hydrate);
   const liveApis = useKeychainStore((s) => s.liveApis); // subscribe so the toggle re-renders
@@ -139,9 +179,12 @@ export function ApiKeysSettings() {
         <p className="wr-muted">Live mode is on but no routing key is set — add one below.</p>
       ) : null}
 
-      {API_KEY_NAMES.map((name) => (
+      {API_KEY_NAMES.filter((name) => name !== 'ai').map((name) => (
         <KeyRow key={name} meta={KEY_META[name]} />
       ))}
+
+      <AiProviderPicker />
+      <KeyRow meta={KEY_META.ai} />
     </div>
   );
 }

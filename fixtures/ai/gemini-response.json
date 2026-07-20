@@ -1,0 +1,8 @@
+{
+  "candidates": [
+    {
+      "content": { "role": "model", "parts": [{ "text": "{\"ok\":true,\"n\":42}" }] },
+      "finishReason": "STOP"
+    }
+  ]
+}

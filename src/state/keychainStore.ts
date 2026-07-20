@@ -6,6 +6,7 @@
 // state layer hydrates the keychain and hands it down. Keys live only in the local browser (idb),
 // never in the shipped bundle (mirrors the Strava-secret rule, DEC-027).
 import { create } from 'zustand';
+import { AI_PROVIDERS, isAiProvider, type AiProvider } from '../adapters/ai';
 import { getConfig, setConfigValue, deleteConfigValue } from '../data/db';
 import {
   type ApiKeyName,
@@ -14,17 +15,22 @@ import {
   setRuntimeConfig,
 } from '../adapters/registry';
 
-// Re-exported so UI can name key types without importing adapters (ARCHITECTURE §3 boundary).
-export type { ApiKeyName };
+// Re-exported so UI can name key types + list providers without importing adapters directly
+// (ARCHITECTURE §3 boundary; these are names/metadata, not the fetch-bearing client).
+export type { ApiKeyName, AiProvider };
+export { AI_PROVIDERS, isAiProvider };
 
-/** The keys a user can supply. `ai` is reserved — stored + managed, but nothing consumes it yet. */
+/** The keys a user can supply. `ai` powers the optional Epic 6 AI features (WR-044+). */
 export const API_KEY_NAMES: ApiKeyName[] = ['ors', 'digitransit', 'ai'];
 const LIVE_APIS = 'liveApis'; // config key for the live-APIs override
+const AI_PROVIDER = 'aiProvider'; // config key for the user's AI provider choice
 
 interface KeychainState {
   keys: Partial<Record<ApiKeyName, string>>;
   /** null = follow the build-time default; true/false = explicit owner override. */
   liveApis: boolean | null;
+  /** The user's AI provider choice (DEC-043); null = AI features off. */
+  aiProvider: AiProvider | null;
   hydrated: boolean;
   hydrate: () => Promise<void>;
   /** Save a key (empty/whitespace clears it). Returns false if the idb write failed (kept in memory
@@ -32,11 +38,13 @@ interface KeychainState {
   saveKey: (name: ApiKeyName, value: string) => Promise<boolean>;
   /** Override the live-APIs switch (null clears the override, reverting to the build default). */
   setLiveApis: (on: boolean | null) => Promise<void>;
+  /** Pick the AI provider (null clears it, turning AI features off). */
+  setAiProvider: (provider: AiProvider | null) => Promise<void>;
 }
 
-/** Push the current keys + live override into the adapter registry (synchronous read source). */
-function pushToRegistry(state: Pick<KeychainState, 'keys' | 'liveApis'>): void {
-  setRuntimeConfig({ keys: state.keys, liveApis: state.liveApis });
+/** Push the current keys + live override + AI provider into the registry (synchronous read source). */
+function pushToRegistry(state: Pick<KeychainState, 'keys' | 'liveApis' | 'aiProvider'>): void {
+  setRuntimeConfig({ keys: state.keys, liveApis: state.liveApis, aiProvider: state.aiProvider });
 }
 
 // De-dupes concurrent hydrate() calls (App mount + a deep-linked Settings screen) into one idb read.
@@ -45,6 +53,7 @@ let hydrating: Promise<void> | null = null;
 export const useKeychainStore = create<KeychainState>((set, get) => ({
   keys: {},
   liveApis: null,
+  aiProvider: null,
   hydrated: false,
 
   hydrate: async () => {
@@ -56,13 +65,15 @@ export const useKeychainStore = create<KeychainState>((set, get) => ({
         const fromIdb: Partial<Record<ApiKeyName, string>> = {};
         for (const name of API_KEY_NAMES) if (config[name]) fromIdb[name] = config[name];
         const idbLive = LIVE_APIS in config ? config[LIVE_APIS] === 'true' : null;
+        const idbProvider = isAiProvider(config[AI_PROVIDER]) ? config[AI_PROVIDER] : null;
         // Merge UNDER anything the user changed while idb was loading (their edit wins), so a save
         // landing mid-hydrate is never clobbered by the resolving snapshot.
         const s = get();
         const keys = { ...fromIdb, ...s.keys };
         const liveApis = s.liveApis ?? idbLive; // an explicit in-flight override wins
-        set({ keys, liveApis, hydrated: true });
-        pushToRegistry({ keys, liveApis });
+        const aiProvider = s.aiProvider ?? idbProvider;
+        set({ keys, liveApis, aiProvider, hydrated: true });
+        pushToRegistry({ keys, liveApis, aiProvider });
       } catch {
         // idb unavailable (tests/SSR): keys stay empty, live-APIs follows the build default. No crash.
         set({ hydrated: true });
@@ -86,7 +97,7 @@ export const useKeychainStore = create<KeychainState>((set, get) => ({
     if (trimmed) keys[name] = trimmed;
     else delete keys[name];
     set({ keys });
-    pushToRegistry({ keys, liveApis: get().liveApis });
+    pushToRegistry({ keys, liveApis: get().liveApis, aiProvider: get().aiProvider });
     return persisted;
   },
 
@@ -98,7 +109,18 @@ export const useKeychainStore = create<KeychainState>((set, get) => ({
       /* best-effort persist; the in-memory override below still drives this session */
     }
     set({ liveApis: on });
-    pushToRegistry({ keys: get().keys, liveApis: on });
+    pushToRegistry({ keys: get().keys, liveApis: on, aiProvider: get().aiProvider });
+  },
+
+  setAiProvider: async (provider) => {
+    try {
+      if (provider === null) await deleteConfigValue(AI_PROVIDER);
+      else await setConfigValue(AI_PROVIDER, provider);
+    } catch {
+      /* best-effort persist; the in-memory choice below still drives this session */
+    }
+    set({ aiProvider: provider });
+    pushToRegistry({ keys: get().keys, liveApis: get().liveApis, aiProvider: provider });
   },
 }));
 

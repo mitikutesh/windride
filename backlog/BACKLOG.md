@@ -67,7 +67,7 @@ Needs only WR-044 (no backend), so it ships on the current static app and may ru
 parallel with Epic 5.
 | ID | Story | Deps | Size | Status |
 |---|---|---|---|---|
-| WR-044 | AI adapter + Kit provider selector + 'ai' key wiring (per-user provider, validated) | — | M | TODO |
+| WR-044 | AI adapter + Kit provider selector + 'ai' key wiring (per-user provider, validated) | — | M | DONE |
 | WR-045 | AI ride briefing (clothing, fuel, safety) | 044 | M | TODO |
 | WR-046 | Natural-language planning (text → Plan inputs) | 044 | M | TODO |
 | WR-047 | AI route discovery → validate → wind-scored | 044 | L | TODO |

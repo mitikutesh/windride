@@ -6,18 +6,24 @@ import { useKeychainStore } from '../../state/keychainStore';
 
 beforeEach(async () => {
   vi.stubEnv('VITE_LIVE_APIS', 'false'); // deterministic build default, independent of .env(.test)
-  useKeychainStore.setState({ keys: {}, liveApis: null, hydrated: true }); // skip idb hydrate
+  useKeychainStore.setState({ keys: {}, liveApis: null, aiProvider: null, hydrated: true }); // skip idb
   await useKeychainStore.getState().setLiveApis(null); // also clears the registry live override
 });
 afterEach(() => vi.unstubAllEnvs());
 
 describe('ApiKeysSettings', () => {
-  it('renders a row for each key, including the reserved AI slot', () => {
+  it('renders a row for each key plus the AI provider picker', () => {
     render(<ApiKeysSettings />);
     expect(screen.getByLabelText(/Routing/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/Transit/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/AI provider/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/AI key/i)).toBeInTheDocument();
-    expect(screen.getAllByText(/reserved/i).length).toBeGreaterThan(0);
+  });
+
+  it('choosing an AI provider stores the per-user choice', async () => {
+    render(<ApiKeysSettings />);
+    fireEvent.change(screen.getByLabelText(/AI provider/i), { target: { value: 'anthropic' } });
+    await waitFor(() => expect(useKeychainStore.getState().aiProvider).toBe('anthropic'));
   });
 
   it('saves a typed key into the store', async () => {

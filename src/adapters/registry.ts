@@ -1,5 +1,6 @@
 // adapters/registry.ts — the one place the app picks providers (WR-003).
 // Mocks unless VITE_LIVE_APIS === "true"; live adapters are wired in WR-004/WR-005.
+import { AiHttpClient, type AiClient, type AiProvider } from './ai';
 import type { RouteProvider } from './routing';
 import type { WeatherProvider } from './weather';
 import { MockRouteProvider } from './routing/mock';
@@ -14,7 +15,7 @@ export interface Providers {
   routing: RouteProvider;
 }
 
-/** API keys a user can bring their own of (task #33). `ai` is reserved — no consumer yet. */
+/** API keys a user can bring their own of (task #33). `ai` powers Epic 6 features (WR-044+). */
 export type ApiKeyName = 'ors' | 'digitransit' | 'ai';
 
 export interface RuntimeConfig {
@@ -22,11 +23,13 @@ export interface RuntimeConfig {
   keys: Partial<Record<ApiKeyName, string>>;
   /** Master live-APIs switch override: true/false wins, null follows the build-time env default. */
   liveApis: boolean | null;
+  /** The AI provider the user picked in Kit (DEC-043); null/undefined = AI features off. */
+  aiProvider?: AiProvider | null;
 }
 
 // Module-level runtime config (task #33). Adapters stay self-contained — the state layer hydrates
 // the keychain from idb and pushes it in via setRuntimeConfig, so the registry never imports up.
-let runtime: RuntimeConfig = { keys: {}, liveApis: null };
+let runtime: RuntimeConfig = { keys: {}, liveApis: null, aiProvider: null };
 
 export function setRuntimeConfig(config: RuntimeConfig): void {
   runtime = config;
@@ -45,6 +48,30 @@ export function liveApisEnabled(): boolean {
 /** True when live routing has a key from ANY source: the runtime override or the Vite-env fallback. */
 export function hasRoutingKey(): boolean {
   return Boolean(runtimeKey('ors') || import.meta.env.VITE_ORS_API_KEY);
+}
+
+/** The AI provider the user picked in Kit, or null when unset (DEC-043). Consumed by WR-045+
+ *  features and the WR-050 capability gating (labels the active provider in the UI). */
+export function getAiProvider(): AiProvider | null {
+  return runtime.aiProvider ?? null;
+}
+
+/** True when AI features can run: a provider is chosen AND its key is present (BYO, DEC-043). */
+export function aiReady(): boolean {
+  return Boolean(runtime.aiProvider && runtimeKey('ai'));
+}
+
+/**
+ * The AI client for the user's chosen provider + key, or null when AI isn't set up. AI is
+ * independent of the live-APIs master switch — it's gated purely on the user having a key + a
+ * provider (there is no AI mock; features simply hide when unset, WR-050). The `ai` key comes only
+ * from the runtime keychain, never from Vite env (BYO, DEC-040) — so it is never bundled.
+ */
+export function getAiClient(): AiClient | null {
+  const provider = runtime.aiProvider;
+  const apiKey = runtime.keys.ai || undefined;
+  if (!provider || !apiKey) return null;
+  return new AiHttpClient({ provider, apiKey });
 }
 
 export function getProviders(): Providers {

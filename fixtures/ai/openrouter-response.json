@@ -1,0 +1,11 @@
+{
+  "id": "gen_fixture",
+  "model": "openai/gpt-4o-mini",
+  "choices": [
+    {
+      "index": 0,
+      "message": { "role": "assistant", "content": "{\"ok\":true,\"n\":42}" },
+      "finish_reason": "stop"
+    }
+  ]
+}

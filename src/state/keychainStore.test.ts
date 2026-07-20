@@ -2,13 +2,14 @@ import 'fake-indexeddb/auto';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as db from '../data/db';
 import { deleteConfigValue, getConfig, setConfigValue } from '../data/db';
-import { liveApisEnabled, setRuntimeConfig } from '../adapters/registry';
+import { aiReady, liveApisEnabled, setRuntimeConfig } from '../adapters/registry';
 import { useKeychainStore } from './keychainStore';
 
 beforeEach(async () => {
-  for (const n of ['ors', 'digitransit', 'ai', 'liveApis']) await deleteConfigValue(n);
-  useKeychainStore.setState({ keys: {}, liveApis: null, hydrated: false });
-  setRuntimeConfig({ keys: {}, liveApis: null });
+  for (const n of ['ors', 'digitransit', 'ai', 'liveApis', 'aiProvider'])
+    await deleteConfigValue(n);
+  useKeychainStore.setState({ keys: {}, liveApis: null, aiProvider: null, hydrated: false });
+  setRuntimeConfig({ keys: {}, liveApis: null, aiProvider: null });
 });
 
 afterEach(() => vi.unstubAllEnvs());
@@ -47,10 +48,34 @@ describe('useKeychainStore', () => {
     expect(liveApisEnabled()).toBe(false); // back to the build default
   });
 
-  it('stores the reserved AI key like any other (no consumer yet)', async () => {
+  it('stores the AI key like any other', async () => {
     await useKeychainStore.getState().saveKey('ai', 'sk-test');
     expect((await getConfig()).ai).toBe('sk-test');
     expect(useKeychainStore.getState().keys.ai).toBe('sk-test');
+  });
+
+  it('persists the AI provider and, with a key, makes AI ready in the registry', async () => {
+    await useKeychainStore.getState().setAiProvider('anthropic');
+    await useKeychainStore.getState().saveKey('ai', 'sk-test');
+    expect((await getConfig()).aiProvider).toBe('anthropic');
+    expect(aiReady()).toBe(true); // provider + key both reached the registry
+
+    await useKeychainStore.getState().setAiProvider(null); // clearing it turns AI off
+    expect((await getConfig()).aiProvider).toBeUndefined();
+    expect(aiReady()).toBe(false);
+  });
+
+  it('hydrates a stored AI provider from idb (and ignores a junk value)', async () => {
+    await setConfigValue('aiProvider', 'gemini');
+    await useKeychainStore.getState().hydrate();
+    expect(useKeychainStore.getState().aiProvider).toBe('gemini');
+
+    // A corrupt/unknown value must not become the provider.
+    await deleteConfigValue('aiProvider');
+    await setConfigValue('aiProvider', 'bogus');
+    useKeychainStore.setState({ aiProvider: null, hydrated: false });
+    await useKeychainStore.getState().hydrate();
+    expect(useKeychainStore.getState().aiProvider).toBeNull();
   });
 
   it('saveKey returns true on success and false when the idb write fails', async () => {
