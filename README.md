@@ -2,7 +2,9 @@
 
 **WindRide** is a wind-aware cycling route planner: it *generates* routes shaped by today's wind,
 shelter, weather and daylight, then navigates you through them. Zero-cost personal build first
-(PWA, free APIs, no backend), commercial option preserved.
+(PWA, bring-your-own free API keys). Planning and navigation run entirely in the browser and need
+no account; an OPTIONAL free account adds a thin serverless backend (Epic 5, AWS) that syncs saved
+routes across devices — API keys always stay in the browser and never sync (DEC-040).
 
 This repository is a complete specification and story backlog for AI coding agents (Claude Code)
 to build the app one story at a time. `WR-001` has bootstrapped the codebase — the scaffold and
@@ -69,8 +71,9 @@ Once set up, finished rides in Ride History get a "Send to Strava" button.
 
 ## Deploy (GitHub Pages)
 
-WindRide is a static PWA (no backend), so it hosts anywhere. A GitHub Pages workflow is included
-(`.github/workflows/deploy.yml`):
+The WindRide app is a static PWA, so it hosts anywhere. A GitHub Pages workflow is included
+(`.github/workflows/deploy.yml`); AWS S3+CloudFront hosting + the optional serverless backend live
+in `infra/` (Epic 5, deployed separately). The app works fully without the backend.
 
 1. One-time: repo **Settings → Pages → Source = "GitHub Actions"**.
 2. Push to `main` (or run the "Deploy to GitHub Pages" workflow manually). It builds with

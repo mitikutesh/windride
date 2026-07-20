@@ -20,4 +20,17 @@ describe('<AboutScreen />', () => {
     expect(within(table).getByRole('row', { name: /Robustness/i })).toBeInTheDocument();
     expect(within(table).getByRole('row', { name: /Novelty/i })).toBeInTheDocument();
   });
+
+  it('frames the account honestly: optional, keys never synced, links Privacy (WR-043)', () => {
+    render(<AboutScreen />);
+    expect(screen.getByText(/optional free account/i)).toBeInTheDocument();
+    expect(screen.getByText(/no account needed/i)).toBeInTheDocument(); // progressive/anonymous
+    expect(screen.getByRole('link', { name: /^Privacy$/i })).toHaveAttribute('href', '#/privacy');
+  });
+
+  it('no longer makes the old "no backend / no account" absolute claims (WR-043)', () => {
+    render(<AboutScreen />);
+    expect(screen.queryByText(/No backend, no account/i)).toBeNull();
+    expect(screen.queryByText(/nothing to pay to run it/i)).toBeNull();
+  });
 });

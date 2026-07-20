@@ -60,7 +60,7 @@ Test contract · Technical notes · Out of scope · Log.
 | WR-040 | User profile + free-subscription entitlement | 039 | M | DONE |
 | WR-041 | Cross-device sync of non-secret data (keys never sync) | 040 | L | DONE |
 | WR-042 | GDPR: privacy policy, data export, account deletion | 040 | M | DONE |
-| WR-043 | Accounts-era UX + honest copy update | 041,042 | S | TODO |
+| WR-043 | Accounts-era UX + honest copy update | 041,042 | S | DONE |
 
 ## Epic 6 · AI Copilot (v0.6) — bring-your-own key, backend-independent
 Needs only WR-044 (no backend), so it ships on the current static app and may run in

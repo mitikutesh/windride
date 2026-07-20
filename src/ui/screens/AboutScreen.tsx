@@ -117,8 +117,8 @@ export function AboutScreen() {
       <h2>Architecture, in short</h2>
       <ul>
         <li>
-          No backend, no account, and nothing to pay to run it. It’s a client-side PWA, so
-          everything happens in your browser.
+          Planning and navigation run entirely in your browser, with no account needed. It’s a PWA,
+          so it installs and works offline.
         </li>
         <li>
           Data comes from openrouteservice for the routes, the Finnish Meteorological Institute (the
@@ -127,7 +127,21 @@ export function AboutScreen() {
         </li>
         <li>
           Your own data stays with you. API keys, recorded rides, speed calibration and the roads
-          you’ve ridden all live in your browser (IndexedDB).
+          you’ve ridden all live in your browser (IndexedDB) and are never sent to us.
+        </li>
+        <li>
+          An <b>optional free account</b> syncs your saved routes across devices (and backs up a few
+          plan preferences), through a small serverless backend (AWS, EU region). Your API keys are
+          never part of it. What’s stored and how to export or delete it is spelled out on the{' '}
+          <a className="wr-link" href="#/privacy">
+            Privacy
+          </a>{' '}
+          page.
+        </li>
+        <li>
+          Optional AI features (ride briefings, natural-language planning, route discovery) use{' '}
+          <em>your own</em> AI provider and key, called straight from your browser. They’re additive
+          and validated; the scoring engine stays the source of truth.
         </li>
         <li>
           It’s tuned for Uusimaa and southern Finland (the shelter grid and transit), but the code

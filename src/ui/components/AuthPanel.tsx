@@ -66,8 +66,13 @@ export function AuthPanel() {
   if (!configured) {
     return (
       <p className="wr-muted">
-        Accounts aren’t set up in this build yet. Everything works without one — your keys and data
-        stay in this browser. An optional account will later sync your saved routes across devices.
+        Accounts aren’t set up in this build. Everything works without one: your keys and data stay
+        in this browser. Where an account is configured, it syncs your saved routes across devices,
+        and never your keys. See{' '}
+        <a className="wr-link" href="#/privacy">
+          Privacy &amp; your data
+        </a>
+        .
       </p>
     );
   }
@@ -80,8 +85,8 @@ export function AuthPanel() {
         </p>
         {profile ? (
           <p className="wr-muted">
-            Plan: <strong>{profile.entitlement}</strong> — cross-device sync is available on this
-            account. Your API keys stay in this browser and are never synced.
+            Plan: <strong>{profile.entitlement}</strong>. Cross-device sync of your saved routes is
+            available on this account. Your API keys stay in this browser and are never synced.
           </p>
         ) : null}
         {apiConfigured ? (
@@ -305,6 +310,13 @@ export function AuthPanel() {
           Forgot password?
         </button>
       ) : null}
+      <p className="wr-muted">
+        An account syncs only your saved routes and preferences, never your keys. See{' '}
+        <a className="wr-link" href="#/privacy">
+          Privacy &amp; your data
+        </a>
+        .
+      </p>
       {err}
     </form>
   );

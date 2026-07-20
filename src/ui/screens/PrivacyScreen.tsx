@@ -21,8 +21,8 @@ export function PrivacyScreen() {
 
       <h2>With an account</h2>
       <p>
-        An optional free account lets your saved routes and a few planning preferences follow you
-        between devices. To do that we store, on our servers:
+        An optional free account syncs your saved routes across devices (and backs up a few planning
+        preferences). To do that we store, on our servers:
       </p>
       <ul>
         <li>Your email address (needed to sign in and reset your password).</li>

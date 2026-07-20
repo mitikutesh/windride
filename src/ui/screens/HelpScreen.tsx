@@ -38,7 +38,8 @@ export function HelpScreen() {
 
       <h2>Your API keys stay in your browser</h2>
       <p>
-        WindRide has no server and no account. To use live data you add your own free API keys under{' '}
+        WindRide runs in your browser and works without an account. To use live data you add your
+        own free API keys under{' '}
         <a className="wr-link" href="#/kit">
           Kit → API keys
         </a>
@@ -57,11 +58,27 @@ export function HelpScreen() {
       </ul>
       <p>
         Where they’re kept: only in this browser, in its local database (IndexedDB). They’re never
-        sent to us, because there’s no server of ours to send them to. They’re never written into
-        the app’s code either, and they only ever go straight to that provider over HTTPS. If you
-        clear the site data or move to another device you’ll need to enter them again. And if you’re
-        using a build the owner published with their own keys, yours quietly take over on your
-        device.
+        sent to us. Even if you create an optional account (below), your keys are deliberately kept
+        out of anything that syncs. They’re never written into the app’s code either, and they only
+        ever go straight to that provider over HTTPS. If you clear the site data or move to another
+        device you’ll need to enter them again. And if you’re using a build the owner published with
+        their own keys, yours quietly take over on your device.
+      </p>
+
+      <h2>The optional account</h2>
+      <p>
+        You never need to sign in. If you want your saved routes to follow you between devices (with
+        a few plan preferences backed up too), you can create a free account under{' '}
+        <a className="wr-link" href="#/kit">
+          Kit → Account
+        </a>
+        . It syncs only that non-secret data. It never touches your API keys, your recorded rides or
+        your speed calibration, which stay on the device that made them. You can export everything
+        we hold or delete the account at any time; see{' '}
+        <a className="wr-link" href="#/privacy">
+          Privacy &amp; your data
+        </a>
+        .
       </p>
 
       <h2>Install it like an app (PWA)</h2>
@@ -91,17 +108,18 @@ export function HelpScreen() {
       <details className="wr-doc__faq">
         <summary>Why do I need my own API keys?</summary>
         <p>
-          WindRide is built for one person and costs nothing to run. There’s no shared server to
-          hold keys, and the free tiers are tied to your own account, so bringing your own keeps you
-          inside your own quota.
+          WindRide costs nothing to run because it doesn’t proxy paid APIs for everyone. There’s no
+          shared server holding keys, and the free tiers are tied to your own provider account, so
+          bringing your own keeps you inside your own quota and your keys never leave your browser.
         </p>
       </details>
       <details className="wr-doc__faq">
         <summary>Is my ride data private?</summary>
         <p>
           Yes. Your recordings, history, speed calibration and the roads you’ve ridden are stored
-          only in your browser. Nothing leaves your device unless you export a GPX file yourself or
-          send a ride to Strava.
+          only in your browser. They leave your device only if you export a GPX file yourself or
+          send a ride to Strava. An optional account syncs your saved routes and plan preferences
+          across devices, and nothing else, never your keys or your recordings.
         </p>
       </details>
       <details className="wr-doc__faq">

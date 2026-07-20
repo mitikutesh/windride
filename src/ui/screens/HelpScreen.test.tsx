@@ -25,4 +25,18 @@ describe('<HelpScreen />', () => {
     expect(q.tagName.toLowerCase()).toBe('summary'); // native <details> accordion, no JS needed
     fireEvent.click(q); // toggling must not throw
   });
+
+  it('describes the account as optional and keys as never synced (WR-043)', () => {
+    render(<HelpScreen />);
+    expect(screen.getByRole('heading', { name: /optional account/i })).toBeInTheDocument();
+    expect(screen.getByText(/never need to sign in/i)).toBeInTheDocument(); // progressive/anonymous
+    expect(screen.getByText(/never touches your API keys/i)).toBeInTheDocument();
+    expect(screen.getAllByRole('link', { name: /Privacy/i }).length).toBeGreaterThan(0);
+  });
+
+  it('no longer claims "no server and no account" or "built for one person" (WR-043)', () => {
+    render(<HelpScreen />);
+    expect(screen.queryByText(/no server and no account/i)).toBeNull();
+    expect(screen.queryByText(/built for one person/i)).toBeNull();
+  });
 });
