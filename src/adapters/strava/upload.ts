@@ -51,7 +51,10 @@ export class StravaUploader {
     private readonly creds: StravaCreds,
     deps: StravaDeps = {},
   ) {
-    this.fetchFn = deps.fetchFn ?? fetch;
+    // Native fetch throws "Illegal invocation" if called as a method of another object, so bind it
+    // to the global (as fmi.ts / digitransit.ts do). Only reproducible in a real browser — unit
+    // tests inject fetchFn, so this needs the WR-023 manual E2E to catch.
+    this.fetchFn = deps.fetchFn ?? fetch.bind(globalThis);
     this.now = deps.now ?? (() => Date.now());
     this.sleep = deps.sleep ?? ((ms) => new Promise((r) => setTimeout(r, ms)));
     this.base = deps.baseUrl ?? STRAVA_BASE;
