@@ -3,9 +3,12 @@ import { RouteCard } from '../components/RouteCard';
 import { RouteMap } from '../components/RouteMap';
 import { HeatStrip } from '../components/HeatStrip';
 import { FeelsChart } from '../components/FeelsChart';
+import { RideBriefing } from '../components/RideBriefing';
 import { WinterCaution } from '../components/WinterCaution';
 import { WindLegend } from '../components/WindLegend';
 import { PrimaryButton } from '../components';
+import { useKeychainStore } from '../../state/keychainStore';
+import { usePlanStore } from '../../state/planStore';
 import { useResultsStore } from '../../state/resultsStore';
 import { useSavedRoutesStore } from '../../state/savedRoutesStore';
 import { candidateToGpxTrack } from '../routeGeo';
@@ -23,6 +26,10 @@ export function ResultsScreen() {
   const startMessage = useResultsStore((s) => s.startMessage);
   const hourLabels = useResultsStore((s) => s.hourLabels);
   const winter = useResultsStore((s) => s.winter);
+  const conditions = usePlanStore((s) => s.conditions);
+  const departureHour = usePlanStore((s) => s.inputs.departureHour);
+  // AI briefing is opt-in: shown only when the user has picked a provider AND set its key (DEC-043).
+  const aiReady = useKeychainStore((s) => Boolean(s.aiProvider && s.keys.ai));
 
   if (ranked.length === 0) {
     return (
@@ -114,6 +121,30 @@ export function ResultsScreen() {
           <summary>Elevation & feels-like — {selected.evidence.distanceKm.toFixed(1)} km</summary>
           <FeelsChart points={buildFeelsProfile(selected.analysis.segments)} />
         </details>
+
+        {aiReady ? (
+          <details className="wr-results__detail">
+            <summary>Today’s ride briefing (AI)</summary>
+            <RideBriefing
+              scored={selected}
+              cond={
+                conditions
+                  ? {
+                      tempC: conditions.tempC ?? null,
+                      feelsC: conditions.feelsC ?? null,
+                      windMs: conditions.windMs,
+                      windFromDeg: conditions.windFromDeg,
+                      gustMs: conditions.gustMs,
+                      precipProb: conditions.precipProb,
+                      sunset: conditions.sunset ?? null,
+                    }
+                  : null
+              }
+              winter={winter ? { iceRisk: winter.iceRisk, minTempC: winter.minTempC } : null}
+              departureHour={departureHour}
+            />
+          </details>
+        ) : null}
       </div>
     </section>
   );
