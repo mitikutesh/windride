@@ -38,8 +38,16 @@ the fixture + parser together and note it in the story Log.
   helper (`tools/strava-auth.mjs`, runs on localhost, stores the refresh token locally). No server.
 
 ## 5. Map tiles — no key
-- MapLibre GL JS + OpenFreeMap style `https://tiles.openfreemap.org/styles/liberty`.
+- MapLibre GL JS + OpenFreeMap style `https://tiles.openfreemap.org/styles/liberty` (the Streets base).
   OSM attribution (ODbL) must remain visible on the map.
+- Results-map basemap switcher (DEC-035), all free/keyless raster layers over the vector base:
+  - **Cycling** — CyclOSM `https://{a,b,c}.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png`
+    (attr: "CyclOSM | © OpenStreetMap contributors"). Bike-focused: cycleways, lanes, surface, MTB.
+  - **Satellite** — Esri World Imagery `.../World_Imagery/MapServer/tile/{z}/{y}/{x}` (note {z}/{y}/{x});
+    attr: "Imagery © Esri, Maxar, Earthstar Geographics".
+  - **Terrain** — OpenTopoMap `https://{a,b,c}.tile.opentopomap.org/{z}/{x}/{y}.png` (attr: "© OpenTopoMap (CC-BY-SA)").
+  - Each source's `attribution` is set so MapLibre surfaces the licence. Definitions in `src/ui/basemaps.ts`.
+  - Live traffic is NOT included — no free/keyless provider exists (needs a paid Google/TomTom/HERE key).
 
 ## 6. .env contract (mirrored in .env.example)
 VITE_ORS_API_KEY= · VITE_STRAVA_CLIENT_ID= · VITE_LIVE_APIS=false (tests must pass with false)

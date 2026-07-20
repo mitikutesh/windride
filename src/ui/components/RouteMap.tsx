@@ -4,6 +4,8 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import type { ScoredCandidate } from '../../engine/scoring';
 import { routeToWindGeoJSON } from '../routeGeo';
 import { MAP_COLORS } from '../windColors';
+import { BasemapSwitcher } from './BasemapSwitcher';
+import { type BasemapId, DEFAULT_BASEMAP, basemapLayerId, rasterBasemaps } from '../basemaps';
 
 // OpenFreeMap liberty style — keyless; OSM attribution stays visible (API_NOTES §5).
 const STYLE = 'https://tiles.openfreemap.org/styles/liberty';
@@ -12,6 +14,43 @@ interface RouteMapProps {
   candidates: ScoredCandidate[];
   selectedId: string | null;
   onSelect: (id: string) => void;
+}
+
+/** The first label (symbol) layer of the base style — imagery inserted before it keeps labels on top. */
+function firstSymbolLayerId(map: maplibregl.Map): string | undefined {
+  return map.getStyle().layers?.find((l) => l.type === 'symbol')?.id;
+}
+
+/** Add the raster basemaps over the vector base but under the route layers; only `active` visible. */
+function addRasterBasemaps(map: maplibregl.Map, active: BasemapId): void {
+  const labelId = firstSymbolLayerId(map);
+  for (const b of rasterBasemaps()) {
+    if (!b.raster) continue;
+    const srcId = basemapLayerId(b.id);
+    if (!map.getSource(srcId)) {
+      map.addSource(srcId, {
+        type: 'raster',
+        tiles: b.raster.tiles,
+        tileSize: b.raster.tileSize,
+        maxzoom: b.raster.maxzoom,
+        attribution: b.raster.attribution,
+      });
+    }
+    if (!map.getLayer(srcId)) {
+      // Label-less imagery (Satellite) goes BELOW the vector labels so street/place names stay
+      // legible (hybrid look); layers with their own labels sit on top.
+      const beforeId = b.raster.overlayLabels ? labelId : undefined;
+      map.addLayer(
+        {
+          id: srcId,
+          type: 'raster',
+          source: srcId,
+          layout: { visibility: b.id === active ? 'visible' : 'none' },
+        },
+        beforeId,
+      );
+    }
+  }
 }
 
 /**
@@ -25,6 +64,9 @@ export function RouteMap({ candidates, selectedId, onSelect }: RouteMapProps) {
   const markerRef = useRef<maplibregl.Marker | null>(null);
   const readyRef = useRef(false);
   const [failed, setFailed] = useState(false);
+  const [basemap, setBasemap] = useState(DEFAULT_BASEMAP);
+  const basemapRef = useRef(basemap);
+  basemapRef.current = basemap;
 
   // Mirror latest props into refs so the async 'load' handler always draws the current selection.
   const onSelectRef = useRef(onSelect);
@@ -52,6 +94,8 @@ export function RouteMap({ candidates, selectedId, onSelect }: RouteMapProps) {
     mapRef.current = map;
     map.on('load', () => {
       readyRef.current = true;
+      // Raster basemaps first (over the vector base) so the route layers added below sit on top.
+      addRasterBasemaps(map, basemapRef.current);
       map.addSource('wr-ghosts', { type: 'geojson', data: emptyFC() });
       map.addLayer({
         id: 'wr-ghosts',
@@ -107,9 +151,25 @@ export function RouteMap({ candidates, selectedId, onSelect }: RouteMapProps) {
     if (map && readyRef.current) draw(map, markerRef, candidates, selectedId);
   }, [candidates, selectedId]);
 
+  // Toggle raster basemap visibility when the chosen layer changes (Streets = all raster hidden).
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !readyRef.current) return;
+    for (const b of rasterBasemaps()) {
+      const id = basemapLayerId(b.id);
+      if (map.getLayer(id)) {
+        map.setLayoutProperty(id, 'visibility', b.id === basemap ? 'visible' : 'none');
+      }
+    }
+  }, [basemap]);
+
   return (
     <div className="wr-map" ref={containerRef} data-testid="route-map">
-      {failed ? <span className="wr-map__fallback wr-muted">Map unavailable</span> : null}
+      {failed ? (
+        <span className="wr-map__fallback wr-muted">Map unavailable</span>
+      ) : (
+        <BasemapSwitcher value={basemap} onChange={setBasemap} />
+      )}
     </div>
   );
 }

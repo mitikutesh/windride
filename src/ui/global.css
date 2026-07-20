@@ -220,6 +220,37 @@ button {
   align-items: center;
   justify-content: center;
 }
+/* Basemap layer switcher (Streets / Cycling / Satellite / Terrain). */
+.wr-map__layers {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  padding: var(--space-1);
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+  backdrop-filter: blur(4px);
+}
+.wr-map__layer {
+  padding: 6px 12px;
+  min-height: 32px;
+  font: inherit;
+  font-size: 0.8rem;
+  color: var(--text);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+}
+.wr-map__layer.is-active {
+  background: var(--aurora);
+  color: var(--on-aurora);
+  font-weight: 600;
+}
 .wr-results__cards {
   display: flex;
   flex-direction: column;

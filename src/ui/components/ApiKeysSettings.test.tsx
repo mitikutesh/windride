@@ -1,13 +1,15 @@
 import 'fake-indexeddb/auto';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { ApiKeysSettings } from './ApiKeysSettings';
 import { useKeychainStore } from '../../state/keychainStore';
 
 beforeEach(async () => {
+  vi.stubEnv('VITE_LIVE_APIS', 'false'); // deterministic build default, independent of .env(.test)
   useKeychainStore.setState({ keys: {}, liveApis: null, hydrated: true }); // skip idb hydrate
   await useKeychainStore.getState().setLiveApis(null); // also clears the registry live override
 });
+afterEach(() => vi.unstubAllEnvs());
 
 describe('ApiKeysSettings', () => {
   it('renders a row for each key, including the reserved AI slot', () => {
