@@ -187,18 +187,23 @@ function updateRider(
     markerRef.current = null;
     return;
   }
+  const lngLat: [number, number] = [rider.position.lon, rider.position.lat];
+  const rotation = rider.headingDeg ?? 0;
   if (!markerRef.current) {
     const el = document.createElement('div');
     el.className = 'wr-ridemarker';
     // Chevron pointing "up" = heading; setRotation turns it to the travel/compass bearing.
     el.innerHTML =
       '<svg viewBox="-6 -6 12 12" width="30" height="30"><path d="M0 -5 L4 4 L0 2 L-4 4 Z"/></svg>';
-    markerRef.current = new maplibregl.Marker({ element: el, rotationAlignment: 'map' }).addTo(map);
+    // Set the position BEFORE addTo — addTo reads the marker's lngLat, so attaching without one
+    // throws. addTo runs only on creation; later fixes just move the existing marker.
+    markerRef.current = new maplibregl.Marker({ element: el, rotationAlignment: 'map' })
+      .setLngLat(lngLat)
+      .setRotation(rotation)
+      .addTo(map);
+    return;
   }
-  // addTo only on creation — calling it per fix would churn the DOM + re-register listeners (~1 Hz).
-  markerRef.current
-    .setLngLat([rider.position.lon, rider.position.lat])
-    .setRotation(rider.headingDeg ?? 0);
+  markerRef.current.setLngLat(lngLat).setRotation(rotation);
 }
 
 /** Follow the rider at the requested metres-across zoom, or fit the whole route before the ride. */
