@@ -69,19 +69,30 @@ describe('<RideScreen />', () => {
   it('renders the glance zone and start control for the selected route', () => {
     seed();
     render(<RideScreen />);
-    expect(screen.getByText('km left')).toBeInTheDocument();
+    expect(screen.getByText('km/h')).toBeInTheDocument();
     expect(screen.getByText('ETA')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Start ride/i })).toBeInTheDocument();
   });
 
-  it('start → pause → resume flow swaps the controls', () => {
+  it('start → pause → resume flow swaps the live controls', () => {
     seed();
     render(<RideScreen />);
     fireEvent.click(screen.getByRole('button', { name: /Start ride/i }));
+    // Full-screen live view: End is always reachable, Pause toggles to Resume.
+    expect(screen.getByRole('button', { name: /^End$/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /^Pause$/i })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /^Pause$/i }));
     expect(screen.getByRole('button', { name: /Resume/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /End ride/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^End$/i })).toBeInTheDocument();
+  });
+
+  it('the Details toggle reveals the extra ride stats while riding', () => {
+    seed();
+    render(<RideScreen />);
+    fireEvent.click(screen.getByRole('button', { name: /Start ride/i }));
+    expect(screen.queryByText('km ridden')).not.toBeInTheDocument(); // hidden by default
+    fireEvent.click(screen.getByRole('button', { name: /Details/i }));
+    expect(screen.getByText('km ridden')).toBeInTheDocument();
   });
 
   it('battery-saver toggle flips on click', () => {

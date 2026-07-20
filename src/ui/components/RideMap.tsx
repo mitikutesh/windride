@@ -1,109 +1,218 @@
-import { useMemo } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import maplibregl from 'maplibre-gl';
+import 'maplibre-gl/dist/maplibre-gl.css';
 import type { LatLon } from '../../domain';
 import { detectGustStretches } from '../../engine/gustFlags';
 import type { ScoredCandidate } from '../../engine/scoring';
 import { routeToWindGeoJSON } from '../routeGeo';
-import { windColor } from '../windColors';
+import { MAP_COLORS, WIND_COLORS } from '../windColors';
+import { DEFAULT_BASEMAP } from '../basemaps';
+import {
+  addRasterBasemaps,
+  applyBasemapVisibility,
+  makeArrowIcon,
+  zoomForMetres,
+} from '../mapLayers';
+import { BasemapSwitcher } from './BasemapSwitcher';
+
+// OpenFreeMap liberty style — keyless; OSM attribution stays visible (API_NOTES §5).
+const STYLE = 'https://tiles.openfreemap.org/styles/liberty';
 
 interface RideMapProps {
   scored: ScoredCandidate;
   rider: { position: LatLon; headingDeg: number | null } | null;
-  /** Battery saver / reduced-motion: draw a static map, no chevron pulse. */
+  /** Battery saver / reduced-motion: snap the follow camera instead of easing. */
   batterySaver?: boolean;
-  /** Metres across the view — when set AND riding, follow the rider at this zoom (else fit the route). */
+  /** Metres across the view — the follow-camera zoom when riding (else the whole route is fit). */
   zoomM?: number | null;
 }
 
-const M_PER_DEG_LAT = 111_320;
-
-const VIEW = 100;
-const PAD = 8;
-
 /**
- * Lightweight ride map (WR-016): the route ahead drawn wind-coloured as SVG, with a heading-oriented
- * rider chevron that pulses. SVG (not WebGL) keeps it glanceable, low-power, and testable; battery
- * saver / reduced-motion drop the pulse. (A full basemap can layer under this later.)
+ * Live ride map (WR-016, upgraded): a real basemap (streets / cycling / satellite / terrain via the
+ * shared switcher) with the wind-coloured route + direction arrows on top, a heading-oriented rider
+ * marker, and a follow-the-rider camera. Degrades to a message where WebGL is unavailable.
  */
 export function RideMap({ scored, rider, batterySaver = false, zoomM }: RideMapProps) {
-  const fc = useMemo(() => routeToWindGeoJSON(scored), [scored]);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<maplibregl.Map | null>(null);
+  const riderMarkerRef = useRef<maplibregl.Marker | null>(null);
+  const readyRef = useRef(false);
+  const [failed, setFailed] = useState(false);
+  const [basemap, setBasemap] = useState(DEFAULT_BASEMAP);
+  const basemapRef = useRef(basemap);
+  basemapRef.current = basemap;
 
-  const project = useMemo(() => {
-    // Follow-the-rider zoom: centre on the rider with `zoomM` metres across the padded view. The SVG
-    // viewBox clips the route beyond the window, so this reads as a zoomed nav view.
-    if (zoomM && zoomM > 0 && rider) {
-      const { lat, lon } = rider.position;
-      const mPerDegLon = M_PER_DEG_LAT * Math.cos((lat * Math.PI) / 180);
-      const scale = (VIEW - 2 * PAD) / zoomM; // SVG units per metre
-      return (plon: number, plat: number): [number, number] => [
-        VIEW / 2 + (plon - lon) * mPerDegLon * scale,
-        VIEW / 2 - (plat - lat) * M_PER_DEG_LAT * scale, // flip Y so north is up
-      ];
+  // Mirror latest props for the async 'load' handler so first paint uses current data.
+  const scoredRef = useRef(scored);
+  const riderRef = useRef(rider);
+  const zoomRef = useRef(zoomM);
+  scoredRef.current = scored;
+  riderRef.current = rider;
+  zoomRef.current = zoomM;
+
+  useEffect(() => {
+    if (!containerRef.current || mapRef.current) return;
+    const first = scoredRef.current.candidate.polyline[0];
+    let map: maplibregl.Map;
+    try {
+      map = new maplibregl.Map({
+        container: containerRef.current,
+        style: STYLE,
+        center: [first?.lon ?? 24.65, first?.lat ?? 60.17],
+        zoom: 12,
+        attributionControl: { compact: true },
+        interactive: false, // locked follow-the-rider nav view; zoom via the ride controls
+      });
+    } catch {
+      setFailed(true); // no WebGL (tests / battery saver) — show the fallback
+      return;
     }
-    // Overview: fit the whole route.
-    const coords = fc.features.flatMap((f) => f.geometry.coordinates);
-    const lons = coords.map((c) => c[0]);
-    const lats = coords.map((c) => c[1]);
-    const minLon = Math.min(...lons);
-    const maxLon = Math.max(...lons);
-    const minLat = Math.min(...lats);
-    const maxLat = Math.max(...lats);
-    const midLat = (minLat + maxLat) / 2;
-    const cos = Math.cos((midLat * Math.PI) / 180);
-    const spanX = Math.max(1e-9, (maxLon - minLon) * cos);
-    const spanY = Math.max(1e-9, maxLat - minLat);
-    const scale = (VIEW - 2 * PAD) / Math.max(spanX, spanY);
-    const offX = (VIEW - spanX * scale) / 2;
-    const offY = (VIEW - spanY * scale) / 2;
-    return (lon: number, lat: number): [number, number] => [
-      offX + (lon - minLon) * cos * scale,
-      // Flip Y so north is up.
-      offY + (maxLat - lat) * scale,
-    ];
-  }, [fc, rider, zoomM]);
+    mapRef.current = map;
+    map.on('load', () => {
+      readyRef.current = true;
+      addRasterBasemaps(map, basemapRef.current);
+      map.addSource('wr-route', { type: 'geojson', data: routeToWindGeoJSON(scoredRef.current) });
+      map.addLayer({
+        id: 'wr-route',
+        type: 'line',
+        source: 'wr-route',
+        layout: { 'line-cap': 'round', 'line-join': 'round' },
+        paint: { 'line-color': ['get', 'color'], 'line-width': 6 },
+      });
+      const arrow = makeArrowIcon();
+      if (arrow && !map.hasImage('wr-arrow')) map.addImage('wr-arrow', arrow, { pixelRatio: 2 });
+      if (map.hasImage('wr-arrow')) {
+        map.addLayer({
+          id: 'wr-route-arrows',
+          type: 'symbol',
+          source: 'wr-route',
+          layout: {
+            'symbol-placement': 'line',
+            'symbol-spacing': 70,
+            'icon-image': 'wr-arrow',
+            'icon-size': 0.85,
+            'icon-rotation-alignment': 'map',
+            'icon-allow-overlap': true,
+            'icon-ignore-placement': true,
+          },
+        });
+      }
+      // Gust-stretch warning markers at each stretch midpoint (WR-021).
+      map.addSource('wr-gusts', { type: 'geojson', data: gustFC(scoredRef.current) });
+      map.addLayer({
+        id: 'wr-gusts',
+        type: 'circle',
+        source: 'wr-gusts',
+        paint: {
+          'circle-radius': 6,
+          'circle-color': WIND_COLORS.head,
+          'circle-opacity': 0.9,
+          'circle-stroke-color': MAP_COLORS.arrowHalo,
+          'circle-stroke-width': 1.5,
+        },
+      });
+      updateRider(map, riderMarkerRef, riderRef.current);
+      updateCamera(map, riderRef.current, zoomRef.current, true, scoredRef.current); // no ease on init
+    });
+    return () => {
+      map.remove();
+      mapRef.current = null;
+      readyRef.current = false;
+      riderMarkerRef.current = null;
+    };
+  }, []);
 
-  const riderXY = rider ? project(rider.position.lon, rider.position.lat) : null;
-  // Gust-stretch warning markers at each stretch midpoint (WR-021). Detect once per route (heavy,
-  // over all segments); only the projection re-runs per fix as the follow-map pans/zooms.
-  const gustStretches = useMemo(() => detectGustStretches(scored.analysis.segments), [scored]);
-  const gustMarkers = useMemo(
-    () => gustStretches.map((s) => project(s.midpoint.lon, s.midpoint.lat)),
-    [gustStretches, project],
-  );
+  // Route + gust geometry follow the analysis (swaps on reroute).
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !readyRef.current) return;
+    (map.getSource('wr-route') as maplibregl.GeoJSONSource | undefined)?.setData(
+      routeToWindGeoJSON(scored),
+    );
+    (map.getSource('wr-gusts') as maplibregl.GeoJSONSource | undefined)?.setData(gustFC(scored));
+  }, [scored]);
+
+  // Rider marker + follow camera on each fix / zoom change.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !readyRef.current) return;
+    updateRider(map, riderMarkerRef, rider);
+    updateCamera(map, rider, zoomM, batterySaver, scored);
+  }, [rider, zoomM, batterySaver, scored]);
+
+  // Basemap switch (Streets = raster hidden → vector base).
+  useEffect(() => {
+    const map = mapRef.current;
+    if (map && readyRef.current) applyBasemapVisibility(map, basemap);
+  }, [basemap]);
 
   return (
-    <svg
-      className="wr-ridemap"
-      viewBox={`0 0 ${VIEW} ${VIEW}`}
-      role="img"
-      aria-label="Route ahead, coloured by wind"
-      preserveAspectRatio="xMidYMid meet"
-    >
-      {fc.features.map((f, i) => {
-        const pts = f.geometry.coordinates
-          .map(([lon, lat]) => project(lon, lat).join(','))
-          .join(' ');
-        return (
-          <polyline
-            key={i}
-            points={pts}
-            fill="none"
-            stroke={windColor(f.properties.kind)}
-            strokeWidth={2}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        );
-      })}
-      {gustMarkers.map(([x, y], i) => (
-        <circle key={`gust-${i}`} className="wr-ridemap__gust" cx={x} cy={y} r={2.5} />
-      ))}
-      {riderXY ? (
-        <g transform={`translate(${riderXY[0]} ${riderXY[1]}) rotate(${rider?.headingDeg ?? 0})`}>
-          {!batterySaver ? <circle className="wr-ridemap__pulse" r={5} /> : null}
-          {/* Chevron pointing "up" = current heading. */}
-          <path className="wr-ridemap__chevron" d="M0 -4 L3 3 L0 1 L-3 3 Z" />
-        </g>
-      ) : null}
-    </svg>
+    <div className="wr-ridemap" ref={containerRef} data-testid="ride-map">
+      {failed ? (
+        <span className="wr-map__fallback wr-muted">Map unavailable</span>
+      ) : (
+        <BasemapSwitcher value={basemap} onChange={setBasemap} />
+      )}
+    </div>
   );
+}
+
+function gustFC(scored: ScoredCandidate) {
+  return {
+    type: 'FeatureCollection' as const,
+    features: detectGustStretches(scored.analysis.segments).map((s) => ({
+      type: 'Feature' as const,
+      properties: {},
+      geometry: { type: 'Point' as const, coordinates: [s.midpoint.lon, s.midpoint.lat] },
+    })),
+  };
+}
+
+/** Place/rotate the rider chevron, or remove it when there's no fix yet. */
+function updateRider(
+  map: maplibregl.Map,
+  markerRef: React.MutableRefObject<maplibregl.Marker | null>,
+  rider: RideMapProps['rider'],
+) {
+  if (!rider) {
+    markerRef.current?.remove();
+    markerRef.current = null;
+    return;
+  }
+  if (!markerRef.current) {
+    const el = document.createElement('div');
+    el.className = 'wr-ridemarker';
+    // Chevron pointing "up" = heading; setRotation turns it to the travel/compass bearing.
+    el.innerHTML =
+      '<svg viewBox="-6 -6 12 12" width="30" height="30"><path d="M0 -5 L4 4 L0 2 L-4 4 Z"/></svg>';
+    markerRef.current = new maplibregl.Marker({ element: el, rotationAlignment: 'map' }).addTo(map);
+  }
+  // addTo only on creation — calling it per fix would churn the DOM + re-register listeners (~1 Hz).
+  markerRef.current
+    .setLngLat([rider.position.lon, rider.position.lat])
+    .setRotation(rider.headingDeg ?? 0);
+}
+
+/** Follow the rider at the requested metres-across zoom, or fit the whole route before the ride. */
+function updateCamera(
+  map: maplibregl.Map,
+  rider: RideMapProps['rider'],
+  zoomM: number | null | undefined,
+  batterySaver: boolean,
+  scored: ScoredCandidate,
+) {
+  if (rider) {
+    const width = map.getContainer().clientWidth || 360;
+    const across = zoomM && zoomM > 0 ? zoomM : 600;
+    const zoom = zoomForMetres(across, rider.position.lat, width);
+    map.easeTo({
+      center: [rider.position.lon, rider.position.lat],
+      zoom,
+      duration: batterySaver ? 0 : 500,
+    });
+    return;
+  }
+  const bounds = new maplibregl.LngLatBounds();
+  for (const p of scored.candidate.polyline) bounds.extend([p.lon, p.lat]);
+  if (!bounds.isEmpty()) map.fitBounds(bounds, { padding: 32, duration: 0 });
 }

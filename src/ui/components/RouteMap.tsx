@@ -5,7 +5,8 @@ import type { ScoredCandidate } from '../../engine/scoring';
 import { routeToWindGeoJSON } from '../routeGeo';
 import { MAP_COLORS } from '../windColors';
 import { BasemapSwitcher } from './BasemapSwitcher';
-import { type BasemapId, DEFAULT_BASEMAP, basemapLayerId, rasterBasemaps } from '../basemaps';
+import { DEFAULT_BASEMAP } from '../basemaps';
+import { addRasterBasemaps, applyBasemapVisibility, makeArrowIcon } from '../mapLayers';
 
 // OpenFreeMap liberty style — keyless; OSM attribution stays visible (API_NOTES §5).
 const STYLE = 'https://tiles.openfreemap.org/styles/liberty';
@@ -14,43 +15,6 @@ interface RouteMapProps {
   candidates: ScoredCandidate[];
   selectedId: string | null;
   onSelect: (id: string) => void;
-}
-
-/** The first label (symbol) layer of the base style — imagery inserted before it keeps labels on top. */
-function firstSymbolLayerId(map: maplibregl.Map): string | undefined {
-  return map.getStyle().layers?.find((l) => l.type === 'symbol')?.id;
-}
-
-/** Add the raster basemaps over the vector base but under the route layers; only `active` visible. */
-function addRasterBasemaps(map: maplibregl.Map, active: BasemapId): void {
-  const labelId = firstSymbolLayerId(map);
-  for (const b of rasterBasemaps()) {
-    if (!b.raster) continue;
-    const srcId = basemapLayerId(b.id);
-    if (!map.getSource(srcId)) {
-      map.addSource(srcId, {
-        type: 'raster',
-        tiles: b.raster.tiles,
-        tileSize: b.raster.tileSize,
-        maxzoom: b.raster.maxzoom,
-        attribution: b.raster.attribution,
-      });
-    }
-    if (!map.getLayer(srcId)) {
-      // Label-less imagery (Satellite) goes BELOW the vector labels so street/place names stay
-      // legible (hybrid look); layers with their own labels sit on top.
-      const beforeId = b.raster.overlayLabels ? labelId : undefined;
-      map.addLayer(
-        {
-          id: srcId,
-          type: 'raster',
-          source: srcId,
-          layout: { visibility: b.id === active ? 'visible' : 'none' },
-        },
-        beforeId,
-      );
-    }
-  }
 }
 
 /**
@@ -154,13 +118,7 @@ export function RouteMap({ candidates, selectedId, onSelect }: RouteMapProps) {
   // Toggle raster basemap visibility when the chosen layer changes (Streets = all raster hidden).
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !readyRef.current) return;
-    for (const b of rasterBasemaps()) {
-      const id = basemapLayerId(b.id);
-      if (map.getLayer(id)) {
-        map.setLayoutProperty(id, 'visibility', b.id === basemap ? 'visible' : 'none');
-      }
-    }
+    if (map && readyRef.current) applyBasemapVisibility(map, basemap);
   }, [basemap]);
 
   return (
@@ -176,34 +134,6 @@ export function RouteMap({ candidates, selectedId, onSelect }: RouteMapProps) {
 
 function emptyFC() {
   return { type: 'FeatureCollection' as const, features: [] };
-}
-
-/** A right-pointing chevron (light fill + dark halo) for the along-route direction arrows. */
-function makeArrowIcon(): ImageData | null {
-  const scale = 2; // draw at 2× for a crisp icon (added with pixelRatio: 2)
-  const size = 24 * scale;
-  const canvas = document.createElement('canvas');
-  canvas.width = size;
-  canvas.height = size;
-  const ctx = canvas.getContext('2d');
-  if (!ctx) return null;
-  ctx.scale(scale, scale);
-  ctx.lineCap = 'round';
-  ctx.lineJoin = 'round';
-  const chevron = () => {
-    ctx.beginPath();
-    ctx.moveTo(7, 5);
-    ctx.lineTo(17, 12);
-    ctx.lineTo(7, 19);
-    ctx.stroke();
-  };
-  ctx.strokeStyle = MAP_COLORS.arrowHalo;
-  ctx.lineWidth = 6;
-  chevron();
-  ctx.strokeStyle = MAP_COLORS.arrow;
-  ctx.lineWidth = 3;
-  chevron();
-  return ctx.getImageData(0, 0, size, size);
 }
 
 function draw(

@@ -29,6 +29,7 @@ import { WindHud } from '../components/WindHud';
 import { WinterCaution } from '../components/WinterCaution';
 import { downloadText } from '../download';
 import { routeToRibbon } from '../routeGeo';
+import { windColor } from '../windColors';
 import { useWakeLock } from '../useWakeLock';
 
 const median = (xs: number[]): number => {
@@ -123,6 +124,10 @@ export function RideScreen() {
   const zoomM = manualZoomM ?? autoZoomM;
   const zoomIn = () => setManualZoomM((z) => Math.max(120, Math.round((z ?? autoZoomM) / 1.6)));
   const zoomOut = () => setManualZoomM((z) => Math.min(4000, Math.round((z ?? autoZoomM) * 1.6)));
+
+  // While riding the map goes full-screen with a minimal HUD; the rest of the numbers live behind
+  // a Details toggle so the map dominates (the thing you actually look at on the bike).
+  const [detailsOpen, setDetailsOpen] = useState(false);
 
   const handleFix = useCallback((fix: Fix) => {
     const controller = controllerRef.current;
@@ -325,83 +330,193 @@ export function RideScreen() {
 
   const riding = status === 'riding' || status === 'paused';
 
-  return (
-    <div className="wr-ride">
-      <div className="wr-ride__map">
-        <RideMap
-          scored={scored}
-          rider={
-            rideState
-              ? { position: rideState.snapped, headingDeg: mapHeading ?? rideState.headingDeg }
-              : null
-          }
-          batterySaver={batterySaver}
-          zoomM={zoomM}
-        />
-        {rideState ? (
-          <div className="wr-ride__zoom">
-            <button type="button" aria-label="Zoom out" onClick={zoomOut}>
-              −
+  // The map + its overlays (zoom, alerts) — identical in the idle preview and the live full-screen
+  // view; only the container class differs.
+  const mapEl = (
+    <div className={`wr-ride__map${riding ? ' wr-ride__map--full' : ''}`}>
+      <RideMap
+        scored={scored}
+        rider={
+          rideState
+            ? { position: rideState.snapped, headingDeg: mapHeading ?? rideState.headingDeg }
+            : null
+        }
+        batterySaver={batterySaver}
+        zoomM={zoomM}
+      />
+      {rideState ? (
+        <div className="wr-ride__zoom">
+          <button type="button" aria-label="Zoom out" onClick={zoomOut}>
+            −
+          </button>
+          <button type="button" aria-label="Zoom in" onClick={zoomIn}>
+            +
+          </button>
+          {manualZoomM !== null ? (
+            <button
+              type="button"
+              className="wr-ride__zoom-auto"
+              aria-label="Auto zoom"
+              onClick={() => setManualZoomM(null)}
+            >
+              Auto
             </button>
-            <button type="button" aria-label="Zoom in" onClick={zoomIn}>
-              +
-            </button>
-            {manualZoomM !== null ? (
-              <button
-                type="button"
-                className="wr-ride__zoom-auto"
-                aria-label="Auto zoom"
-                onClick={() => setManualZoomM(null)}
+          ) : null}
+        </div>
+      ) : null}
+      {rideState?.offRoute === 'alert' && rideState.toTrack ? (
+        <div className="wr-ride__alert" role="alert">
+          <svg
+            viewBox="0 0 24 24"
+            width={22}
+            height={22}
+            aria-hidden="true"
+            style={{
+              transform: `rotate(${rideState.toTrack.bearingDeg - (rideState.headingDeg ?? 0)}deg)`,
+            }}
+          >
+            <path d="M12 2 L18 20 L12 16 L6 20 Z" fill="currentColor" />
+          </svg>
+          Off route — {Math.round(rideState.toTrack.distanceM)} m to the track
+        </div>
+      ) : null}
+      {gpsError ? (
+        <div className="wr-ride__alert" role="alert">
+          {gpsError}
+        </div>
+      ) : null}
+      {recError ? (
+        <div className="wr-ride__alert" role="alert">
+          Ride isn’t being saved — storage error
+        </div>
+      ) : null}
+      {rideState?.gustAhead ? (
+        // role=status (polite) + no changing distance in the text, so a screen reader isn't
+        // re-announced every fix on approach; the one-shot voice cue already gave the distance.
+        <div className="wr-ride__alert" role="status">
+          ⚠ Crosswind gusts up to {Math.round(rideState.gustAhead.maxGustMs)} m/s{' '}
+          {rideState.gustAhead.inM <= 0 ? 'now' : 'ahead'}
+        </div>
+      ) : null}
+    </div>
+  );
+
+  // The wind-along-route ribbon + progress dot (shared by the details sheet and the idle view).
+  const ribbonEl = (
+    <div className="wr-ride__ribbon">
+      <WindRibbon segments={ribbon} height={16} />
+      <span className="wr-ride__dot" style={{ left: `${dotFraction * 100}%` }} aria-hidden="true" />
+    </div>
+  );
+
+  // ---- Live full-screen ride: map fills the screen, a minimal HUD on top, the rest behind Details.
+  if (riding) {
+    return (
+      <div className="wr-ride wr-ride--live">
+        {mapEl}
+
+        <div className="wr-ride__hud">
+          <div className="wr-ride__hud-speed">
+            <span className="tabular">{rideState ? Math.round(rideState.speedKmh) : '—'}</span>
+            <small>km/h</small>
+          </div>
+          <div className="wr-ride__hud-cells">
+            <div>
+              <b className="tabular">
+                {rideState
+                  ? metresToKm(rideState.remainingM)
+                  : metresToKm(scored.candidate.distanceM)}
+              </b>
+              <small>km left</small>
+            </div>
+            <div>
+              <b className="tabular">{rideState ? formatDurationHM(rideState.etaS) : '—'}</b>
+              <small>ETA</small>
+            </div>
+          </div>
+          {rideState?.wind ? (
+            <div className="wr-ride__hud-wind" aria-label={`Wind: ${rideState.wind.kind}`}>
+              <svg
+                viewBox="0 0 24 24"
+                width={34}
+                height={34}
+                aria-hidden="true"
+                style={{
+                  transform: `rotate(${rideState.wind.windToDeg - (rideState.headingDeg ?? 0)}deg)`,
+                }}
               >
-                Auto
-              </button>
+                <path d="M12 2 L18 20 L12 16 L6 20 Z" fill={windColor(rideState.wind.kind)} />
+              </svg>
+            </div>
+          ) : null}
+        </div>
+
+        {rideState?.nextTurn ? (
+          <div className="wr-ride__turn wr-ride__turn--overlay" aria-label="Next turn">
+            <span className="wr-ride__turn-dist tabular">
+              {metresToKm(rideState.nextTurn.inM, rideState.nextTurn.inM < 1000 ? 2 : 1)} km
+            </span>
+            <span className="wr-ride__turn-instr">{rideState.nextTurn.instruction}</span>
+          </div>
+        ) : null}
+
+        {detailsOpen ? (
+          <div className="wr-ride__sheet">
+            <div className="wr-ride__glance">
+              <StatCell label="km/h" value={rideState ? Math.round(rideState.speedKmh) : '—'} />
+              <StatCell label="km ridden" value={rideState ? metresToKm(rideState.progressM) : 0} />
+              <StatCell label="ETA" value={rideState ? formatDurationHM(rideState.etaS) : '—'} />
+            </div>
+            <WindHud
+              wind={rideState?.wind ?? null}
+              headingDeg={rideState?.headingDeg ?? null}
+              transition={rideState?.windTransition ?? null}
+            />
+            {ribbonEl}
+            <label className="wr-ride__saver">
+              <input
+                type="checkbox"
+                checked={batterySaver}
+                onChange={(e) => setBatterySaver(e.target.checked)}
+              />
+              Battery saver
+            </label>
+            {import.meta.env.DEV ? (
+              <Suspense fallback={null}>
+                <DevReplayPanel onFix={handleFix} />
+              </Suspense>
             ) : null}
           </div>
         ) : null}
-        {rideState?.offRoute === 'alert' && rideState.toTrack ? (
-          <div className="wr-ride__alert" role="alert">
-            <svg
-              viewBox="0 0 24 24"
-              width={22}
-              height={22}
-              aria-hidden="true"
-              style={{
-                transform: `rotate(${rideState.toTrack.bearingDeg - (rideState.headingDeg ?? 0)}deg)`,
-              }}
-            >
-              <path d="M12 2 L18 20 L12 16 L6 20 Z" fill="currentColor" />
-            </svg>
-            Off route — {Math.round(rideState.toTrack.distanceM)} m to the track
-          </div>
-        ) : null}
-        {gpsError ? (
-          <div className="wr-ride__alert" role="alert">
-            {gpsError}
-          </div>
-        ) : null}
-        {recError ? (
-          <div className="wr-ride__alert" role="alert">
-            Ride isn’t being saved — storage error
-          </div>
-        ) : null}
-        {rideState?.gustAhead ? (
-          // role=status (polite) + no changing distance in the text, so a screen reader isn't
-          // re-announced every fix on approach; the one-shot voice cue already gave the distance.
-          <div className="wr-ride__alert" role="status">
-            ⚠ Crosswind gusts up to {Math.round(rideState.gustAhead.maxGustMs)} m/s{' '}
-            {rideState.gustAhead.inM <= 0 ? 'now' : 'ahead'}
-          </div>
-        ) : null}
-      </div>
 
-      {rideState?.nextTurn ? (
-        <div className="wr-ride__turn" aria-label="Next turn">
-          <span className="wr-ride__turn-dist tabular">
-            {metresToKm(rideState.nextTurn.inM, rideState.nextTurn.inM < 1000 ? 2 : 1)} km
-          </span>
-          <span className="wr-ride__turn-instr">{rideState.nextTurn.instruction}</span>
+        <div className="wr-ride__livebar">
+          <button
+            type="button"
+            className="wr-btn-secondary"
+            onClick={() => setDetailsOpen((o) => !o)}
+            aria-expanded={detailsOpen}
+          >
+            {detailsOpen ? 'Hide details' : 'Details'}
+          </button>
+          {status === 'riding' ? (
+            <button type="button" className="wr-btn-secondary" onClick={pause}>
+              Pause
+            </button>
+          ) : (
+            <PrimaryButton onClick={resume}>Resume</PrimaryButton>
+          )}
+          <button type="button" className="wr-btn-secondary" onClick={end}>
+            End
+          </button>
         </div>
-      ) : null}
+      </div>
+    );
+  }
+
+  // ---- Idle / ended: route preview + start controls, ride history, and (dev) the replay panel.
+  return (
+    <div className="wr-ride">
+      {mapEl}
 
       <WindHud
         wind={rideState?.wind ?? null}
@@ -410,24 +525,12 @@ export function RideScreen() {
       />
 
       <div className="wr-ride__glance">
-        <StatCell label="km/h" value={rideState ? Math.round(rideState.speedKmh) : '—'} />
+        <StatCell label="km/h" value="—" />
         <StatCell label="ETA" value={rideState ? formatDurationHM(rideState.etaS) : '—'} />
-        <StatCell
-          label="km left"
-          value={
-            rideState ? metresToKm(rideState.remainingM) : metresToKm(scored.candidate.distanceM)
-          }
-        />
+        <StatCell label="km" value={metresToKm(scored.candidate.distanceM)} />
       </div>
 
-      <div className="wr-ride__ribbon">
-        <WindRibbon segments={ribbon} height={16} />
-        <span
-          className="wr-ride__dot"
-          style={{ left: `${dotFraction * 100}%` }}
-          aria-hidden="true"
-        />
-      </div>
+      {ribbonEl}
 
       <div className="wr-ride__controls">
         {status === 'idle' ? <WinterCaution winter={winter} /> : null}
@@ -445,17 +548,6 @@ export function RideScreen() {
             />
             <PrimaryButton onClick={start}>Start ride</PrimaryButton>
           </>
-        ) : null}
-        {status === 'riding' ? (
-          <button type="button" className="wr-btn-secondary" onClick={pause}>
-            Pause
-          </button>
-        ) : null}
-        {status === 'paused' ? <PrimaryButton onClick={resume}>Resume</PrimaryButton> : null}
-        {riding ? (
-          <button type="button" className="wr-btn-secondary" onClick={end}>
-            End ride
-          </button>
         ) : null}
         {status === 'ended' ? (
           <a className="wr-navlink" href="#/results">

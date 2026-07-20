@@ -270,9 +270,127 @@
   background: var(--surface);
 }
 .wr-ridemap {
-  display: block;
+  position: relative;
   width: 100%;
   height: 34dvh;
+  background: var(--surface);
+}
+/* Heading-oriented rider chevron (MapLibre marker element). */
+.wr-ridemarker svg {
+  display: block;
+}
+.wr-ridemarker path {
+  fill: var(--sky);
+  stroke: var(--bg);
+  stroke-width: 1px;
+}
+
+/* ---- Full-screen live ride: map fills the viewport, HUD + controls float over it ---------- */
+.wr-ride--live {
+  position: fixed;
+  inset: 0;
+  height: 100dvh;
+  padding: 0;
+}
+.wr-ride__map--full {
+  position: absolute;
+  inset: 0;
+  border-radius: 0;
+}
+.wr-ride__map--full .wr-ridemap {
+  height: 100%;
+}
+.wr-ride__hud {
+  position: absolute;
+  inset-inline: 0;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  padding-top: max(var(--space-3), env(safe-area-inset-top));
+  background: linear-gradient(var(--bg), transparent);
+  pointer-events: none; /* let map gestures through the transparent gradient */
+}
+.wr-ride__hud-speed {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-1);
+}
+.wr-ride__hud-speed span {
+  font-family: var(--font-display);
+  font-size: var(--fs-glance-lg);
+  font-weight: 800;
+  line-height: 1;
+}
+.wr-ride__hud-speed small,
+.wr-ride__hud-cells small {
+  color: var(--text2);
+  font-size: var(--fs-small);
+}
+.wr-ride__hud-cells {
+  display: flex;
+  gap: var(--space-4);
+  margin-inline-start: auto;
+}
+.wr-ride__hud-cells > div {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+.wr-ride__hud-cells b {
+  font-family: var(--font-display);
+  font-size: var(--fs-glance);
+  font-weight: 800;
+}
+.wr-ride__turn--overlay {
+  position: absolute;
+  inset-inline: var(--space-3);
+  top: calc(var(--space-6) + var(--space-5));
+  z-index: 2;
+  background: var(--overlay);
+  backdrop-filter: blur(8px);
+}
+.wr-ride__sheet {
+  position: absolute;
+  inset-inline: 0;
+  bottom: calc(var(--space-6) + var(--space-4));
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  max-height: 55dvh;
+  overflow-y: auto;
+  padding: var(--space-3);
+  background: var(--overlay);
+  backdrop-filter: blur(10px);
+  border-top-left-radius: var(--radius-card);
+  border-top-right-radius: var(--radius-card);
+}
+.wr-ride__livebar {
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  z-index: 4;
+  display: flex;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  padding-bottom: max(var(--space-3), env(safe-area-inset-bottom));
+  background: var(--overlay);
+  backdrop-filter: blur(10px);
+}
+.wr-ride__livebar > * {
+  flex: 1;
+  text-align: center;
+}
+/* Keep the map's own overlays clear of the bottom control bar while riding. */
+.wr-ride--live .wr-ride__zoom {
+  bottom: calc(var(--space-6) + var(--space-5));
+}
+.wr-ride--live .wr-ride__alert {
+  bottom: auto;
+  top: calc(var(--space-6) * 2 + var(--space-3));
 }
 /* Follow-map zoom controls (bottom-right of the ride map). */
 .wr-ride__zoom {
@@ -298,37 +416,6 @@
 .wr-ride__zoom .wr-ride__zoom-auto {
   font-size: var(--fs-small);
   font-weight: 600;
-}
-.wr-ridemap__chevron {
-  fill: var(--sky);
-}
-.wr-ridemap__gust {
-  fill: var(--head);
-  stroke: var(--bg);
-  stroke-width: 0.5;
-}
-.wr-ridemap__pulse {
-  fill: var(--sky);
-  opacity: 0.35;
-  transform-box: fill-box;
-  transform-origin: center;
-  animation: wr-pulse 1.6s var(--ease, ease-out) infinite;
-}
-@keyframes wr-pulse {
-  0% {
-    transform: scale(0.6);
-    opacity: 0.5;
-  }
-  100% {
-    transform: scale(1.8);
-    opacity: 0;
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .wr-ridemap__pulse {
-    animation: none;
-    opacity: 0;
-  }
 }
 .wr-ride__alert {
   position: absolute;
