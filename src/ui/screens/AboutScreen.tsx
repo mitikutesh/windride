@@ -1,7 +1,7 @@
 /**
- * About screen — what WindRide is, why it's different (wind-aware, generates routes), how the 0–100
- * score is built (sub-scores + weights from docs/SCORING_SPEC.md §6), and the user-facing
- * architecture. Static content; the weight numbers mirror the engine defaults.
+ * About screen: what WindRide is, why it's different (wind-aware, it generates routes), how the
+ * 0-100 score is built (sub-scores + weights, matching the engine's DEFAULT_WEIGHTS and
+ * docs/SCORING_SPEC.md §6), and the user-facing architecture. Static content.
  */
 
 interface ScoreRow {
@@ -9,22 +9,22 @@ interface ScoreRow {
   weight: string;
   what: string;
 }
-// Mirrors SCORING_SPEC §6 default weights (settings-tunable in the engine).
+// Mirrors the engine's DEFAULT_WEIGHTS (src/engine/scoring.ts) / SCORING_SPEC §6.
 const SCORES: ScoreRow[] = [
   {
     name: 'Wind comfort',
     weight: '0.28',
     what: 'how little time you spend grinding into a headwind',
   },
-  { name: 'Robustness', weight: '0.10', what: 'does it still hold if the wind shifts ±30°' },
+  { name: 'Robustness', weight: '0.10', what: 'whether it still holds if the wind shifts ±30°' },
   {
     name: 'Crosswind safety',
     weight: '0.10',
     what: 'penalizes exposed, gusty crosswind stretches',
   },
-  { name: 'Surface', weight: '0.12', what: 'matches your road / gravel preference' },
+  { name: 'Surface', weight: '0.12', what: 'matches your road or gravel preference' },
   { name: 'Traffic', weight: '0.10', what: 'avoids big roads that lack a cycleway' },
-  { name: 'Scenery', weight: '0.07', what: 'rewards forest / waterside stretches' },
+  { name: 'Scenery', weight: '0.07', what: 'rewards forest and waterside stretches' },
   { name: 'Shelter', weight: '0.06', what: 'share of into-wind time that’s sheltered' },
   { name: 'Climb match', weight: '0.06', what: 'hits your elevation preference' },
   { name: 'Distance match', weight: '0.05', what: 'lands near your target distance' },
@@ -38,41 +38,46 @@ export function AboutScreen() {
     <section className="wr-screen wr-doc" aria-labelledby="about-title">
       <h1 id="about-title">About WindRide</h1>
       <p>
-        WindRide is a <b>wind-aware cycling route planner</b> that runs entirely in your browser.
-        Tell it how far you want to ride today; it generates candidate routes, scores them against
-        today’s actual wind, shelter and weather using time-weighted physics, and shows the best
-        three with honest, wind-aware ETAs — then navigates the one you pick with live wind cues.
+        WindRide is a wind-aware cycling route planner that runs entirely in your browser. You tell
+        it how far you want to ride today, and it builds a set of candidate routes, scores them
+        against the real wind, shelter and weather using time-weighted physics, and shows you the
+        best three with honest, wind-aware ETAs. Then it navigates the one you choose, with live
+        wind cues along the way.
       </p>
 
       <h2>What makes it different</h2>
       <p>
-        Other wind tools analyse a route you <i>already have</i>. WindRide <b>generates</b> routes
-        for the conditions — and does planning <em>and</em> navigation in one app.
+        Most wind tools take a route you already have and analyse it. WindRide generates routes to
+        suit the day, and it does the planning and the navigation in one place.
       </p>
       <p>
-        The core insight: you can’t just “ride the tailwind”. On any loop in steady wind, the
-        tailwind and headwind stretches cancel out exactly — net zero. So WindRide optimizes for the{' '}
-        <b>least suffering today</b>, using levers that actually work on a loop:
+        The idea behind it is that you can’t simply “ride the tailwind”. On any loop in steady wind,
+        the tailwind and headwind stretches cancel out exactly, so the net is zero. So WindRide aims
+        for the least suffering today instead, using the levers that actually work on a loop:
       </p>
       <ul>
-        <li>Turn direct headwind into crosswind through the route’s shape.</li>
+        <li>It turns direct headwind into crosswind by shaping the route.</li>
         <li>
-          Shelter the into-wind legs (forest and town beat the exposed coast — the biggest lever).
+          It shelters the into-wind legs, since forest and town beat the open coast (the biggest
+          lever around here).
         </li>
-        <li>Sequence the ride: headwind early, tailwind on the way home.</li>
         <li>
-          Weight everything by <b>time</b>, not distance — a headwind kilometre costs more minutes.
+          It sequences the ride so the headwind comes early and the tailwind carries you home.
         </li>
-        <li>For one-ways: ride downwind and take transit back.</li>
+        <li>
+          It weighs everything by time rather than distance, because a headwind kilometre costs you
+          more minutes.
+        </li>
+        <li>For one-way trips it sends you downwind and you take transit back.</li>
       </ul>
 
-      <h2>How the score works (0–100)</h2>
+      <h2>How the score works (0 to 100)</h2>
       <p>
-        Each candidate is split into ~300 m segments. For every segment WindRide samples the
-        forecast wind at your estimated time of arrival, separates it into head/tailwind and
-        crosswind, and models your resulting speed (wind + hills + surface). It then rates the route
-        on several sub-scores — each normalized 0–1 across the candidates — and blends them with
-        tunable weights:
+        Each route is cut into segments of about 300 m. For every segment WindRide looks up the
+        forecast wind for the time you’ll actually be there, splits it into head/tail wind and
+        crosswind, and works out the speed you’d hold from the wind, the hills and the surface
+        together. It then rates the route on a handful of sub-scores, each one scored from 0 to 1
+        across the candidates, and blends them with weights you can tune:
       </p>
       <div className="wr-doc__tablewrap">
         <table className="wr-doc__scores">
@@ -95,47 +100,57 @@ export function AboutScreen() {
         </table>
       </div>
       <p>
-        Hard filters run first — within ~15% of your target distance, home before sunset if you
-        asked, no ferries. And every explanation you read on a route is generated from these
-        numbers, so there are no vague adjectives without a figure behind them.
+        A few hard rules run first: the route has to land within about 15% of your target distance,
+        get you home before sunset if you asked for that, and skip ferries. And every explanation
+        you read on a route is built from these numbers, so you won’t see a vague adjective without
+        a figure behind it.
       </p>
 
       <h2>The wind convention (for the curious)</h2>
       <p>
-        Forecasts report the direction the wind comes <i>from</i>; WindRide converts that to where
-        the wind is <i>going</i> and compares it with your heading, so “tailwind” really means the
-        wind is pushing you along. The sign is locked down by tests — a loop can never be advertised
-        as net tailwind.
+        Forecasts tell you the direction the wind is coming from. WindRide flips that to the
+        direction it’s going and compares it with your heading, so a “tailwind” really does mean the
+        wind is pushing you along. That sign is pinned down by tests, so a loop can never be sold to
+        you as net tailwind.
       </p>
 
       <h2>Architecture, in short</h2>
       <ul>
         <li>
-          <b>No backend, no account, zero running cost.</b> It’s a client-side PWA — everything runs
-          in your browser.
+          No backend, no account, and nothing to pay to run it. It’s a client-side PWA, so
+          everything happens in your browser.
         </li>
         <li>
-          <b>Data sources:</b> routes from openrouteservice; weather from the Finnish Meteorological
-          Institute (HARMONIE model) with an Open-Meteo fallback; transit from Digitransit; and a
-          precomputed land-use shelter grid shipped with the app.
+          Data comes from openrouteservice for the routes, the Finnish Meteorological Institute (the
+          HARMONIE model) for weather with Open-Meteo as a backup, Digitransit for transit, and a
+          land-use shelter grid that ships with the app.
         </li>
         <li>
-          <b>Your data stays local:</b> API keys, recorded rides, speed-model calibration and
-          ridden-roads history all live in your browser (IndexedDB).
+          Your own data stays with you. API keys, recorded rides, speed calibration and the roads
+          you’ve ridden all live in your browser (IndexedDB).
         </li>
         <li>
-          <b>Region:</b> tuned for Uusimaa / southern Finland (shelter grid + transit), but the code
-          is region-agnostic.
+          It’s tuned for Uusimaa and southern Finland (the shelter grid and transit), but the code
+          doesn’t hard-code the region.
         </li>
       </ul>
 
       <p className="wr-muted">
-        New here? The{' '}
+        Built and maintained by{' '}
+        <a
+          className="wr-link"
+          href="https://mitikuteshome.com"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Mitiku Geleta
+        </a>
+        . New here? The{' '}
         <a className="wr-link" href="#/help">
           Help page
         </a>{' '}
-        walks through setup and the ride flow. Map &amp; data © OpenStreetMap contributors; weather
-        CC-BY 4.0 (FMI &amp; Open-Meteo).
+        walks you through setup and the ride flow. Map and data © OpenStreetMap contributors;
+        weather CC-BY 4.0 (FMI and Open-Meteo).
       </p>
     </section>
   );

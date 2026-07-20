@@ -9,7 +9,7 @@ import { downloadText } from '../download';
 const STRAVA_LABEL: Record<string, string> = {
   pending: 'Sending…',
   duplicate: 'Already on Strava',
-  error: 'Strava failed — retry',
+  error: 'Strava failed, tap to retry',
   'no-creds': 'Set up Strava in Kit',
 };
 

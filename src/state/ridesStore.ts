@@ -29,11 +29,11 @@ interface RidesState {
  */
 function stravaFailureReason(e: unknown): string {
   if (isProviderError(e)) {
-    if (e.kind === 'quota' || e.code === 'rate') return 'Rate-limited — retry later';
-    if (e.kind === 'network') return 'Network error — retry';
-    return `${e.message} — retry`; // auth / upload / timeout carry a specific message
+    if (e.kind === 'quota' || e.code === 'rate') return 'Rate limited, try again later';
+    if (e.kind === 'network') return 'Network error, tap to retry';
+    return `${e.message}. Tap to retry`; // auth / upload / timeout carry a specific message
   }
-  return 'Strava failed — retry';
+  return 'Strava failed, tap to retry';
 }
 
 async function defaultSend(gpx: string, name: string, externalId: string): Promise<number> {

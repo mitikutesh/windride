@@ -70,7 +70,9 @@ describe('ridesStore.sendToStrava', () => {
       .mockRejectedValue(new ProviderError('badResponse', 'Strava upload auth failed', 'auth'));
     await useRidesStore.getState().sendToStrava('e', send);
     expect(useRidesStore.getState().strava['e']).toBe('error');
-    expect(useRidesStore.getState().stravaError['e']).toBe('Strava upload auth failed — retry');
+    expect(useRidesStore.getState().stravaError['e']).toBe(
+      'Strava upload auth failed. Tap to retry',
+    );
   });
 
   it('flags duplicate as its own state', async () => {
