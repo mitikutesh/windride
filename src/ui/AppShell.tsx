@@ -55,7 +55,10 @@ export function AppShell({ route, children }: AppShellProps) {
           Mitiku Geleta
         </a>{' '}
         · © OpenStreetMap contributors · Weather by the Finnish Meteorological Institute &amp;
-        Open-Meteo (CC-BY 4.0)
+        Open-Meteo (CC-BY 4.0) ·{' '}
+        <a className="wr-link" href="#/privacy">
+          Privacy
+        </a>
       </footer>
     </div>
   );

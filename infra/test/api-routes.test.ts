@@ -17,6 +17,9 @@ const fakeStore = {
   }),
   getSyncDoc: async () => ({ doc: { savedRoutes: [], prefs: {} }, updatedAt: 't1' }),
   putSyncDoc: async () => ({ updatedAt: 't2' }),
+  exportUserData: async (userId: string) => ({ userId, exportedAt: 'now', items: [{ SK: 'PROFILE' }] }),
+  deleteUserData: async () => ({ deleted: 3 }),
+  deleteCognitoUser: async () => {},
 };
 
 const okVerify = async () => ({ sub: 'u1', email: 'a@b.co' });
@@ -118,5 +121,34 @@ describe('API /me route (WR-040)', () => {
       { verify: okVerify, store: fakeStore },
     );
     expect(res.statusCode).toBe(401);
+  });
+
+  it('GET /export returns the caller’s records (GDPR)', async () => {
+    const res = await route(
+      { requestContext: { http: { method: 'GET' } }, rawPath: '/export', headers: { authorization: 'Bearer good' } },
+      { verify: okVerify, store: fakeStore },
+    );
+    expect(res.statusCode).toBe(200);
+    expect(JSON.parse(res.body).items).toHaveLength(1);
+  });
+
+  it('DELETE /me erases the caller’s data + Cognito login (GDPR), requires auth', async () => {
+    let cognitoDeleted = false;
+    const ok = await route(
+      { requestContext: { http: { method: 'DELETE' } }, rawPath: '/me', headers: { authorization: 'Bearer good' } },
+      {
+        verify: okVerify,
+        store: { ...fakeStore, deleteCognitoUser: async () => { cognitoDeleted = true; } },
+      },
+    );
+    expect(ok.statusCode).toBe(200);
+    expect(JSON.parse(ok.body).deleted).toBe(3);
+    expect(cognitoDeleted).toBe(true); // login removed too
+
+    const noAuth = await route(
+      { requestContext: { http: { method: 'DELETE' } }, rawPath: '/me', headers: {} },
+      { verify: okVerify, store: fakeStore },
+    );
+    expect(noAuth.statusCode).toBe(401);
   });
 });

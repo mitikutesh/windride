@@ -9,6 +9,8 @@ function client(over: Partial<ApiClient> = {}): ApiClient {
     getMe: async () => PROFILE,
     getSync: async () => ({ doc: null, updatedAt: null }),
     putSync: async () => ({ updatedAt: 't' }),
+    exportData: async () => ({ items: [] }),
+    deleteAccount: async () => ({ deleted: 0 }),
   };
   return { ...base, ...over };
 }

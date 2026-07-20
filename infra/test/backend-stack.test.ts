@@ -8,7 +8,12 @@ function synth() {
   const stack = new BackendStack(app, 'TestBackend', {
     env: { account: '111111111111', region: 'eu-north-1' },
     allowedOrigins: ['https://windride.example.com'],
-    cognito: { userPoolId: 'eu-north-1_test', clientId: 'client1', region: 'eu-north-1' },
+    cognito: {
+      userPoolId: 'eu-north-1_test',
+      clientId: 'client1',
+      region: 'eu-north-1',
+      userPoolArn: 'arn:aws:cognito-idp:eu-north-1:111111111111:userpool/eu-north-1_test',
+    },
   });
   return Template.fromStack(stack);
 }
@@ -60,5 +65,18 @@ describe('BackendStack (WR-038)', () => {
       expect(res).toContain('DataTable'); // scoped to our table's GetAtt ARN
       expect(res).not.toContain('"*"'); // never a wildcard resource
     }
+  });
+
+  it('grants ONLY cognito-idp:AdminDeleteUser on the pool (GDPR erasure, WR-042)', () => {
+    const t = synth();
+    const policies = t.findResources('AWS::IAM::Policy');
+    type Stmt = { Action?: unknown; Resource?: unknown };
+    const statements = Object.values(policies).flatMap(
+      (p) => (p.Properties as { PolicyDocument: { Statement: Stmt[] } }).PolicyDocument.Statement,
+    );
+    const cognitoStmts = statements.filter((s) => JSON.stringify(s.Action).includes('cognito-idp'));
+    expect(cognitoStmts.length).toBe(1);
+    expect(JSON.stringify(cognitoStmts[0].Action)).toBe('"cognito-idp:AdminDeleteUser"');
+    expect(JSON.stringify(cognitoStmts[0].Resource)).toContain('userpool/eu-north-1_test');
   });
 });

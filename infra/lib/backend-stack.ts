@@ -1,6 +1,7 @@
 import * as path from 'path';
 import { CfnOutput, RemovalPolicy, Stack, type StackProps } from 'aws-cdk-lib';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
+import * as iam from 'aws-cdk-lib/aws-iam';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import type { Construct } from 'constructs';
 
@@ -9,8 +10,8 @@ export interface BackendStackProps extends StackProps {
   allowedOrigins?: string[];
   /** Build version surfaced by GET /health. */
   buildVersion?: string;
-  /** Cognito pool config so the Lambda can verify JWTs on authed routes (WR-040). */
-  cognito?: { userPoolId: string; clientId: string; region: string };
+  /** Cognito pool config so the Lambda can verify JWTs (WR-040) + delete the user on erasure (WR-042). */
+  cognito?: { userPoolId: string; clientId: string; region: string; userPoolArn?: string };
 }
 
 /**
@@ -54,6 +55,16 @@ export class BackendStack extends Stack {
     });
     // Least privilege: only this table, only read/write (no admin, no wildcard resource).
     this.table.grantReadWriteData(api);
+
+    // GDPR erasure (WR-042): allow deleting a Cognito user — ONLY that action, ONLY this pool.
+    if (props.cognito?.userPoolArn) {
+      api.addToRolePolicy(
+        new iam.PolicyStatement({
+          actions: ['cognito-idp:AdminDeleteUser'],
+          resources: [props.cognito.userPoolArn],
+        }),
+      );
+    }
 
     const fnUrl = api.addFunctionUrl({
       authType: lambda.FunctionUrlAuthType.NONE, // health is public; auth'd routes verify JWT in-handler

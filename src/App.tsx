@@ -7,6 +7,7 @@ import { KitScreen } from './ui/screens/KitScreen';
 import { RideScreen } from './ui/screens/RideScreen';
 import { HelpScreen } from './ui/screens/HelpScreen';
 import { AboutScreen } from './ui/screens/AboutScreen';
+import { PrivacyScreen } from './ui/screens/PrivacyScreen';
 import { useKeychainStore } from './state/keychainStore';
 
 /** WindRide app root (WR-002): design-token shell + hash-routed screens. */
@@ -31,6 +32,8 @@ export function App() {
       <HelpScreen />
     ) : route === 'about' ? (
       <AboutScreen />
+    ) : route === 'privacy' ? (
+      <PrivacyScreen />
     ) : (
       <PlanScreen />
     );

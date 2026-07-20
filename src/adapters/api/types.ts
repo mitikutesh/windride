@@ -25,4 +25,8 @@ export interface ApiClient {
   getSync(idToken: string): Promise<SyncPull>;
   /** PUT /sync — replace the caller's synced document. `doc` must contain NO secrets (DEC-040). */
   putSync(idToken: string, doc: unknown): Promise<{ updatedAt: string }>;
+  /** GET /export — all server-side records for the caller (GDPR data portability, WR-042). */
+  exportData(idToken: string): Promise<unknown>;
+  /** DELETE /me — hard-delete all the caller's server-side data (GDPR erasure, WR-042). */
+  deleteAccount(idToken: string): Promise<{ deleted: number }>;
 }

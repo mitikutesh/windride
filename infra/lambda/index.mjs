@@ -64,6 +64,33 @@ async function handleMe(event, deps) {
   }
 }
 
+/** GET /export — every server-side record for the caller as JSON (GDPR data portability, WR-042). */
+async function handleExport(event, deps) {
+  const { claims, error } = await authenticate(event, deps);
+  if (error) return error;
+  const store = deps.store ?? dynamoProfileStore;
+  try {
+    return json(200, await store.exportUserData(claims.sub));
+  } catch {
+    return json(500, { error: 'could not export data' });
+  }
+}
+
+/** DELETE /me — GDPR erasure (WR-042): remove the Cognito login FIRST (so a partial failure can't
+ *  leave a usable account that re-creates data), then hard-delete all the caller's DynamoDB data. */
+async function handleDeleteAccount(event, deps) {
+  const { claims, error } = await authenticate(event, deps);
+  if (error) return error;
+  const store = deps.store ?? dynamoProfileStore;
+  const username = claims['cognito:username'] ?? claims.sub;
+  try {
+    await store.deleteCognitoUser(process.env.COGNITO_USER_POOL_ID, username);
+    return json(200, await store.deleteUserData(claims.sub));
+  } catch {
+    return json(500, { error: 'could not delete account' });
+  }
+}
+
 /** GET /sync — pull the caller's synced document (saved routes + prefs). NEVER any API key. */
 async function handleSyncGet(event, deps) {
   const { claims, error } = await authenticate(event, deps);
@@ -107,6 +134,8 @@ export async function route(event, deps = {}) {
   if (method === 'GET' && path === '/me') return handleMe(event, deps);
   if (method === 'GET' && path === '/sync') return handleSyncGet(event, deps);
   if (method === 'PUT' && path === '/sync') return handleSyncPut(event, deps);
+  if (method === 'GET' && path === '/export') return handleExport(event, deps);
+  if (method === 'DELETE' && path === '/me') return handleDeleteAccount(event, deps);
   return json(404, { error: 'not found', path });
 }
 

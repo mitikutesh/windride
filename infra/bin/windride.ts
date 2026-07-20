@@ -37,5 +37,6 @@ new BackendStack(app, 'WindRideBackend', {
     userPoolId: auth.userPool.userPoolId,
     clientId: auth.userPoolClient.userPoolClientId,
     region: env.region,
+    userPoolArn: auth.userPool.userPoolArn,
   },
 });

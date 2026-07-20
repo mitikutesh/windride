@@ -26,6 +26,8 @@ function api(over: Partial<ApiClient> = {}): ApiClient {
     getMe: async () => ({ userId: 'u', email: 'e', entitlement: 'free', createdAt: '' }),
     getSync: async (): Promise<SyncPull> => ({ doc: null, updatedAt: null }),
     putSync: async () => ({ updatedAt: 't2' }),
+    exportData: async () => ({ items: [] }),
+    deleteAccount: async () => ({ deleted: 0 }),
   };
   return { ...base, ...over };
 }

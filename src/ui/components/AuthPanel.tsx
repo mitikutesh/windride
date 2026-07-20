@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useAuthStore } from '../../state/authStore';
+import { useGdprStore } from '../../state/gdprStore';
 import { useProfileStore } from '../../state/profileStore';
 import { useSyncStore } from '../../state/syncStore';
+import { downloadText } from '../download';
 import { PrimaryButton } from './PrimaryButton';
 
 /**
@@ -30,11 +32,24 @@ export function AuthPanel() {
   const lastSyncedAt = useSyncStore((s) => s.lastSyncedAt);
   const syncError = useSyncStore((s) => s.error);
   const syncNow = useSyncStore((s) => s.syncNow);
+  const gdprStatus = useGdprStore((s) => s.status);
+  const gdprError = useGdprStore((s) => s.error);
+  const exportData = useGdprStore((s) => s.exportData);
+  const deleteAccount = useGdprStore((s) => s.deleteAccount);
+
+  const onExport = async () => {
+    const data = await exportData();
+    if (data) {
+      downloadText('windride-data.json', 'application/json', JSON.stringify(data, null, 2));
+    }
+  };
 
   const [mode, setMode] = useState<'signin' | 'register'>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [code, setCode] = useState('');
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const busy = status === 'authenticating';
 
   // On sign-in, fetch the profile/entitlement from the backend (only when a backend is configured).
@@ -87,6 +102,70 @@ export function AuthPanel() {
             ) : null}
           </div>
         ) : null}
+        <div className="wr-auth__gdpr">
+          {apiConfigured ? (
+            <>
+              <button
+                type="button"
+                className="wr-navlink"
+                disabled={gdprStatus === 'exporting'}
+                onClick={() => void onExport()}
+              >
+                {gdprStatus === 'exporting' ? 'Exporting…' : 'Export my data'}
+              </button>
+              {!confirmingDelete ? (
+                <button
+                  type="button"
+                  className="wr-navlink wr-navlink--danger"
+                  onClick={() => setConfirmingDelete(true)}
+                >
+                  Delete account
+                </button>
+              ) : (
+                <div className="wr-auth__confirm">
+                  <label className="wr-field__label">
+                    This permanently erases your account and all its server-side data. Type{' '}
+                    <strong>DELETE</strong> to confirm.
+                    <input
+                      className="wr-input"
+                      value={deleteConfirmText}
+                      onChange={(e) => setDeleteConfirmText(e.target.value)}
+                      aria-label="Type DELETE to confirm"
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    className="wr-navlink wr-navlink--danger"
+                    disabled={deleteConfirmText !== 'DELETE' || gdprStatus === 'deleting'}
+                    onClick={() => void deleteAccount()}
+                  >
+                    {gdprStatus === 'deleting' ? 'Deleting…' : 'Permanently delete'}
+                  </button>
+                  <button
+                    type="button"
+                    className="wr-navlink"
+                    onClick={() => {
+                      setConfirmingDelete(false);
+                      setDeleteConfirmText('');
+                    }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              )}
+              {gdprStatus === 'error' && gdprError ? (
+                <p className="wr-muted" role="alert">
+                  {gdprError}
+                </p>
+              ) : null}
+            </>
+          ) : null}
+          <p className="wr-muted">
+            <a className="wr-link" href="#/privacy">
+              Privacy &amp; your data
+            </a>
+          </p>
+        </div>
         <button type="button" className="wr-btn-secondary" onClick={signOut}>
           Sign out
         </button>

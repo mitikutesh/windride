@@ -1,7 +1,9 @@
 import 'fake-indexeddb/auto';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { useAuthStore, type Session } from '../../state/authStore';
+import { useGdprStore } from '../../state/gdprStore';
+import { useProfileStore } from '../../state/profileStore';
 import { AuthPanel } from './AuthPanel';
 
 const SESSION: Session = {
@@ -38,5 +40,20 @@ describe('AuthPanel', () => {
     render(<AuthPanel />);
     expect(screen.getByText(/rider@example.com/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /sign out/i })).toBeInTheDocument();
+  });
+
+  it('account deletion requires typing DELETE before it can fire (type-to-confirm)', () => {
+    useAuthStore.setState({ configured: true, status: 'authenticated', session: SESSION });
+    // Force the backend-configured GDPR block to render (VITE_API_URL is unset in tests).
+    useProfileStore.setState({ configured: true });
+    useGdprStore.setState({ status: 'idle', error: null });
+    render(<AuthPanel />);
+    fireEvent.click(screen.getByRole('button', { name: /^Delete account$/i }));
+    const confirmBtn = screen.getByRole('button', { name: /Permanently delete/i });
+    expect(confirmBtn).toBeDisabled(); // no text yet
+    fireEvent.change(screen.getByLabelText(/type DELETE to confirm/i), {
+      target: { value: 'DELETE' },
+    });
+    expect(confirmBtn).toBeEnabled();
   });
 });

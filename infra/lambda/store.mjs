@@ -78,6 +78,73 @@ Object.assign(dynamoProfileStore, {
   },
 });
 
+/** GDPR data access (WR-042): export + hard delete of everything under the user's partition, plus
+ *  the Cognito login. Queries paginate and BatchWrite retries UnprocessedItems, so "all records" is
+ *  literal even under throttling — we never report success on a partial wipe. */
+Object.assign(dynamoProfileStore, {
+  async exportUserData(userId) {
+    const { QueryCommand } = await import('@aws-sdk/lib-dynamodb');
+    const db = await client();
+    const items = [];
+    let ExclusiveStartKey;
+    do {
+      const r = await db.send(
+        new QueryCommand({
+          TableName: TABLE(),
+          KeyConditionExpression: 'PK = :pk',
+          ExpressionAttributeValues: { ':pk': `USER#${userId}` },
+          ExclusiveStartKey,
+        }),
+      );
+      items.push(...(r.Items ?? []));
+      ExclusiveStartKey = r.LastEvaluatedKey;
+    } while (ExclusiveStartKey);
+    return { userId, exportedAt: new Date().toISOString(), items };
+  },
+
+  async deleteUserData(userId) {
+    const { QueryCommand, BatchWriteCommand } = await import('@aws-sdk/lib-dynamodb');
+    const db = await client();
+    let deleted = 0;
+    let ExclusiveStartKey;
+    do {
+      const r = await db.send(
+        new QueryCommand({
+          TableName: TABLE(),
+          KeyConditionExpression: 'PK = :pk',
+          ExpressionAttributeValues: { ':pk': `USER#${userId}` },
+          ProjectionExpression: 'PK, SK',
+          ExclusiveStartKey,
+        }),
+      );
+      const items = r.Items ?? [];
+      for (let i = 0; i < items.length; i += 25) {
+        let request = {
+          [TABLE()]: items.slice(i, i + 25).map((it) => ({
+            DeleteRequest: { Key: { PK: it.PK, SK: it.SK } },
+          })),
+        };
+        for (let attempt = 0; attempt < 5 && request[TABLE()]?.length; attempt++) {
+          const resp = await db.send(new BatchWriteCommand({ RequestItems: request }));
+          request = resp.UnprocessedItems ?? {};
+        }
+        if (request[TABLE()]?.length) throw new Error('deletion incomplete');
+      }
+      deleted += items.length;
+      ExclusiveStartKey = r.LastEvaluatedKey;
+    } while (ExclusiveStartKey);
+    return { deleted };
+  },
+
+  async deleteCognitoUser(userPoolId, username) {
+    const { CognitoIdentityProviderClient, AdminDeleteUserCommand } = await import(
+      '@aws-sdk/client-cognito-identity-provider'
+    );
+    const c = new CognitoIdentityProviderClient({});
+    await c.send(new AdminDeleteUserCommand({ UserPoolId: userPoolId, Username: username }));
+  },
+});
+
 function toProfile(item) {
   return {
     userId: item.userId,

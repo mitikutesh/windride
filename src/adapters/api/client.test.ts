@@ -60,6 +60,19 @@ describe('HttpApiClient.getMe', () => {
     );
   });
 
+  it('exportData GETs /export; deleteAccount DELETEs /me (GDPR)', async () => {
+    const ex = fakeFetch({ body: { items: [] } });
+    await new HttpApiClient({ baseUrl: 'https://x', fetchFn: ex.fn }).exportData('tok');
+    expect(ex.calls[0].url).toBe('https://x/export');
+
+    const del = fakeFetch({ body: { deleted: 1 } });
+    const r = await new HttpApiClient({ baseUrl: 'https://x', fetchFn: del.fn }).deleteAccount(
+      'tok',
+    );
+    expect(del.calls[0].init.method).toBe('DELETE');
+    expect(r.deleted).toBe(1);
+  });
+
   it('maps a network throw to a network error', async () => {
     const err = await new HttpApiClient({
       baseUrl: 'https://x',

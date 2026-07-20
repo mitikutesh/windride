@@ -60,4 +60,12 @@ export class HttpApiClient implements ApiClient {
       body: JSON.stringify({ doc }),
     })) as { updatedAt: string };
   }
+
+  async exportData(idToken: string): Promise<unknown> {
+    return this.call('/export', idToken);
+  }
+
+  async deleteAccount(idToken: string): Promise<{ deleted: number }> {
+    return (await this.call('/me', idToken, { method: 'DELETE' })) as { deleted: number };
+  }
 }
