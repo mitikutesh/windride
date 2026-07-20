@@ -118,6 +118,64 @@ describe('FmiWeatherProvider', () => {
     expect((await err.windAlong([HELSINKI], 6))[0][0].time).toBe('FALLBACK');
   });
 
+  it('a short column (out-of-domain) does NOT trip the breaker — later in-domain points still hit FMI', async () => {
+    let calls = 0;
+    const counting = (() => {
+      calls++;
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        text: () => Promise.resolve(fixtureXml), // 9 hours of data
+      } as Response);
+    }) as unknown as typeof fetch;
+    const fmi = new FmiWeatherProvider({
+      fetchFn: counting,
+      now: () => FIXED_NOW,
+      fallback: sentinelFallback(),
+    });
+
+    // 12h window > the 9h fixture ⇒ short column ⇒ fallback, but the breaker must stay CLOSED.
+    expect((await fmi.windAlong([HELSINKI], 12))[0][0].time).toBe('FALLBACK');
+    // A fully-covered window still reaches FMI (calls increments; real data, not the fallback).
+    expect((await fmi.windAlong([HELSINKI], 9))[0][0].time).not.toBe('FALLBACK');
+    expect(calls).toBe(2);
+  });
+
+  it('trips a breaker after a failure: skips FMI for other points until the cooldown lapses', async () => {
+    let now = FIXED_NOW;
+    let calls = 0;
+    // Always 400 (like the FMI forecast outage) so the first call trips the breaker.
+    const failing = (() => {
+      calls++;
+      return Promise.resolve({
+        ok: false,
+        status: 400,
+        text: () => Promise.resolve(''),
+      } as Response);
+    }) as unknown as typeof fetch;
+    const fmi = new FmiWeatherProvider({
+      fetchFn: failing,
+      now: () => now,
+      fallback: sentinelFallback(),
+    });
+
+    expect((await fmi.windAlong([HELSINKI], 6))[0][0].time).toBe('FALLBACK');
+    expect(calls).toBe(1); // FMI tried once
+
+    // Different points (a fresh cache key) — the breaker, not the cache, must keep FMI untouched.
+    expect((await fmi.windAlong([{ lat: 61, lon: 25 }], 6))[0][0].time).toBe('FALLBACK');
+    expect(calls).toBe(1); // no second FMI request
+
+    // Past the cooldown FMI is tried again (self-healing).
+    now += 10 * 60 * 1000 + 1;
+    await fmi.windAlong([{ lat: 62, lon: 26 }], 6);
+    expect(calls).toBe(2);
+
+    // That retry also 400s, so the breaker re-opens — the next call skips FMI again.
+    await fmi.windAlong([{ lat: 63, lon: 27 }], 6);
+    expect(calls).toBe(2);
+  });
+
   it('caches an identical window (second call does not re-fetch)', async () => {
     let calls = 0;
     const counting = (() => {

@@ -26,6 +26,12 @@ const ENDPOINT = 'https://opendata.fmi.fi/wfs';
 const STORED_QUERY = 'fmi::forecast::harmonie::surface::point::multipointcoverage';
 const PARAMS = 'temperature,humidity,windspeedms,winddirection,windgust,precipitation1h';
 const TTL_MS = 30 * 60 * 1000;
+// FMI's forecast backend has whole-service outages (every forecast model 400s with an internal
+// "stod" error while observations stay up). The per-window cache is keyed by route points, which
+// change every plan, so without this a down FMI is re-hit — and re-logged as a console 400 — on
+// every plan. After a failure we skip FMI entirely for this long and serve the fallback directly;
+// it self-heals when the cooldown lapses (and FMI has recovered).
+const OUTAGE_COOLDOWN_MS = 10 * 60 * 1000;
 // FMI serves Finland/the Nordics; its unix times are UTC, so we render the local hour in Helsinki
 // time to honour WindSample.time's "local hour" contract (domain.ts) — matching Open-Meteo/mock.
 const TZ = 'Europe/Helsinki';
@@ -131,6 +137,8 @@ export class FmiWeatherProvider implements WeatherProvider {
   private readonly endpoint: string;
   private readonly cache: WeatherCache;
   private readonly fallback: WeatherProvider;
+  /** Unix ms until which FMI is treated as down (circuit breaker); 0 = closed. */
+  private outageUntil = 0;
 
   constructor(opts: FmiOptions = {}) {
     this.fetchFn = opts.fetchFn ?? fetch.bind(globalThis);
@@ -174,9 +182,13 @@ export class FmiWeatherProvider implements WeatherProvider {
       const grid = await Promise.all(points.map((p) => this.fetchPoint(p, hours)));
       // Every point needs `hours` contiguous valid samples; if any is short (gap / outside domain /
       // partial coverage) fall back for the WHOLE call, keeping the grid single-source + hour-aligned.
+      // A short column is out-of-domain (e.g. a point outside Finland), NOT an outage — fall back
+      // for this call but leave the breaker closed so in-domain points still reach FMI.
       if (grid.some((col) => col.length < hours)) return this.fallback.windAlong(points, hours);
       return grid.map((col) => col.slice(0, hours));
     } catch {
+      // A genuine FMI failure (network / non-OK / rate limit) opens the breaker.
+      this.outageUntil = this.now() + OUTAGE_COOLDOWN_MS;
       return this.fallback.windAlong(points, hours);
     }
   }
@@ -185,6 +197,8 @@ export class FmiWeatherProvider implements WeatherProvider {
     const key = fmiCacheKey(points, hours, this.now());
     const cached = await this.cache.get(key);
     if (cached) return cached;
+    // Breaker open (FMI recently failed) → straight to the fallback; no FMI request, no repeat 400.
+    if (this.now() < this.outageUntil) return this.fallback.windAlong(points, hours);
     const grid = await this.fetchGrid(points, hours);
     await this.cache.set(key, grid, this.now() + TTL_MS);
     return grid;
