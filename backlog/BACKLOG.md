@@ -69,7 +69,7 @@ parallel with Epic 5.
 |---|---|---|---|---|
 | WR-044 | AI adapter + Kit provider selector + 'ai' key wiring (per-user provider, validated) | — | M | DONE |
 | WR-045 | AI ride briefing (clothing, fuel, safety) | 044 | M | DONE |
-| WR-046 | Natural-language planning (text → Plan inputs) | 044 | M | TODO |
+| WR-046 | Natural-language planning (text → Plan inputs) | 044 | M | DONE |
 | WR-047 | AI route discovery → validate → wind-scored | 044 | L | TODO |
 | WR-048 | Scenic photos + POI highlights (Wikimedia/Mapillary) | 047 | M | TODO |
 | WR-049 | Post-ride AI summary (plan vs ride) | 044 | S | TODO |

@@ -838,3 +838,31 @@
   margin-top: var(--space-3);
   font-size: 0.85rem;
 }
+
+/* Natural-language planning box (WR-046). */
+.wr-nlplan__input {
+  width: 100%;
+  resize: vertical;
+  font: inherit;
+}
+.wr-nlplan__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  margin-top: var(--space-2);
+}
+.wr-nlplan__chips {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin-top: var(--space-2);
+}
+.wr-nlplan__chip {
+  padding: 0.1rem 0.5rem;
+  border: 1px solid var(--sky);
+  border-radius: 999px;
+  font-size: 0.8rem;
+  color: var(--sky);
+}

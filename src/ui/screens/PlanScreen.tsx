@@ -2,7 +2,9 @@ import { useEffect } from 'react';
 import { ConditionsStrip, DistanceSlider, PrimaryButton, Segmented, Toggle } from '../components';
 import { DownwindResults } from '../components/DownwindResults';
 import { MissingKeyBanner } from '../components/MissingKeyBanner';
+import { NlPlanBox } from '../components/NlPlanBox';
 import { suggestWinter } from '../../engine/winter';
+import { useKeychainStore } from '../../state/keychainStore';
 import { DEFAULT_START, usePlanStore } from '../../state/planStore';
 import { useNoveltyStore } from '../../state/noveltyStore';
 import { useSavedRoutesStore } from '../../state/savedRoutesStore';
@@ -20,6 +22,8 @@ export function PlanScreen() {
   const setInput = usePlanStore((s) => s.setInput);
   const generate = usePlanStore((s) => s.generate);
   const downwind = usePlanStore((s) => s.downwind);
+  // NL planning is opt-in: shown only when the user has picked an AI provider AND set its key.
+  const aiReady = useKeychainStore((s) => Boolean(s.aiProvider && s.keys.ai));
   const savedRoutes = useSavedRoutesStore((s) => s.routes);
   const removeRoute = useSavedRoutesStore((s) => s.remove);
 
@@ -58,6 +62,8 @@ export function PlanScreen() {
       <h1>Plan a ride</h1>
       <MissingKeyBanner />
       <ConditionsStrip conditions={conditions} />
+
+      {aiReady ? <NlPlanBox /> : null}
 
       <DistanceSlider value={inputs.distanceKm} onChange={(km) => setInput({ distanceKm: km })} />
 
