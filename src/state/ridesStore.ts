@@ -17,6 +17,9 @@ interface RidesState {
   strava: Record<string, StravaStatus>;
   /** Human reason for the last Strava failure per ride — so the UI shows *why*, not just "failed". */
   stravaError: Record<string, string>;
+  /** Machine code for the failure ('auth' | 'rate' | 'network' | 'other') so the UI can show a
+   *  "Fix in Kit → Strava" link ONLY when Kit is the fix (auth/scope), not for retry-only cases. */
+  stravaErrorCode: Record<string, string>;
   refresh: () => Promise<void>;
   remove: (id: string) => Promise<void>;
   sendToStrava: (id: string, send?: StravaSend) => Promise<void>;
@@ -36,6 +39,16 @@ function stravaFailureReason(e: unknown): string {
   return 'Strava failed, tap to retry';
 }
 
+/** Machine code for a Strava failure — 'auth' means Kit → Strava fixes it; rate/network are retry-only. */
+function stravaFailureCode(e: unknown): string {
+  if (isProviderError(e)) {
+    if (e.code === 'auth') return 'auth';
+    if (e.kind === 'quota' || e.code === 'rate') return 'rate';
+    if (e.kind === 'network') return 'network';
+  }
+  return 'other';
+}
+
 async function defaultSend(gpx: string, name: string, externalId: string): Promise<number> {
   const creds = await getStravaCreds();
   if (!creds) throw new ProviderError('badResponse', 'Strava not configured', 'no-creds');
@@ -48,6 +61,7 @@ export const useRidesStore = create<RidesState>((set, get) => ({
   error: null,
   strava: {},
   stravaError: {},
+  stravaErrorCode: {},
   refresh: async () => {
     try {
       set({ rides: (await listRides()).filter((r) => r.status === 'finished'), error: null });
@@ -69,6 +83,7 @@ export const useRidesStore = create<RidesState>((set, get) => ({
     set((s) => ({
       strava: { ...s.strava, [id]: 'pending' },
       stravaError: { ...s.stravaError, [id]: '' }, // clear any prior reason on retry
+      stravaErrorCode: { ...s.stravaErrorCode, [id]: '' },
     }));
     try {
       const points = await loadRidePoints(id);
@@ -83,6 +98,9 @@ export const useRidesStore = create<RidesState>((set, get) => ({
       set((s) => ({
         strava: { ...s.strava, [id]: dup ? 'duplicate' : 'error' },
         stravaError: dup ? s.stravaError : { ...s.stravaError, [id]: stravaFailureReason(e) },
+        stravaErrorCode: dup
+          ? s.stravaErrorCode
+          : { ...s.stravaErrorCode, [id]: stravaFailureCode(e) },
       }));
     }
   },

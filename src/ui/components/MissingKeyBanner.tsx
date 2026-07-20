@@ -1,29 +1,19 @@
-import {
-  effectiveLiveApis,
-  routingKeyAvailable,
-  useKeychainStore,
-} from '../../state/keychainStore';
+import { useCapability } from '../../state/useCapabilities';
 
 /**
- * First-run onboarding for shared builds (task #33 follow-up): when live routing is on but no
- * openrouteservice key exists from any source (the user's own key OR a build-time env fallback),
- * point the user at Kit → API keys. Renders nothing once a key is available or in mock mode.
+ * First-run onboarding for shared builds (task #33 / DEC-036), now sourced from the shared
+ * capabilities model (WR-050): when live routing has no openrouteservice key from any source, point
+ * the user at Kit. Renders nothing once a key is available or in mock mode. Kept as its own banner
+ * (distinct styling) but the ready/reason/link decision lives in one place now.
  */
 export function MissingKeyBanner() {
-  // Subscribe to the pieces that change so the banner re-renders when a key is added / live toggled.
-  const orsSet = useKeychainStore((s) => Boolean(s.keys.ors));
-  const liveApis = useKeychainStore((s) => s.liveApis);
-  const live = liveApis ?? effectiveLiveApis();
-  const hasRouting = orsSet || routingKeyAvailable();
-  if (!live || hasRouting) return null;
+  const routing = useCapability('routing');
+  if (routing.ready || !routing.reason) return null;
 
   return (
     <div className="wr-keyprompt" role="status">
-      <span>
-        Live routing is on but no <strong>openrouteservice</strong> key is set — real routes need
-        one (free tier at openrouteservice.org).
-      </span>
-      <a className="wr-navlink" href="#/kit">
+      <span>{routing.reason}</span>
+      <a className="wr-navlink" href={routing.fixHref}>
         Add your key →
       </a>
     </div>

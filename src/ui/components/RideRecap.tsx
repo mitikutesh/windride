@@ -1,6 +1,6 @@
 import type { RecordedRide } from '../../data/db';
-import { useKeychainStore } from '../../state/keychainStore';
 import { useRecapStore } from '../../state/recapStore';
+import { useCapability } from '../../state/useCapabilities';
 
 interface Props {
   ride: RecordedRide;
@@ -12,7 +12,7 @@ interface Props {
  * view, tagged by rideId so only the requested ride shows a recap.
  */
 export function RideRecap({ ride }: Props) {
-  const aiReady = useKeychainStore((s) => Boolean(s.aiProvider && s.keys.ai));
+  const aiReady = useCapability('ai').ready;
   const status = useRecapStore((s) => s.status);
   const recap = useRecapStore((s) => s.recap);
   const error = useRecapStore((s) => s.error);

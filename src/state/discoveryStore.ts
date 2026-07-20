@@ -5,10 +5,10 @@
 // only suggests directions + notes. UI never touches adapters — this store owns the calls.
 import { create } from 'zustand';
 import type { AiClient } from '../adapters/ai';
-import { isProviderError } from '../adapters/errors';
 import { generateCandidates } from '../adapters/routing/ors';
 import { getAiClient, getProviders, type Providers } from '../adapters/registry';
 import { discoveryRequest, parseDiscoveries, type Discovery } from '../engine/discovery';
+import { AI_NOT_SET_UP, aiFailureReason } from './aiMessages';
 import { orsProfile } from './plan/profiles';
 import type { PlanInputs } from './plan/runPlan';
 import { scoreBuiltRoutes } from './plan/scoreRoutes';
@@ -48,7 +48,7 @@ export const useDiscoveryStore = create<DiscoveryState>((set) => ({
     const client = deps?.client ?? getAiClient();
     const providers = deps?.providers ?? getProviders();
     if (!client) {
-      set({ status: 'error', error: 'AI is not set up.', notes: {} });
+      set({ status: 'error', error: AI_NOT_SET_UP, notes: {} });
       return;
     }
     set({ status: 'loading', error: null, notes: {} });
@@ -122,14 +122,8 @@ export const useDiscoveryStore = create<DiscoveryState>((set) => ({
         })
       )();
     } catch (e) {
-      let error = "Couldn't discover routes right now. Try again.";
-      if (isProviderError(e)) {
-        if (e.code === 'auth') error = 'Your AI key was rejected — check it in Kit → AI.';
-        else if (e.kind === 'quota')
-          error = 'AI or routing limit reached — please try again later.';
-        else if (e.kind === 'network') error = 'You appear to be offline. Check your connection.';
-      }
-      set({ status: 'error', error, notes: {} });
+      // Shared cause-naming copy (WR-050); covers AI + routing ProviderErrors alike.
+      set({ status: 'error', error: aiFailureReason(e, 'discover routes'), notes: {} });
     }
   },
 

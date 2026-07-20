@@ -22,7 +22,13 @@ async function seedFinishedRide(id: string): Promise<void> {
 describe('ridesStore.sendToStrava', () => {
   beforeEach(async () => {
     for (const r of await listRides()) await deleteRide(r.id);
-    useRidesStore.setState({ rides: [], strava: {}, stravaError: {}, error: null });
+    useRidesStore.setState({
+      rides: [],
+      strava: {},
+      stravaError: {},
+      stravaErrorCode: {},
+      error: null,
+    });
     // Clear any creds from a prior test.
     const db = await (await import('../data/db')).openWindrideDb();
     await db.delete('strava', 'creds');
@@ -73,6 +79,7 @@ describe('ridesStore.sendToStrava', () => {
     expect(useRidesStore.getState().stravaError['e']).toBe(
       'Strava upload auth failed. Tap to retry',
     );
+    expect(useRidesStore.getState().stravaErrorCode['e']).toBe('auth'); // Kit → Strava can fix it
   });
 
   it('flags duplicate as its own state', async () => {

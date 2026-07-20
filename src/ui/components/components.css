@@ -915,3 +915,12 @@
 .wr-recap__summary {
   font-weight: 600;
 }
+
+/* Capability "needs setup" notice (WR-050). */
+.wr-capnotice {
+  font-size: 0.9rem;
+  margin: var(--space-2) 0;
+}
+.wr-capnotice--soft {
+  opacity: 0.85;
+}

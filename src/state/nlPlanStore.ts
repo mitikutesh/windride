@@ -5,9 +5,9 @@
 // filled controls (the changed ones are surfaced) and taps Plan — nothing runs automatically.
 import { create } from 'zustand';
 import type { AiClient } from '../adapters/ai';
-import { isProviderError } from '../adapters/errors';
 import { getAiClient } from '../adapters/registry';
 import { nlPlanRequest, parseNlPlan, type NlPlanPatch } from '../engine/nlPlan';
+import { AI_NOT_SET_UP, aiFailureReason } from './aiMessages';
 import { activeSpeedSettings } from './calibrationStore';
 import { usePlanStore } from './planStore';
 
@@ -45,7 +45,7 @@ export const useNlPlanStore = create<NlPlanState>((set) => ({
     if (text.trim().length === 0) return;
     const client = injected ?? getAiClient();
     if (!client) {
-      set({ status: 'error', summary: null, changed: [], error: 'AI is not set up.' });
+      set({ status: 'error', summary: null, changed: [], error: AI_NOT_SET_UP });
       return;
     }
     set({ status: 'loading', error: null, summary: null, changed: [] });
@@ -63,15 +63,13 @@ export const useNlPlanStore = create<NlPlanState>((set) => ({
       const summary = nl.summary || `Updated ${changed.length} setting(s) from your description.`;
       set({ status: 'ready', summary, changed, error: null });
     } catch (e) {
-      // Phrase by failure kind so an auth/quota problem doesn't send the user into a rewording
-      // loop (WR-050 will centralise this). A validation failure falls through to the rephrase copy.
-      let error = "Couldn't read that into plan settings. Try rephrasing, or set them by hand.";
-      if (isProviderError(e)) {
-        if (e.code === 'auth') error = 'Your AI key was rejected — check it in Kit → AI.';
-        else if (e.kind === 'quota') error = 'AI limit reached — please try again later.';
-        else if (e.kind === 'network') error = 'You appear to be offline. Check your connection.';
-      }
-      set({ status: 'error', summary: null, changed: [], error });
+      // Shared cause-naming copy (WR-050) so auth/quota/network don't read as "rephrase".
+      set({
+        status: 'error',
+        summary: null,
+        changed: [],
+        error: aiFailureReason(e, 'read that into plan settings'),
+      });
     }
   },
 

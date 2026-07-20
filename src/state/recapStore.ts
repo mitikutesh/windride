@@ -7,6 +7,7 @@ import type { AiClient } from '../adapters/ai';
 import { getAiClient } from '../adapters/registry';
 import type { RideSummary } from '../domain';
 import { buildRecapFacts, parseRecap, recapRequest, type Recap } from '../engine/rideRecap';
+import { AI_NOT_SET_UP, aiFailureReason } from './aiMessages';
 
 type Status = 'idle' | 'loading' | 'ready' | 'error';
 
@@ -33,7 +34,7 @@ export const useRecapStore = create<RecapState>((set) => ({
     const token = ++seq;
     const client = injected ?? getAiClient();
     if (!client) {
-      set({ status: 'error', error: 'AI is not set up.', recap: null, rideId });
+      set({ status: 'error', error: AI_NOT_SET_UP, recap: null, rideId });
       return;
     }
     set({ status: 'loading', error: null, recap: null, rideId });
@@ -41,9 +42,9 @@ export const useRecapStore = create<RecapState>((set) => ({
       const recap = await client.complete(recapRequest(buildRecapFacts(summary)), parseRecap);
       if (token !== seq) return; // a newer request superseded this one — drop the stale result
       set({ status: 'ready', recap, error: null, rideId });
-    } catch {
+    } catch (e) {
       if (token !== seq) return;
-      set({ status: 'error', error: 'Couldn’t write a recap. Tap to try again.', recap: null });
+      set({ status: 'error', error: aiFailureReason(e, 'write a recap'), recap: null });
     }
   },
 

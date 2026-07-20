@@ -3,14 +3,15 @@ import { RouteCard } from '../components/RouteCard';
 import { RouteMap } from '../components/RouteMap';
 import { HeatStrip } from '../components/HeatStrip';
 import { FeelsChart } from '../components/FeelsChart';
+import { CapabilityNotice } from '../components/CapabilityNotice';
 import { RideBriefing } from '../components/RideBriefing';
 import { ScenicSpots } from '../components/ScenicSpots';
 import { WinterCaution } from '../components/WinterCaution';
 import { WindLegend } from '../components/WindLegend';
 import { PrimaryButton } from '../components';
 import { useDiscoveryStore } from '../../state/discoveryStore';
-import { useKeychainStore } from '../../state/keychainStore';
 import { usePlanStore } from '../../state/planStore';
+import { useCapability } from '../../state/useCapabilities';
 import { useResultsStore } from '../../state/resultsStore';
 import { useSavedRoutesStore } from '../../state/savedRoutesStore';
 import { candidateToGpxTrack } from '../routeGeo';
@@ -30,8 +31,8 @@ export function ResultsScreen() {
   const winter = useResultsStore((s) => s.winter);
   const conditions = usePlanStore((s) => s.conditions);
   const departureHour = usePlanStore((s) => s.inputs.departureHour);
-  // AI briefing is opt-in: shown only when the user has picked a provider AND set its key (DEC-043).
-  const aiReady = useKeychainStore((s) => Boolean(s.aiProvider && s.keys.ai));
+  // AI briefing is opt-in: shown only when AI is set up (one source of truth, WR-050).
+  const aiReady = useCapability('ai').ready;
   const discoveryNotes = useDiscoveryStore((s) => s.notes);
 
   if (ranked.length === 0) {
@@ -135,6 +136,7 @@ export function ResultsScreen() {
           />
         </details>
 
+        {!aiReady ? <CapabilityNotice capability="ai" /> : null}
         {aiReady ? (
           <details className="wr-results__detail">
             <summary>Today’s ride briefing (AI)</summary>

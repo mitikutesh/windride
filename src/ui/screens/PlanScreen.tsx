@@ -1,12 +1,13 @@
 import { useEffect } from 'react';
 import { ConditionsStrip, DistanceSlider, PrimaryButton, Segmented, Toggle } from '../components';
+import { CapabilityNotice } from '../components/CapabilityNotice';
 import { DiscoverRoutesButton } from '../components/DiscoverRoutesButton';
 import { DownwindResults } from '../components/DownwindResults';
 import { MissingKeyBanner } from '../components/MissingKeyBanner';
 import { NlPlanBox } from '../components/NlPlanBox';
 import { suggestWinter } from '../../engine/winter';
-import { useKeychainStore } from '../../state/keychainStore';
 import { DEFAULT_START, usePlanStore } from '../../state/planStore';
+import { useCapability } from '../../state/useCapabilities';
 import { useNoveltyStore } from '../../state/noveltyStore';
 import { useSavedRoutesStore } from '../../state/savedRoutesStore';
 import { downloadText } from '../download';
@@ -23,8 +24,8 @@ export function PlanScreen() {
   const setInput = usePlanStore((s) => s.setInput);
   const generate = usePlanStore((s) => s.generate);
   const downwind = usePlanStore((s) => s.downwind);
-  // NL planning is opt-in: shown only when the user has picked an AI provider AND set its key.
-  const aiReady = useKeychainStore((s) => Boolean(s.aiProvider && s.keys.ai));
+  // NL planning is opt-in: shown only when AI is set up (one source of truth, WR-050).
+  const aiReady = useCapability('ai').ready;
   const savedRoutes = useSavedRoutesStore((s) => s.routes);
   const removeRoute = useSavedRoutesStore((s) => s.remove);
 
@@ -64,7 +65,7 @@ export function PlanScreen() {
       <MissingKeyBanner />
       <ConditionsStrip conditions={conditions} />
 
-      {aiReady ? <NlPlanBox /> : null}
+      {aiReady ? <NlPlanBox /> : <CapabilityNotice capability="ai" />}
 
       <DistanceSlider value={inputs.distanceKm} onChange={(km) => setInput({ distanceKm: km })} />
 

@@ -73,7 +73,7 @@ parallel with Epic 5.
 | WR-047 | AI route discovery → validate → wind-scored | 044 | L | DONE |
 | WR-048 | Scenic photos + POI highlights (Wikimedia/Mapillary) | 047 | M | DONE |
 | WR-049 | Post-ride AI summary (plan vs ride) | 044 | S | DONE |
-| WR-050 | Capability readiness + honest missing/failing messaging (AI, Strava, keys) | 044 | M | TODO |
+| WR-050 | Capability readiness + honest missing/failing messaging (AI, Strava, keys) | 044 | M | DONE |
 
 ## Sequencing rules
 Epics close in order; inside an epic, dependency order wins over ID order if they conflict.

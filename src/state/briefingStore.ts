@@ -6,6 +6,7 @@
 import { create } from 'zustand';
 import type { AiClient } from '../adapters/ai';
 import { getAiClient } from '../adapters/registry';
+import { AI_NOT_SET_UP, aiFailureReason } from './aiMessages';
 import {
   briefingRequest,
   buildBriefingFacts,
@@ -50,8 +51,7 @@ export const useBriefingStore = create<BriefingState>((set, get) => ({
     const client = opts?.client ?? getAiClient();
     const id = scored.candidate.id;
     if (!client) {
-      // AI isn't set up — the UI already hides the entry point, so this is a defensive no-op.
-      set({ status: 'error', error: 'AI is not set up.', briefing: null, routeId: id });
+      set({ status: 'error', error: AI_NOT_SET_UP, briefing: null, routeId: id });
       return;
     }
     set({ status: 'loading', error: null, briefing: null, routeId: id });
@@ -61,12 +61,12 @@ export const useBriefingStore = create<BriefingState>((set, get) => ({
       const briefing = await client.complete(briefingRequest(facts), parseBriefing);
       if (get().routeId !== id) return; // user switched routes mid-flight — drop this stale result
       set({ status: 'ready', briefing, error: null });
-    } catch {
-      // Any failure (network/quota/malformed) → a plain retry state, never a raw error (DEC-043).
+    } catch (e) {
+      // Any failure → honest, cause-naming copy (never a bare "failed"); DEC-043 (WR-050).
       if (get().routeId !== id) return;
       set({
         status: 'error',
-        error: 'Couldn’t get a briefing. Tap the button to try again.',
+        error: aiFailureReason(e, 'get a briefing'),
         briefing: null,
       });
     }

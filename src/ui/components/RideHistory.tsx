@@ -20,6 +20,7 @@ export function RideHistory() {
   const remove = useRidesStore((s) => s.remove);
   const strava = useRidesStore((s) => s.strava);
   const stravaError = useRidesStore((s) => s.stravaError);
+  const stravaErrorCode = useRidesStore((s) => s.stravaErrorCode);
   const sendToStrava = useRidesStore((s) => s.sendToStrava);
 
   useEffect(() => {
@@ -72,6 +73,17 @@ export function RideHistory() {
                     : (STRAVA_LABEL[strava[r.id] ?? ''] ?? 'Send to Strava')}
                 </button>
               )}
+              {/* Kit fixes auth/scope (re-authorise, activity:write) + the no-creds case; a
+                  rate/network error is retry-only, so no misleading "fix in Kit" there (WR-050). */}
+              {strava[r.id] === 'no-creds' || stravaErrorCode[r.id] === 'auth' ? (
+                <a
+                  className="wr-navlink"
+                  href="#/kit"
+                  title="Re-authorise Strava with activity:write, then paste the new refresh token"
+                >
+                  Fix in Kit → Strava
+                </a>
+              ) : null}
               <button type="button" className="wr-navlink" onClick={() => void remove(r.id)}>
                 Delete
               </button>
