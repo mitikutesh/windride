@@ -866,3 +866,12 @@
   font-size: 0.8rem;
   color: var(--sky);
 }
+
+/* AI route discovery (WR-047). */
+.wr-discover {
+  margin-top: var(--space-2);
+}
+.wr-results__discovery {
+  color: var(--sky);
+  font-size: 0.9rem;
+}

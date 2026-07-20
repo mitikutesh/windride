@@ -7,6 +7,7 @@ import { RideBriefing } from '../components/RideBriefing';
 import { WinterCaution } from '../components/WinterCaution';
 import { WindLegend } from '../components/WindLegend';
 import { PrimaryButton } from '../components';
+import { useDiscoveryStore } from '../../state/discoveryStore';
 import { useKeychainStore } from '../../state/keychainStore';
 import { usePlanStore } from '../../state/planStore';
 import { useResultsStore } from '../../state/resultsStore';
@@ -30,6 +31,7 @@ export function ResultsScreen() {
   const departureHour = usePlanStore((s) => s.inputs.departureHour);
   // AI briefing is opt-in: shown only when the user has picked a provider AND set its key (DEC-043).
   const aiReady = useKeychainStore((s) => Boolean(s.aiProvider && s.keys.ai));
+  const discoveryNotes = useDiscoveryStore((s) => s.notes);
 
   if (ranked.length === 0) {
     return (
@@ -87,6 +89,9 @@ export function ResultsScreen() {
           <p className="wr-muted">No shelter data here — wind shown without forest sheltering.</p>
         ) : null}
         {startMessage ? <p className="wr-results__when">{startMessage}</p> : null}
+        {discoveryNotes[selected.candidate.id] ? (
+          <p className="wr-results__discovery">✨ {discoveryNotes[selected.candidate.id]}</p>
+        ) : null}
         {selectedRow && selectedRow.cells.length > 0 ? (
           <HeatStrip
             cells={selectedRow.cells}

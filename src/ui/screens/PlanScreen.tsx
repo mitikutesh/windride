@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { ConditionsStrip, DistanceSlider, PrimaryButton, Segmented, Toggle } from '../components';
+import { DiscoverRoutesButton } from '../components/DiscoverRoutesButton';
 import { DownwindResults } from '../components/DownwindResults';
 import { MissingKeyBanner } from '../components/MissingKeyBanner';
 import { NlPlanBox } from '../components/NlPlanBox';
@@ -172,6 +173,8 @@ export function PlanScreen() {
             ? 'Find downwind rides'
             : "Find today's route"}
       </PrimaryButton>
+
+      {aiReady && inputs.routeType !== 'downwind' ? <DiscoverRoutesButton /> : null}
 
       {status === 'error' && error ? (
         <p className="wr-plan__error" role="alert">
