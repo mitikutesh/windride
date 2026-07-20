@@ -51,8 +51,34 @@ Test contract · Technical notes · Out of scope · Log.
 | WR-027 | Winter/Nordic mode | 020 | M | DONE |
 | WR-028 | Novelty score (ridden-edges geohash set) | 017 | M | DONE |
 
+## Epic 5 · Accounts & Cloud (v0.5) — "optional free account; your keys never leave the browser"
+| ID | Story | Deps | Size | Status |
+|---|---|---|---|---|
+| WR-037 | AWS static hosting + custom domain (S3/CloudFront/ACM, OIDC deploy) | — | M | TODO |
+| WR-038 | Serverless backend skeleton (CDK, Lambda Function URLs, DynamoDB) | 037 | L | TODO |
+| WR-039 | Auth: free registration + login (Cognito), progressive | 038 | L | TODO |
+| WR-040 | User profile + free-subscription entitlement | 039 | M | TODO |
+| WR-041 | Cross-device sync of non-secret data (keys never sync) | 040 | L | TODO |
+| WR-042 | GDPR: privacy policy, data export, account deletion | 040 | M | TODO |
+| WR-043 | Accounts-era UX + honest copy update | 041,042 | S | TODO |
+
+## Epic 6 · AI Copilot (v0.6) — bring-your-own key, backend-independent
+Needs only WR-044 (no backend), so it ships on the current static app and may run in
+parallel with Epic 5.
+| ID | Story | Deps | Size | Status |
+|---|---|---|---|---|
+| WR-044 | AI adapter + Kit provider selector + 'ai' key wiring (per-user provider, validated) | — | M | TODO |
+| WR-045 | AI ride briefing (clothing, fuel, safety) | 044 | M | TODO |
+| WR-046 | Natural-language planning (text → Plan inputs) | 044 | M | TODO |
+| WR-047 | AI route discovery → validate → wind-scored | 044 | L | TODO |
+| WR-048 | Scenic photos + POI highlights (Wikimedia/Mapillary) | 047 | M | TODO |
+| WR-049 | Post-ride AI summary (plan vs ride) | 044 | S | TODO |
+| WR-050 | Capability readiness + honest missing/failing messaging (AI, Strava, keys) | 044 | M | TODO |
+
 ## Sequencing rules
 Epics close in order; inside an epic, dependency order wins over ID order if they conflict.
+Exception: Epic 6 is backend-independent (needs only WR-044) and may proceed in parallel
+with Epic 5 (DEC-043).
 WR-012 (replay harness) is deliberately BEFORE all GPS work — navigation is developed at the
 desk, validated on the bike. New stories: next WR number, same template, add a row here.
 
