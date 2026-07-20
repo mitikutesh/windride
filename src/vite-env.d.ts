@@ -13,6 +13,8 @@ interface ImportMetaEnv {
   readonly VITE_COGNITO_REGION?: string;
   /** Cognito public web-client id — PUBLIC config (WR-039), not a secret. Unset ⇒ accounts off. */
   readonly VITE_COGNITO_CLIENT_ID?: string;
+  /** Backend API base URL (the Lambda Function URL) — PUBLIC config (WR-040). Unset ⇒ no backend. */
+  readonly VITE_API_URL?: string;
 }
 
 interface ImportMeta {

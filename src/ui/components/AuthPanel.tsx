@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuthStore } from '../../state/authStore';
+import { useProfileStore } from '../../state/profileStore';
 import { PrimaryButton } from './PrimaryButton';
 
 /**
@@ -21,11 +22,20 @@ export function AuthPanel() {
   const confirmReset = useAuthStore((s) => s.confirmReset);
   const signOut = useAuthStore((s) => s.signOut);
 
+  const profile = useProfileStore((s) => s.profile);
+  const apiConfigured = useProfileStore((s) => s.configured);
+  const loadProfile = useProfileStore((s) => s.load);
+
   const [mode, setMode] = useState<'signin' | 'register'>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [code, setCode] = useState('');
   const busy = status === 'authenticating';
+
+  // On sign-in, fetch the profile/entitlement from the backend (only when a backend is configured).
+  useEffect(() => {
+    if (status === 'authenticated' && apiConfigured) void loadProfile();
+  }, [status, apiConfigured, loadProfile]);
 
   const err = error ? (
     <p className="wr-muted" role="alert">
@@ -48,6 +58,12 @@ export function AuthPanel() {
         <p>
           Signed in as <strong>{session.email}</strong>.
         </p>
+        {profile ? (
+          <p className="wr-muted">
+            Plan: <strong>{profile.entitlement}</strong> — cross-device sync is available on this
+            account. Your API keys stay in this browser and are never synced.
+          </p>
+        ) : null}
         <button type="button" className="wr-btn-secondary" onClick={signOut}>
           Sign out
         </button>

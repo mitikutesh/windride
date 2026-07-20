@@ -8,6 +8,7 @@ function synth() {
   const stack = new BackendStack(app, 'TestBackend', {
     env: { account: '111111111111', region: 'eu-north-1' },
     allowedOrigins: ['https://windride.example.com'],
+    cognito: { userPoolId: 'eu-north-1_test', clientId: 'client1', region: 'eu-north-1' },
   });
   return Template.fromStack(stack);
 }
@@ -29,7 +30,12 @@ describe('BackendStack (WR-038)', () => {
 
   it('runs a Node 22 Lambda behind a public Function URL (no API Gateway)', () => {
     const t = synth();
-    t.hasResourceProperties('AWS::Lambda::Function', { Runtime: 'nodejs22.x' });
+    t.hasResourceProperties('AWS::Lambda::Function', {
+      Runtime: 'nodejs22.x',
+      Environment: Match.objectLike({
+        Variables: Match.objectLike({ COGNITO_USER_POOL_ID: 'eu-north-1_test' }),
+      }),
+    });
     t.resourceCountIs('AWS::Lambda::Url', 1);
     t.hasResourceProperties('AWS::Lambda::Url', {
       AuthType: 'NONE',

@@ -9,6 +9,8 @@ export interface BackendStackProps extends StackProps {
   allowedOrigins?: string[];
   /** Build version surfaced by GET /health. */
   buildVersion?: string;
+  /** Cognito pool config so the Lambda can verify JWTs on authed routes (WR-040). */
+  cognito?: { userPoolId: string; clientId: string; region: string };
 }
 
 /**
@@ -44,6 +46,10 @@ export class BackendStack extends Stack {
       environment: {
         TABLE_NAME: this.table.tableName,
         BUILD_VERSION: props.buildVersion ?? 'dev',
+        // JWT verification config (WR-040) — public identifiers, not secrets.
+        COGNITO_USER_POOL_ID: props.cognito?.userPoolId ?? '',
+        COGNITO_CLIENT_ID: props.cognito?.clientId ?? '',
+        COGNITO_REGION: props.cognito?.region ?? '',
       },
     });
     // Least privilege: only this table, only read/write (no admin, no wildcard resource).

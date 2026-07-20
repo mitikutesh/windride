@@ -22,7 +22,7 @@ const hosting = new HostingStack(app, 'WindRideHosting', {
   certificateArn: app.node.tryGetContext('certificateArn'),
 });
 
-new AuthStack(app, 'WindRideAuth', { env });
+const auth = new AuthStack(app, 'WindRideAuth', { env });
 
 new BackendStack(app, 'WindRideBackend', {
   env,
@@ -33,4 +33,9 @@ new BackendStack(app, 'WindRideBackend', {
     `https://${hosting.distributionDomainName}`,
   ],
   buildVersion: app.node.tryGetContext('buildVersion'),
+  cognito: {
+    userPoolId: auth.userPool.userPoolId,
+    clientId: auth.userPoolClient.userPoolClientId,
+    region: env.region,
+  },
 });
