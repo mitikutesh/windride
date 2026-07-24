@@ -79,4 +79,76 @@ describe('HostingStack (WR-037)', () => {
       DistributionConfig: Match.objectLike({ Aliases: Match.absent() }),
     });
   });
+
+  // --- Custom domain DNS + viewer hardening (DEC-053) ---
+
+  const DOMAIN = 'windride.example.com';
+  const CERT = 'arn:aws:acm:us-east-1:111111111111:certificate/abc';
+  const DNS = { hostedZoneId: 'Z0123456789ABCDEFGHIJ', hostedZoneName: 'example.com' };
+
+  it('creates A + AAAA alias records to the distribution when dns is configured', () => {
+    const t = synth({ domainName: DOMAIN, certificateArn: CERT, dns: DNS });
+    for (const type of ['A', 'AAAA']) {
+      t.hasResourceProperties('AWS::Route53::RecordSet', {
+        Type: type,
+        Name: `${DOMAIN}.`,
+        HostedZoneId: DNS.hostedZoneId,
+        // The GetAtt proves the alias points at THIS distribution, not some hardcoded name.
+        AliasTarget: Match.objectLike({
+          DNSName: { 'Fn::GetAtt': [Match.stringLikeRegexp('^Cdn'), 'DomainName'] },
+        }),
+      });
+    }
+    // CDK resolves the CloudFront alias zone via a partition map; the aws partition must be
+    // Z2FDTNDATAQYW2 (CloudFront's fixed alias hosted zone — anything else never resolves).
+    t.hasMapping('AWSCloudFrontPartitionHostedZoneIdMap', { aws: { zoneId: 'Z2FDTNDATAQYW2' } });
+    t.resourceCountIs('AWS::Route53::RecordSet', 2);
+    // No dns prop => no records (the legacy manual-DNS path).
+    synth({ domainName: DOMAIN, certificateArn: CERT }).resourceCountIs(
+      'AWS::Route53::RecordSet',
+      0,
+    );
+  });
+
+  it('fails fast on dns without a domain, or a domain outside the zone', () => {
+    expect(() => synth({ dns: DNS })).toThrow(/dns requires domainName/);
+    expect(() =>
+      synth({ domainName: 'windride.other.com', certificateArn: CERT, dns: DNS }),
+    ).toThrow(/not inside hosted zone/);
+  });
+
+  it('pins TLSv1.2_2021 when a custom certificate is attached', () => {
+    synth({ domainName: DOMAIN, certificateArn: CERT }).hasResourceProperties(
+      'AWS::CloudFront::Distribution',
+      {
+        DistributionConfig: Match.objectLike({
+          ViewerCertificate: Match.objectLike({
+            AcmCertificateArn: CERT,
+            MinimumProtocolVersion: 'TLSv1.2_2021',
+            SslSupportMethod: 'sni-only',
+          }),
+        }),
+      },
+    );
+  });
+
+  it('attaches the managed security-headers policy (HSTS et al.)', () => {
+    synth().hasResourceProperties('AWS::CloudFront::Distribution', {
+      DistributionConfig: Match.objectLike({
+        DefaultCacheBehavior: Match.objectLike({
+          ResponseHeadersPolicyId: Match.anyValue(),
+        }),
+      }),
+    });
+  });
+
+  it('keeps the distribution logical id stable across domain variants (in-place update, never a replacement)', () => {
+    // Replacement would mint a new *.cloudfront.net domain, orphaning the CI vars
+    // (CLOUDFRONT_DISTRIBUTION_ID) and production DNS — the worst realistic failure here.
+    const idOf = (t: Template) => Object.keys(t.findResources('AWS::CloudFront::Distribution'))[0];
+    const plain = idOf(synth());
+    const withDomain = idOf(synth({ domainName: DOMAIN, certificateArn: CERT, dns: DNS }));
+    expect(plain).toBeTruthy();
+    expect(withDomain).toBe(plain);
+  });
 });

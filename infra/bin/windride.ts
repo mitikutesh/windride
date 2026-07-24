@@ -1,12 +1,15 @@
 #!/usr/bin/env node
-import { App } from 'aws-cdk-lib';
+import { Annotations, App } from 'aws-cdk-lib';
 import { AuthStack } from '../lib/auth-stack';
 import { BackendStack } from '../lib/backend-stack';
+import { CertStack } from '../lib/cert-stack';
+import { resolveDomainConfig } from '../lib/domain-config';
 import { HostingStack } from '../lib/hosting-stack';
 
-// Config comes from CDK context (‑c key=value) or env — never hard-coded secrets. Region defaults
-// to eu-north-1 (Stockholm) for EU data residency; CloudFront is global and the ACM cert for a
-// custom domain must live in us-east-1 (pass its ARN via -c certificateArn=...).
+// Config comes from CDK context (‑c key=value or cdk.json) — never hard-coded secrets. Region
+// defaults to eu-north-1 (Stockholm) for EU data residency; CloudFront is global and the ACM cert
+// for a custom domain must live in us-east-1, so it gets its own stack there (DEC-053; see
+// README "Custom domain" for the two-phase flow).
 const app = new App();
 
 const env = {
@@ -16,10 +19,26 @@ const env = {
 
 const domainName: string | undefined = app.node.tryGetContext('domainName');
 
-const hosting = new HostingStack(app, 'WindRideHosting', {
-  env,
+const domain = resolveDomainConfig({
   domainName,
   certificateArn: app.node.tryGetContext('certificateArn'),
+  hostedZoneId: app.node.tryGetContext('hostedZoneId'),
+  hostedZoneName: app.node.tryGetContext('hostedZoneName'),
+});
+
+if (domain.certStack) {
+  const cert = new CertStack(app, 'WindRideCert', {
+    env: { account: env.account, region: 'us-east-1' }, // CloudFront-mandated cert region
+    ...domain.certStack,
+  });
+  if (domain.warning) {
+    Annotations.of(cert).addWarningV2('windride:domain-pending', domain.warning);
+  }
+}
+
+const hosting = new HostingStack(app, 'WindRideHosting', {
+  env,
+  ...domain.hosting,
 });
 
 const auth = new AuthStack(app, 'WindRideAuth', { env });
