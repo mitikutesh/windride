@@ -14,10 +14,9 @@ type GeoError = (err: GeolocationPositionError) => void;
 
 function stubGeolocation(impl: (ok: GeoSuccess, fail: GeoError) => void) {
   const getCurrentPosition = vi.fn(impl);
-  Object.defineProperty(navigator, 'geolocation', {
-    value: { getCurrentPosition },
-    configurable: true,
-  });
+  // stubGlobal, not Object.defineProperty(navigator, …): these tests run in the plain `node`
+  // environment, and Node 20 (the CI pin) has no global `navigator` to define properties on.
+  vi.stubGlobal('navigator', { geolocation: { getCurrentPosition } });
   return getCurrentPosition;
 }
 
