@@ -42,9 +42,14 @@ const median = (xs: number[]): number => {
 const formatTurnDist = (inM: number): string =>
   inM < 1000 ? `${Math.max(0, Math.round(inM / 10) * 10)} m` : `${metresToKm(inM, 1)} km`;
 
-/** Wall-clock arrival from the speed-model ETA (etaS comes from the model, never distance/speed). */
+/** Wall-clock arrival from the speed-model ETA (etaS comes from the model, never distance/speed).
+ *  Forced 24-hour h:mm — the UI units convention, and "03:24 PM" overflows the glance cell. */
 const arrivalClock = (etaS: number): string =>
-  new Date(Date.now() + etaS * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  new Date(Date.now() + etaS * 1000).toLocaleTimeString([], {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  });
 
 /** Big saddle-readable arrow for the next-turn card, picked from the instruction text. */
 function TurnGlyph({ instruction }: { instruction: string }) {
