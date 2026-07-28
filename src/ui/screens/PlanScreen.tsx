@@ -189,15 +189,17 @@ export function PlanScreen() {
         ) : null}
       </details>
 
-      <PrimaryButton onClick={() => void generate()} disabled={busy}>
-        {status === 'loading'
-          ? progress || 'Working…'
-          : inputs.routeType === 'downwind'
-            ? 'Find downwind rides'
-            : "Find today's route"}
-      </PrimaryButton>
-
-      {aiReady && inputs.routeType !== 'downwind' ? <DiscoverRoutesButton /> : null}
+      {/* The two ways to get a route are peers — equal size, equal visibility (DEC-055). */}
+      <div className="wr-plan__actions">
+        <PrimaryButton onClick={() => void generate()} disabled={busy}>
+          {status === 'loading'
+            ? progress || 'Working…'
+            : inputs.routeType === 'downwind'
+              ? 'Find downwind rides'
+              : "Find today's route"}
+        </PrimaryButton>
+        {aiReady && inputs.routeType !== 'downwind' ? <DiscoverRoutesButton /> : null}
+      </div>
 
       {status === 'error' && error ? (
         <p className="wr-plan__error" role="alert">

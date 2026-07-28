@@ -1,6 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { deleteRide, getRecordingRide, type RecordedRide } from '../../data/db';
-import { armAudio, type CueMode } from '../../nav/announcer';
+import { armAudio, type Announcer, type CueMode } from '../../nav/announcer';
 import type { Fix } from '../../nav/fixSource';
 import { GeolocationSource } from '../../nav/locationService';
 import { CompassHeadingSource } from '../../nav/compass';
@@ -29,7 +29,6 @@ import { WindHud } from '../components/WindHud';
 import { WinterCaution } from '../components/WinterCaution';
 import { downloadText } from '../download';
 import { routeToRibbon } from '../routeGeo';
-import { windColor } from '../windColors';
 import { useWakeLock } from '../useWakeLock';
 
 const median = (xs: number[]): number => {
@@ -38,6 +37,41 @@ const median = (xs: number[]): number => {
   const m = Math.floor(s.length / 2);
   return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
 };
+
+/** Turn distances read like a bike computer: metres under 1 km, km above (UI-edge conversion). */
+const formatTurnDist = (inM: number): string =>
+  inM < 1000 ? `${Math.max(0, Math.round(inM / 10) * 10)} m` : `${metresToKm(inM, 1)} km`;
+
+/** Wall-clock arrival from the speed-model ETA (etaS comes from the model, never distance/speed). */
+const arrivalClock = (etaS: number): string =>
+  new Date(Date.now() + etaS * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+/** Big saddle-readable arrow for the next-turn card, picked from the instruction text. */
+function TurnGlyph({ instruction }: { instruction: string }) {
+  const s = instruction.toLowerCase();
+  const paths = s.includes('u-turn')
+    ? ['M8 19 V11 a4 4 0 0 1 8 0 v7', 'M13 14 L16 18 L19 14']
+    : s.includes('left')
+      ? ['M17 19 V13 a3 3 0 0 0 -3 -3 H8', 'M11 6 L7 10 L11 14']
+      : s.includes('right')
+        ? ['M7 19 V13 a3 3 0 0 1 3 -3 h6', 'M13 6 L17 10 L13 14']
+        : ['M12 19 V7', 'M7 11 L12 6 L17 11'];
+  return (
+    <svg viewBox="0 0 24 24" width={26} height={26} aria-hidden="true">
+      {paths.map((p) => (
+        <path
+          key={p}
+          d={p}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.6"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      ))}
+    </svg>
+  );
+}
 
 const DevReplayPanel = lazy(() => import('../components/DevReplayPanel'));
 
@@ -73,6 +107,9 @@ export function RideScreen() {
   const recorderRef = useRef<RideRecorder>(nullRecorder);
   const sourceRef = useRef<GeolocationSource | null>(null);
   const compassRef = useRef<CompassHeadingSource | null>(null);
+  // The live announcer, kept so the on-map sound button can mute/unmute cues mid-ride.
+  const announcerRef = useRef<Announcer | null>(null);
+  const [muted, setMuted] = useState(false);
   // Freshest blended heading for the map arrow (task #32) — refreshed per fix and, between fixes,
   // by compass events so the arrow swings when a stopped rider turns the phone.
   const [mapHeading, setMapHeading] = useState<number | null>(null);
@@ -278,9 +315,23 @@ export function RideScreen() {
     });
   }, []);
 
+  // Mid-ride mute (DEC-055 map sound button). Unmuting a ride that STARTED silent falls back to
+  // voice — the button exists to hear cues. setMode is the announcer's public switch.
+  const toggleMute = useCallback(() => {
+    const announcer = announcerRef.current;
+    if (!announcer) return;
+    setMuted((m) => {
+      const next = !m;
+      announcer.setMode(next ? 'silent' : cueMode === 'silent' ? 'voice' : cueMode);
+      return next;
+    });
+  }, [cueMode]);
+
   const start = useCallback(() => {
     if (!scored) return;
     const announcer = armAudio(cueMode); // unlock audio on this user gesture
+    announcerRef.current = announcer;
+    setMuted(cueMode === 'silent');
     controllerRef.current = new RideController({ analysis: scored.analysis, announcer });
     rerouterRef.current = makeRerouter();
     refAnalysisRef.current = scored.analysis; // original forecast wind, for reroute re-analysis
@@ -378,6 +429,8 @@ export function RideScreen() {
     startCompass(); // request the compass now, while still in the Resume gesture (iOS requirement)
     void loadRidePoints(unfinished.id).then((resumePoints) => {
       const announcer = armAudio(cueMode);
+      announcerRef.current = announcer;
+      setMuted(cueMode === 'silent');
       controllerRef.current = new RideController({ analysis: scored.analysis, announcer });
       rerouterRef.current = makeRerouter();
       refAnalysisRef.current = scored.analysis;
@@ -459,19 +512,19 @@ export function RideScreen() {
         onFollowChange={setFollowing}
       />
       {rideState ? (
-        <div className="wr-ride__zoom">
+        <div className="wr-ride__mapbtns">
           {following ? (
             <>
-              <button type="button" aria-label="Zoom out" onClick={zoomOut}>
-                −
-              </button>
-              <button type="button" aria-label="Zoom in" onClick={zoomIn}>
+              <button type="button" className="wr-mapbtn" aria-label="Zoom in" onClick={zoomIn}>
                 +
+              </button>
+              <button type="button" className="wr-mapbtn" aria-label="Zoom out" onClick={zoomOut}>
+                −
               </button>
               {manualZoomM !== null ? (
                 <button
                   type="button"
-                  className="wr-ride__zoom-auto"
+                  className="wr-mapbtn wr-mapbtn--text"
                   aria-label="Auto zoom"
                   onClick={() => setManualZoomM(null)}
                 >
@@ -483,13 +536,51 @@ export function RideScreen() {
             // Free-look: pinch/drag control the view; this snaps back to following the rider.
             <button
               type="button"
-              className="wr-ride__zoom-auto wr-ride__recenter"
+              className="wr-mapbtn"
               aria-label="Recenter map on rider"
               onClick={() => setFollowing(true)}
             >
-              Recenter
+              <svg viewBox="0 0 24 24" width={22} height={22} aria-hidden="true">
+                <circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" strokeWidth="2" />
+                <circle cx="12" cy="12" r="1.6" fill="currentColor" />
+                <path
+                  d="M12 2 v4 M12 18 v4 M2 12 h4 M18 12 h4"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                />
+              </svg>
             </button>
           )}
+          {riding ? (
+            <button
+              type="button"
+              className="wr-mapbtn"
+              aria-label={muted ? 'Unmute cues' : 'Mute cues'}
+              aria-pressed={muted}
+              onClick={toggleMute}
+            >
+              <svg viewBox="0 0 24 24" width={22} height={22} aria-hidden="true">
+                <path d="M4 9 v6 h4 l5 4 V5 L8 9 Z" fill="currentColor" />
+                {muted ? (
+                  <path
+                    d="M16 9 l5 6 M21 9 l-5 6"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                  />
+                ) : (
+                  <path
+                    d="M16 9 a4 4 0 0 1 0 6"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                  />
+                )}
+              </svg>
+            </button>
+          ) : null}
         </div>
       ) : null}
       {rideState?.offRoute === 'alert' && rideState.toTrack ? (
@@ -580,19 +671,44 @@ export function RideScreen() {
     </div>
   );
 
-  // ---- Live full-screen ride: map fills the screen, a minimal HUD on top, the rest behind Details.
+  // ---- Live full-screen ride (DEC-055, per the nav reference): the map owns the screen. A
+  // next-turn card floats at the top, the wind chip rides the map edge, and a bottom panel holds
+  // the honest numbers (speed / remaining / time left / arrival) with the rest behind Details.
   if (riding) {
+    const nextTurn = rideState?.nextTurn ?? null;
     return (
       <div className="wr-ride wr-ride--live">
         {mapEl}
 
-        <div className="wr-ride__hud">
-          <div className="wr-ride__hud-speed">
-            <span className="tabular">{rideState ? Math.round(rideState.speedKmh) : '—'}</span>
-            <small>km/h</small>
+        {nextTurn ? (
+          <div className="wr-ride__turncard" aria-label="Next turn">
+            <span className="wr-ride__turnicon" aria-hidden="true">
+              <TurnGlyph instruction={nextTurn.instruction} />
+            </span>
+            <div className="wr-ride__turnbody">
+              <span className="wr-ride__turn-dist tabular">{formatTurnDist(nextTurn.inM)}</span>
+              <span className="wr-ride__turn-instr">{nextTurn.instruction}</span>
+            </div>
           </div>
-          <div className="wr-ride__hud-cells">
-            <div>
+        ) : null}
+
+        {rideState?.wind ? (
+          <div className="wr-ride__windchip">
+            <WindHud
+              wind={rideState.wind}
+              headingDeg={rideState.headingDeg}
+              transition={rideState.windTransition}
+            />
+          </div>
+        ) : null}
+
+        <div className="wr-ride__panel">
+          <div className="wr-ride__glancebar" role="group" aria-label="Ride stats">
+            <div className="wr-ride__cell wr-ride__cell--speed">
+              <b className="tabular">{rideState ? Math.round(rideState.speedKmh) : '—'}</b>
+              <small>km/h</small>
+            </div>
+            <div className="wr-ride__cell">
               <b className="tabular">
                 {rideState
                   ? metresToKm(rideState.remainingM)
@@ -600,85 +716,64 @@ export function RideScreen() {
               </b>
               <small>km left</small>
             </div>
-            <div>
+            <div className="wr-ride__cell">
               <b className="tabular">{rideState ? formatDurationHM(rideState.etaS) : '—'}</b>
-              <small>ETA</small>
+              <small>time left</small>
+            </div>
+            <div className="wr-ride__cell">
+              <b className="tabular">{rideState ? arrivalClock(rideState.etaS) : '—'}</b>
+              <small>arrival</small>
             </div>
           </div>
-          {rideState?.wind ? (
-            <div className="wr-ride__hud-wind" aria-label={`Wind: ${rideState.wind.kind}`}>
-              <svg
-                viewBox="0 0 24 24"
-                width={34}
-                height={34}
-                aria-hidden="true"
-                style={{
-                  transform: `rotate(${rideState.wind.windToDeg - (rideState.headingDeg ?? 0)}deg)`,
-                }}
-              >
-                <path d="M12 2 L18 20 L12 16 L6 20 Z" fill={windColor(rideState.wind.kind)} />
-              </svg>
+
+          {detailsOpen ? (
+            <div className="wr-ride__sheet">
+              <div className="wr-ride__glance">
+                <StatCell
+                  label="km ridden"
+                  value={rideState ? metresToKm(rideState.progressM) : 0}
+                />
+                <StatCell label="route km" value={metresToKm(scored.candidate.distanceM)} />
+              </div>
+              {ribbonEl}
+              <label className="wr-ride__saver">
+                <input
+                  type="checkbox"
+                  checked={batterySaver}
+                  onChange={(e) => setBatterySaver(e.target.checked)}
+                />
+                Battery saver
+              </label>
+              {import.meta.env.DEV ? (
+                <Suspense fallback={null}>
+                  <DevReplayPanel onFix={handleFix} />
+                </Suspense>
+              ) : null}
             </div>
           ) : null}
-        </div>
 
-        {rideState?.nextTurn ? (
-          <div className="wr-ride__turn wr-ride__turn--overlay" aria-label="Next turn">
-            <span className="wr-ride__turn-dist tabular">
-              {metresToKm(rideState.nextTurn.inM, rideState.nextTurn.inM < 1000 ? 2 : 1)} km
-            </span>
-            <span className="wr-ride__turn-instr">{rideState.nextTurn.instruction}</span>
-          </div>
-        ) : null}
-
-        {detailsOpen ? (
-          <div className="wr-ride__sheet">
-            <div className="wr-ride__glance">
-              <StatCell label="km/h" value={rideState ? Math.round(rideState.speedKmh) : '—'} />
-              <StatCell label="km ridden" value={rideState ? metresToKm(rideState.progressM) : 0} />
-              <StatCell label="ETA" value={rideState ? formatDurationHM(rideState.etaS) : '—'} />
-            </div>
-            <WindHud
-              wind={rideState?.wind ?? null}
-              headingDeg={rideState?.headingDeg ?? null}
-              transition={rideState?.windTransition ?? null}
-            />
-            {ribbonEl}
-            <label className="wr-ride__saver">
-              <input
-                type="checkbox"
-                checked={batterySaver}
-                onChange={(e) => setBatterySaver(e.target.checked)}
-              />
-              Battery saver
-            </label>
-            {import.meta.env.DEV ? (
-              <Suspense fallback={null}>
-                <DevReplayPanel onFix={handleFix} />
-              </Suspense>
-            ) : null}
-          </div>
-        ) : null}
-
-        <div className="wr-ride__livebar">
-          <button
-            type="button"
-            className="wr-btn-secondary"
-            onClick={() => setDetailsOpen((o) => !o)}
-            aria-expanded={detailsOpen}
-          >
-            {detailsOpen ? 'Hide details' : 'Details'}
-          </button>
-          {status === 'riding' ? (
-            <button type="button" className="wr-btn-secondary" onClick={pause}>
-              Pause
+          <div className="wr-ride__livebar">
+            <button
+              type="button"
+              className="wr-btn-secondary"
+              onClick={() => setDetailsOpen((o) => !o)}
+              aria-expanded={detailsOpen}
+            >
+              {detailsOpen ? 'Hide details' : 'Details'}
             </button>
-          ) : (
-            <PrimaryButton onClick={resume}>Resume</PrimaryButton>
-          )}
-          <button type="button" className="wr-btn-secondary" onClick={end}>
-            End
-          </button>
+            {status === 'riding' ? (
+              <PrimaryButton className="wr-ride__ridebtn" onClick={pause}>
+                Pause
+              </PrimaryButton>
+            ) : (
+              <PrimaryButton className="wr-ride__ridebtn" onClick={resume}>
+                Resume
+              </PrimaryButton>
+            )}
+            <button type="button" className="wr-btn-secondary" onClick={end}>
+              End
+            </button>
+          </div>
         </div>
       </div>
     );

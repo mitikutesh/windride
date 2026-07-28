@@ -8,7 +8,6 @@ import { RideBriefing } from '../components/RideBriefing';
 import { ScenicSpots } from '../components/ScenicSpots';
 import { WinterCaution } from '../components/WinterCaution';
 import { WindLegend } from '../components/WindLegend';
-import { PrimaryButton } from '../components';
 import { useDiscoveryStore } from '../../state/discoveryStore';
 import { usePlanStore } from '../../state/planStore';
 import { useCapability } from '../../state/useCapabilities';
@@ -105,12 +104,16 @@ export function ResultsScreen() {
             ariaLabel="Best departure hour for the selected route"
           />
         ) : null}
+        {/* Three first-class actions (DEC-055): riding leads, export/save share the row below
+            at the same size — no action hides as a text link. */}
         <div className="wr-results__actions">
-          <PrimaryButton onClick={exportGpx}>Export GPX</PrimaryButton>
-          <a className="wr-navlink" href="#/ride">
+          <a className="wr-btn wr-btn--ride" href="#/ride">
             Ride this route →
           </a>
-          <button type="button" className="wr-navlink" onClick={saveRoute}>
+          <button type="button" className="wr-btn wr-btn--outline" onClick={exportGpx}>
+            Export GPX
+          </button>
+          <button type="button" className="wr-btn wr-btn--outline" onClick={saveRoute}>
             Save route
           </button>
         </div>

@@ -41,29 +41,31 @@ export function RideHistory() {
       <ul className="wr-history__list">
         {rides.map((r) => (
           <li key={r.id} className="wr-history__item">
-            <div className="wr-history__meta">
+            <div className="wr-history__head">
               <span className="wr-history__name">{r.name}</span>
-              <span className="wr-muted">
-                {localYMD(new Date(r.startedAt))}
-                {r.summary
-                  ? ` · ${metresToKm(r.summary.distanceM)} km · ${formatDurationHM(r.summary.movingS)} · ${msToKmh(r.summary.avgSpeedMs)} km/h`
-                  : ''}
-              </span>
+              <span className="wr-history__date tabular">{localYMD(new Date(r.startedAt))}</span>
             </div>
+            {r.summary ? (
+              <div className="wr-history__stats tabular">
+                <span>{metresToKm(r.summary.distanceM)} km</span>
+                <span>{formatDurationHM(r.summary.movingS)}</span>
+                <span>{msToKmh(r.summary.avgSpeedMs)} km/h</span>
+              </div>
+            ) : null}
             <div className="wr-history__actions">
               <button
                 type="button"
-                className="wr-navlink"
+                className="wr-btn--mini"
                 onClick={() => void exportRide(r.id, r.name, r.summary?.distanceM ?? 0)}
               >
                 GPX
               </button>
               {r.stravaActivityId ? (
-                <span className="wr-muted">On Strava ✓</span>
+                <span className="wr-muted wr-history__onstrava">On Strava ✓</span>
               ) : (
                 <button
                   type="button"
-                  className="wr-navlink"
+                  className="wr-btn--mini"
                   disabled={strava[r.id] === 'pending'}
                   onClick={() => void sendToStrava(r.id)}
                   title={strava[r.id] === 'error' ? stravaError[r.id] : undefined}
@@ -77,14 +79,14 @@ export function RideHistory() {
                   rate/network error is retry-only, so no misleading "fix in Kit" there (WR-050). */}
               {strava[r.id] === 'no-creds' || stravaErrorCode[r.id] === 'auth' ? (
                 <a
-                  className="wr-navlink"
+                  className="wr-btn--mini"
                   href="#/kit"
                   title="Re-authorise Strava with activity:write, then paste the new refresh token"
                 >
                   Fix in Kit → Strava
                 </a>
               ) : null}
-              <button type="button" className="wr-navlink" onClick={() => void remove(r.id)}>
+              <button type="button" className="wr-btn--mini" onClick={() => void remove(r.id)}>
                 Delete
               </button>
             </div>
