@@ -74,3 +74,13 @@ Then run the **Deploy to AWS** workflow (manual dispatch), or uncomment its `pus
 - No secrets/keys live in this project or the workflow — the app is deployed live-but-keyless
   (DEC-036); every visitor supplies their own API keys in the browser.
 - `RemovalPolicy.RETAIN` on the site bucket: destroying the stack never deletes the bucket.
+
+## One-click console setup (no CLI needed)
+
+`infra/oneclick-hosting-oidc.template.json` is a standalone CloudFormation template — the
+synthesized `WindRideHosting` stack (S3 + CloudFront/OAC) plus the GitHub OIDC provider and the
+least-privilege `windride-github-deploy` role (trust pinned to
+`repo:mitikutesh/windride:environment:production`, matching `deploy-aws.yml`'s job environment).
+Upload it in the AWS Console → CloudFormation → Create stack (region eu-north-1), then copy the
+stack Outputs into the GitHub secret/variables listed above. If the account already has the
+GitHub OIDC provider, set the `CreateOidcProvider` parameter to `false`.

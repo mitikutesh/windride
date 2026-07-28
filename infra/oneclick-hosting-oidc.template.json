@@ -1,0 +1,353 @@
+{
+ "Resources": {
+  "SiteBucket397A1860": {
+   "Type": "AWS::S3::Bucket",
+   "Properties": {
+    "BucketEncryption": {
+     "ServerSideEncryptionConfiguration": [
+      {
+       "ServerSideEncryptionByDefault": {
+        "SSEAlgorithm": "AES256"
+       }
+      }
+     ]
+    },
+    "PublicAccessBlockConfiguration": {
+     "BlockPublicAcls": true,
+     "BlockPublicPolicy": true,
+     "IgnorePublicAcls": true,
+     "RestrictPublicBuckets": true
+    }
+   },
+   "UpdateReplacePolicy": "Retain",
+   "DeletionPolicy": "Retain",
+   "Metadata": {
+    "aws:cdk:path": "WindRideHosting/SiteBucket/Resource"
+   }
+  },
+  "SiteBucketPolicy3AC1D0F8": {
+   "Type": "AWS::S3::BucketPolicy",
+   "Properties": {
+    "Bucket": {
+     "Ref": "SiteBucket397A1860"
+    },
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": "s3:*",
+       "Condition": {
+        "Bool": {
+         "aws:SecureTransport": "false"
+        }
+       },
+       "Effect": "Deny",
+       "Principal": {
+        "AWS": "*"
+       },
+       "Resource": [
+        {
+         "Fn::GetAtt": [
+          "SiteBucket397A1860",
+          "Arn"
+         ]
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::GetAtt": [
+             "SiteBucket397A1860",
+             "Arn"
+            ]
+           },
+           "/*"
+          ]
+         ]
+        }
+       ]
+      },
+      {
+       "Action": "s3:GetObject",
+       "Condition": {
+        "StringEquals": {
+         "AWS:SourceArn": {
+          "Fn::Join": [
+           "",
+           [
+            "arn:",
+            {
+             "Ref": "AWS::Partition"
+            },
+            ":cloudfront::",
+            {
+             "Ref": "AWS::AccountId"
+            },
+            ":distribution/",
+            {
+             "Ref": "Cdn9963B1AD"
+            }
+           ]
+          ]
+         }
+        }
+       },
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "cloudfront.amazonaws.com"
+       },
+       "Resource": {
+        "Fn::Join": [
+         "",
+         [
+          {
+           "Fn::GetAtt": [
+            "SiteBucket397A1860",
+            "Arn"
+           ]
+          },
+          "/*"
+         ]
+        ]
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "WindRideHosting/SiteBucket/Policy/Resource"
+   }
+  },
+  "CdnOrigin1S3OriginAccessControl6AC0AEFC": {
+   "Type": "AWS::CloudFront::OriginAccessControl",
+   "Properties": {
+    "OriginAccessControlConfig": {
+     "Name": "WindRideHostingCdnOrigin1S3OriginAccessControl88C6D8A4",
+     "OriginAccessControlOriginType": "s3",
+     "SigningBehavior": "always",
+     "SigningProtocol": "sigv4"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "WindRideHosting/Cdn/Origin1/S3OriginAccessControl/Resource"
+   }
+  },
+  "Cdn9963B1AD": {
+   "Type": "AWS::CloudFront::Distribution",
+   "Properties": {
+    "DistributionConfig": {
+     "CustomErrorResponses": [
+      {
+       "ErrorCachingMinTTL": 0,
+       "ErrorCode": 403,
+       "ResponseCode": 200,
+       "ResponsePagePath": "/index.html"
+      },
+      {
+       "ErrorCachingMinTTL": 0,
+       "ErrorCode": 404,
+       "ResponseCode": 200,
+       "ResponsePagePath": "/index.html"
+      }
+     ],
+     "DefaultCacheBehavior": {
+      "CachePolicyId": "658327ea-f89d-4fab-a63d-7e88639e58f6",
+      "Compress": true,
+      "TargetOriginId": "WindRideHostingCdnOrigin1010B7632",
+      "ViewerProtocolPolicy": "redirect-to-https"
+     },
+     "DefaultRootObject": "index.html",
+     "Enabled": true,
+     "HttpVersion": "http2",
+     "IPV6Enabled": true,
+     "Origins": [
+      {
+       "DomainName": {
+        "Fn::GetAtt": [
+         "SiteBucket397A1860",
+         "RegionalDomainName"
+        ]
+       },
+       "Id": "WindRideHostingCdnOrigin1010B7632",
+       "OriginAccessControlId": {
+        "Fn::GetAtt": [
+         "CdnOrigin1S3OriginAccessControl6AC0AEFC",
+         "Id"
+        ]
+       },
+       "S3OriginConfig": {
+        "OriginAccessIdentity": ""
+       }
+      }
+     ],
+     "PriceClass": "PriceClass_100"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "WindRideHosting/Cdn/Resource"
+   }
+  },
+  "GitHubOidcProvider": {
+   "Type": "AWS::IAM::OIDCProvider",
+   "Condition": "MakeOidc",
+   "Properties": {
+    "Url": "https://token.actions.githubusercontent.com",
+    "ClientIdList": [
+     "sts.amazonaws.com"
+    ],
+    "ThumbprintList": [
+     "6938fd4d98bab03faadb97b34396831e3780aea1",
+     "1c58a3a8518e8759bf075b76b750d4f2df264fcd"
+    ]
+   }
+  },
+  "GitHubDeployRole": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "RoleName": "windride-github-deploy",
+    "Description": "Assumed by mitikutesh/windride main-branch GitHub Actions runs via OIDC; can only sync the site bucket and invalidate the distribution.",
+    "MaxSessionDuration": 3600,
+    "AssumeRolePolicyDocument": {
+     "Version": "2012-10-17",
+     "Statement": [
+      {
+       "Effect": "Allow",
+       "Principal": {
+        "Federated": {
+         "Fn::Sub": "arn:aws:iam::${AWS::AccountId}:oidc-provider/token.actions.githubusercontent.com"
+        }
+       },
+       "Action": "sts:AssumeRoleWithWebIdentity",
+       "Condition": {
+        "StringEquals": {
+         "token.actions.githubusercontent.com:aud": "sts.amazonaws.com",
+         "token.actions.githubusercontent.com:sub": "repo:mitikutesh/windride:environment:production"
+        }
+       }
+      }
+     ]
+    },
+    "Policies": [
+     {
+      "PolicyName": "site-deploy-least-privilege",
+      "PolicyDocument": {
+       "Version": "2012-10-17",
+       "Statement": [
+        {
+         "Sid": "ListSiteBucket",
+         "Effect": "Allow",
+         "Action": "s3:ListBucket",
+         "Resource": {
+          "Fn::GetAtt": [
+           "SiteBucket397A1860",
+           "Arn"
+          ]
+         }
+        },
+        {
+         "Sid": "WriteSiteObjects",
+         "Effect": "Allow",
+         "Action": [
+          "s3:GetObject",
+          "s3:PutObject",
+          "s3:PutObjectAcl",
+          "s3:DeleteObject"
+         ],
+         "Resource": {
+          "Fn::Sub": [
+           "${B}/*",
+           {
+            "B": {
+             "Fn::GetAtt": [
+              "SiteBucket397A1860",
+              "Arn"
+             ]
+            }
+           }
+          ]
+         }
+        },
+        {
+         "Sid": "InvalidateCdn",
+         "Effect": "Allow",
+         "Action": "cloudfront:CreateInvalidation",
+         "Resource": {
+          "Fn::Sub": "arn:aws:cloudfront::${AWS::AccountId}:distribution/${Cdn9963B1AD}"
+         }
+        }
+       ]
+      }
+     }
+    ]
+   }
+  }
+ },
+ "Outputs": {
+  "SiteBucketName": {
+   "Value": {
+    "Ref": "SiteBucket397A1860"
+   }
+  },
+  "DistributionId": {
+   "Value": {
+    "Ref": "Cdn9963B1AD"
+   }
+  },
+  "DistributionDomainName": {
+   "Value": {
+    "Fn::GetAtt": [
+     "Cdn9963B1AD",
+     "DomainName"
+    ]
+   }
+  },
+  "DeployRoleArn": {
+   "Description": "GitHub secret AWS_DEPLOY_ROLE_ARN",
+   "Value": {
+    "Fn::GetAtt": [
+     "GitHubDeployRole",
+     "Arn"
+    ]
+   }
+  },
+  "SiteUrl": {
+   "Description": "The live site",
+   "Value": {
+    "Fn::Sub": [
+     "https://${D}",
+     {
+      "D": {
+       "Fn::GetAtt": [
+        "Cdn9963B1AD",
+        "DomainName"
+       ]
+      }
+     }
+    ]
+   }
+  }
+ },
+ "Description": "WindRide one-click hosting + GitHub OIDC deploy link: private S3 site bucket, CloudFront (OAC), the GitHub Actions identity provider, and a least-privilege deploy role pinned to mitikutesh/windride@main. Generated from the CDK WindRideHosting stack (infra/) + infra/README.md role spec.",
+ "Parameters": {
+  "CreateOidcProvider": {
+   "Type": "String",
+   "Default": "true",
+   "AllowedValues": [
+    "true",
+    "false"
+   ],
+   "Description": "Set to false ONLY if this AWS account already has the token.actions.githubusercontent.com OIDC provider."
+  }
+ },
+ "Conditions": {
+  "MakeOidc": {
+   "Fn::Equals": [
+    {
+     "Ref": "CreateOidcProvider"
+    },
+    "true"
+   ]
+  }
+ }
+}
