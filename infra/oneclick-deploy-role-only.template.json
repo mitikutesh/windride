@@ -35,6 +35,8 @@
         },
         "StringLike": {
          "token.actions.githubusercontent.com:sub": [
+          "repo:mitikutesh@12127634/windride@1303753936:environment:production",
+          "repo:mitikutesh@12127634/windride@1303753936:ref:refs/heads/main",
           "repo:mitikutesh/windride:environment:production",
           "repo:mitikutesh/windride:ref:refs/heads/main"
          ]
