@@ -1,4 +1,4 @@
-/* Base component styles (WR-002). Colours come only from tokens.css — never raw hex. */
+/* Base component styles (WR-002, reskinned DEC-055). Colours come only from tokens.css — never raw hex. */
 
 /* --- PrimaryButton ------------------------------------------------------------------- */
 .wr-btn {
@@ -15,6 +15,7 @@
   font-weight: 700;
   font-size: var(--fs-body);
   cursor: pointer;
+  text-decoration: none; /* the same class styles action anchors (e.g. "Ride this route") */
   transition: transform var(--motion-fast) var(--ease);
 }
 .wr-btn:hover {
@@ -31,6 +32,41 @@
   opacity: 0.5;
   cursor: not-allowed;
   transform: none;
+}
+/* Equal-weight sibling action: same size and shape, outlined in the accent (DEC-055). */
+.wr-btn--outline {
+  background: none;
+  border: 1.5px solid var(--sky);
+  color: var(--sky);
+}
+.wr-btn--outline:disabled {
+  border-color: var(--line);
+  color: var(--text2);
+}
+/* Compact pill for dense list actions (ride history, saved routes) — still glove-sized. */
+.wr-btn--mini {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--hit-min);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+  background: var(--surface-2);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--fs-small);
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+}
+.wr-btn--mini:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.wr-btn--mini:focus-visible {
+  outline: 2px solid var(--sky);
+  outline-offset: 2px;
 }
 
 /* --- Chip ---------------------------------------------------------------------------- */
@@ -127,7 +163,7 @@
   font-size: var(--fs-label);
   color: var(--text2);
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.06em;
 }
 
 /* --- WindRibbon ---------------------------------------------------------------------- */
@@ -229,7 +265,7 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-5);
+  gap: var(--space-3) var(--space-5);
   padding: var(--space-3) var(--space-4);
   background: var(--surface);
   border: 1px solid var(--line);
@@ -247,14 +283,14 @@
   fill: var(--sky);
 }
 
-/* --- Ride screen (WR-016) ------------------------------------------------------------- */
+/* --- Ride screen (WR-016, DEC-055 layout) ---------------------------------------------- */
 .wr-ride {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-  min-height: 100dvh;
-  padding: var(--space-3);
-  background: var(--bg);
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto;
   color: var(--text);
 }
 .wr-ride--empty {
@@ -262,6 +298,7 @@
   justify-content: center;
   gap: var(--space-4);
   text-align: center;
+  padding-block: var(--space-5);
 }
 .wr-ride__map {
   position: relative;
@@ -272,10 +309,10 @@
 .wr-ridemap {
   position: relative;
   width: 100%;
-  height: 34dvh;
+  height: 38dvh;
   background: var(--surface);
 }
-/* Heading-oriented rider chevron (MapLibre marker element). */
+/* Heading-oriented rider chevron (MapLibre marker element) — accent lime with a dark halo. */
 .wr-ridemarker svg {
   display: block;
 }
@@ -285,12 +322,18 @@
   stroke-width: 1px;
 }
 
-/* ---- Full-screen live ride: map fills the viewport, HUD + controls float over it ---------- */
+/* ---- Full-screen live ride: map fills the viewport, cards float over it (DEC-055) -------- */
 .wr-ride--live {
   position: fixed;
   inset: 0;
+  z-index: 30; /* above the shell's tab bar (z 10) and More sheet (z 12) */
   height: 100dvh;
+  max-width: none;
+  margin: 0;
   padding: 0;
+  background: var(--bg);
+  /* Map-edge floats (wind chip, map buttons, reroute) sit just above the bottom panel. */
+  --ride-panel-clear: 200px;
 }
 .wr-ride__map--full {
   position: absolute;
@@ -300,132 +343,180 @@
 .wr-ride__map--full .wr-ridemap {
   height: 100%;
 }
-.wr-ride__hud {
+
+/* Next-turn card — top of the live screen (reference: lime icon disc + big distance). */
+.wr-ride__turncard {
   position: absolute;
-  inset-inline: 0;
-  top: 0;
-  z-index: 2;
+  inset-inline: var(--space-2);
+  top: max(var(--space-2), env(safe-area-inset-top));
+  z-index: 4;
   display: flex;
   align-items: center;
   gap: var(--space-3);
   padding: var(--space-3);
-  padding-top: max(var(--space-3), env(safe-area-inset-top));
-  background: linear-gradient(var(--bg), transparent);
-  pointer-events: none; /* let map gestures through the transparent gradient */
+  background: var(--overlay);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
 }
-.wr-ride__hud-speed {
+.wr-ride__turnicon {
   display: flex;
-  align-items: baseline;
-  gap: var(--space-1);
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--aurora);
+  color: var(--on-aurora);
 }
-.wr-ride__hud-speed span {
-  font-family: var(--font-display);
-  font-size: var(--fs-glance-lg);
-  font-weight: 800;
-  line-height: 1;
-}
-.wr-ride__hud-speed small,
-.wr-ride__hud-cells small {
-  color: var(--text2);
-  font-size: var(--fs-small);
-}
-.wr-ride__hud-cells {
-  display: flex;
-  gap: var(--space-4);
-  margin-inline-start: auto;
-}
-.wr-ride__hud-cells > div {
+.wr-ride__turnbody {
   display: flex;
   flex-direction: column;
-  align-items: flex-end;
+  min-width: 0;
 }
-.wr-ride__hud-cells b {
+.wr-ride__turn-dist {
   font-family: var(--font-display);
-  font-size: var(--fs-glance);
+  font-size: var(--fs-display);
   font-weight: 800;
+  line-height: 1.1;
 }
-.wr-ride__turn--overlay {
+.wr-ride__turn-instr {
+  font-size: var(--fs-body);
+  font-weight: 600;
+  color: var(--text2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Wind chip — the signature cue, floating on the map edge above the panel. */
+.wr-ride__windchip {
   position: absolute;
-  inset-inline: var(--space-3);
-  top: calc(var(--space-6) + var(--space-5));
-  z-index: 2;
+  left: var(--space-2);
+  bottom: calc(var(--ride-panel-clear) + var(--space-2));
+  z-index: 3;
   background: var(--overlay);
   backdrop-filter: blur(8px);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
 }
-.wr-ride__sheet {
+
+/* Bottom panel: one rounded card — glance stats, optional details, controls (reference look). */
+.wr-ride__panel {
   position: absolute;
-  inset-inline: 0;
-  bottom: calc(var(--space-6) + var(--space-4));
-  z-index: 3;
+  inset-inline: var(--space-2);
+  bottom: max(var(--space-2), env(safe-area-inset-bottom));
+  z-index: 4;
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-  max-height: 55dvh;
-  overflow-y: auto;
+  max-height: 78dvh;
   padding: var(--space-3);
   background: var(--overlay);
-  backdrop-filter: blur(10px);
-  border-top-left-radius: var(--radius-card);
-  border-top-right-radius: var(--radius-card);
+  backdrop-filter: blur(14px);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+}
+.wr-ride__glancebar {
+  display: grid;
+  grid-template-columns: auto 1fr 1fr 1fr;
+  align-items: end;
+  gap: var(--space-3);
+}
+.wr-ride__cell {
+  display: flex;
+  flex-direction: column-reverse; /* label above the numeral, like the reference */
+  gap: var(--space-1);
+  min-width: 0;
+}
+.wr-ride__cell b {
+  font-family: var(--font-display);
+  font-size: var(--fs-glance);
+  font-weight: 800;
+  line-height: 1;
+  white-space: nowrap;
+}
+.wr-ride__cell small {
+  font-size: var(--fs-label);
+  font-weight: 600;
+  color: var(--text2);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+}
+/* Speed is the primary glance number (acceptance: >= 48 px). */
+.wr-ride__cell--speed b {
+  font-size: var(--fs-glance-lg);
+  color: var(--sky);
+}
+.wr-ride__sheet {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  overflow-y: auto;
+  border-top: 1px solid var(--line);
+  padding-top: var(--space-3);
 }
 .wr-ride__livebar {
-  position: absolute;
-  inset-inline: 0;
-  bottom: 0;
-  z-index: 4;
   display: flex;
   gap: var(--space-2);
-  padding: var(--space-3);
-  padding-bottom: max(var(--space-3), env(safe-area-inset-bottom));
-  background: var(--overlay);
-  backdrop-filter: blur(10px);
 }
 .wr-ride__livebar > * {
   flex: 1;
   text-align: center;
 }
-/* Keep the map's own overlays clear of the bottom control bar while riding. */
-.wr-ride--live .wr-ride__zoom {
-  bottom: calc(var(--space-6) + var(--space-5));
+.wr-ride__livebar > .wr-ride__ridebtn {
+  flex: 1.6; /* Pause/Resume is the big lime pill, like "Riding" in the reference */
 }
-.wr-ride--live .wr-ride__alert {
-  bottom: auto;
-  top: calc(var(--space-6) * 2 + var(--space-3));
-}
-/* Follow-map zoom controls (bottom-right of the ride map). */
-.wr-ride__zoom {
+
+/* Round floating map buttons (zoom, auto, recenter, mute) — right edge of the map. */
+.wr-ride__mapbtns {
   position: absolute;
   right: var(--space-2);
   bottom: var(--space-2);
+  z-index: 3;
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: var(--space-2);
 }
-.wr-ride__zoom button {
-  width: 44px;
-  height: 44px;
-  border: none;
-  border-radius: var(--radius-pill);
+.wr-ride--live .wr-ride__mapbtns {
+  bottom: calc(var(--ride-panel-clear) + var(--space-2));
+}
+.wr-mapbtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
   background: var(--overlay);
   color: var(--text);
-  font-size: 1.4rem;
+  font-size: 1.5rem;
   line-height: 1;
   cursor: pointer;
-  backdrop-filter: blur(4px);
+  backdrop-filter: blur(6px);
 }
-.wr-ride__zoom .wr-ride__zoom-auto {
+.wr-mapbtn--text {
   font-size: var(--fs-small);
-  font-weight: 600;
+  font-weight: 700;
 }
-/* The Recenter pill carries a word, not a glyph — let it grow past the 44px zoom-button square. */
-.wr-ride__zoom .wr-ride__recenter {
-  width: auto;
-  padding-inline: var(--space-3);
+.wr-mapbtn:focus-visible {
+  outline: 2px solid var(--sky);
+  outline-offset: 2px;
 }
+.wr-mapbtn[aria-pressed='true'] {
+  color: var(--sky);
+  border-color: var(--sky);
+}
+
+/* Alerts float over the map; while riding they sit below the turn-card zone. */
 .wr-ride__alert {
   position: absolute;
   inset-inline: var(--space-3);
   bottom: var(--space-3);
+  z-index: 3;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -437,12 +528,21 @@
   font-weight: 700;
   text-align: center;
 }
-/* Confirm-first reroute dialog (WR-051) — floats over the map, above the zoom controls. */
+.wr-ride--live .wr-ride__alert {
+  bottom: auto;
+  top: calc(env(safe-area-inset-top) + 120px);
+}
+/* Keep the basemap switcher clear of the full-width turn card while riding. */
+.wr-ride--live .wr-map__layers {
+  top: calc(env(safe-area-inset-top) + 96px);
+}
+
+/* Confirm-first reroute dialog (WR-051) — floats over the map, above the bottom panel. */
 .wr-ride__reroute {
   position: absolute;
   inset-inline: var(--space-3);
   bottom: calc(var(--space-6) + var(--space-6));
-  z-index: 3;
+  z-index: 5;
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
@@ -450,37 +550,21 @@
   border: 1px solid var(--line);
   border-radius: var(--radius-card);
   background: var(--overlay);
-  backdrop-filter: blur(10px);
+  backdrop-filter: blur(12px);
   font-weight: 600;
 }
 .wr-ride__reroute .wr-ride__controls {
   margin-top: 0;
 }
-/* While riding, keep it clear of the bottom control bar (like the zoom cluster). */
 .wr-ride--live .wr-ride__reroute {
-  bottom: calc(var(--space-6) * 2 + var(--space-3));
+  bottom: calc(var(--ride-panel-clear) + var(--space-2));
 }
-.wr-ride__turn {
-  display: flex;
-  align-items: baseline;
-  gap: var(--space-3);
-  padding: var(--space-3);
-  border-radius: var(--radius-card);
-  background: var(--surface-2);
-}
-.wr-ride__turn-dist {
-  font-family: var(--font-display);
-  font-size: var(--fs-display);
-  font-weight: 800;
-  color: var(--sky);
-}
-.wr-ride__turn-instr {
-  font-size: var(--fs-body);
-}
+
+/* Wind HUD (idle block + live chip content). */
 .wr-windhud {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
+  gap: var(--space-2);
   padding: var(--space-2) var(--space-3);
 }
 /* No transition: animating raw degrees would backspin ~360° across the 0/360 seam. */
@@ -495,6 +579,7 @@
   color: var(--text2);
   font-size: var(--fs-small);
 }
+
 .wr-ride__glance {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -528,6 +613,9 @@
   gap: var(--space-3);
   margin-top: auto;
 }
+.wr-ride__controls .wr-btn {
+  flex: 1 1 100%;
+}
 .wr-ride__saver {
   display: inline-flex;
   align-items: center;
@@ -543,9 +631,14 @@
   background: var(--surface-2);
   color: var(--text);
   font-weight: 600;
+  cursor: pointer;
+}
+.wr-btn-secondary:focus-visible {
+  outline: 2px solid var(--sky);
+  outline-offset: 2px;
 }
 
-/* --- Ride history + resume prompt (WR-017) -------------------------------------------- */
+/* --- Ride history + resume prompt (WR-017, compact DEC-055) ---------------------------- */
 .wr-ride__resume {
   display: flex;
   flex-direction: column;
@@ -557,10 +650,11 @@
 }
 .wr-history {
   margin-top: var(--space-4);
+  width: 100%;
 }
 .wr-history__list {
   list-style: none;
-  margin: 0;
+  margin: var(--space-2) 0 0;
   padding: 0;
   display: flex;
   flex-direction: column;
@@ -568,26 +662,47 @@
 }
 .wr-history__item {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-  padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-card);
-  background: var(--surface);
-}
-.wr-history__meta {
-  display: flex;
   flex-direction: column;
-  gap: 2px;
-  min-width: 0;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border-radius: var(--radius-card);
+  border: 1px solid var(--line);
+  background: var(--surface);
+  text-align: left;
+}
+.wr-history__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
 }
 .wr-history__name {
   font-weight: 600;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wr-history__date {
+  flex: none;
+  color: var(--text2);
+  font-size: var(--fs-small);
+}
+.wr-history__stats {
+  display: flex;
+  gap: var(--space-4);
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: var(--fs-body);
 }
 .wr-history__actions {
   display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   gap: var(--space-2);
-  flex-shrink: 0;
+}
+.wr-history__onstrava {
+  font-size: var(--fs-small);
 }
 
 /* --- HeatStrip (WR-020) --------------------------------------------------------------- */
@@ -890,9 +1005,13 @@
   color: var(--sky);
 }
 
-/* AI route discovery (WR-047). */
+/* AI route discovery (WR-047) — an equal peer of the Plan CTA (DEC-055). */
 .wr-discover {
-  margin-top: var(--space-2);
+  margin-top: 0;
+}
+.wr-plan__actions .wr-btn,
+.wr-discover .wr-btn {
+  width: 100%;
 }
 .wr-results__discovery {
   color: var(--sky);

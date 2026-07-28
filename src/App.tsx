@@ -20,11 +20,12 @@ export function App() {
     void useKeychainStore.getState().hydrate();
   }, []);
 
-  // Ride is chrome-free (no tab bar during a ride, WR-016) — render it full-screen.
-  if (route === 'ride') return <RideScreen />;
-
+  // Ride lives inside the shell so the idle/preview state keeps the tab bar; the LIVE ride view
+  // is position:fixed full-screen (wr-ride--live), so an active ride stays chrome-free (WR-016).
   const screen =
-    route === 'results' ? (
+    route === 'ride' ? (
+      <RideScreen />
+    ) : route === 'results' ? (
       <ResultsScreen />
     ) : route === 'kit' ? (
       <KitScreen />

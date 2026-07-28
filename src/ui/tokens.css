@@ -1,6 +1,8 @@
-/* ui/tokens.css — Baltic Dusk design tokens (DEC-005, DESIGN §1–3).
+/* ui/tokens.css — "Night Trail" design tokens (DEC-055; supersedes Baltic Dusk, DEC-005).
    THIS IS THE ONLY FILE ALLOWED TO CONTAIN RAW COLOUR HEX (enforced by scripts/check-tokens.mjs).
-   Every component composes these variables — never raw hex. A skin swap is this one file. */
+   Every component composes these variables — never raw hex. A skin swap is this one file.
+   Night Trail: near-black forest greens with a single lime accent — built for a phone on a
+   bike mount, outdoors, in sunlight. */
 
 :root {
   /* --- Semantic wind colours (DESIGN §1 — permanent, non-negotiable) ------------------ */
@@ -9,26 +11,28 @@
   --head: #f26d5b; /* headwind / resistance */
   --shelter: #3e8763; /* forest shelter */
 
-  /* --- Baltic Dusk core (DESIGN §2) --------------------------------------------------- */
-  --bg: #0a1220;
-  --surface: #111c30;
-  --line: #1e2c46;
-  --text: #edf3fb;
-  --text2: #8ca1c0;
-  --sky: #4da3ff;
-  --on-aurora: #05131d; /* ink on the aurora gradient */
-  /* Aurora brand gradient endpoints, shared by the gradient and the ScoreRing stops so a
-     skin swap keeps them in sync (they happen to equal tail/sky today but are their own tokens). */
-  --aurora-a: var(--tail);
-  --aurora-b: var(--sky);
+  /* --- Night Trail core (DESIGN §2) ---------------------------------------------------- */
+  --bg: #0e120d;
+  --surface: #191f18;
+  --line: #2a3327;
+  --text: #f1f5ec;
+  --text2: #a9b8a3;
+  /* Core UI accent (this skin: saddle lime — links, focus, selection, rider marker).
+     NOT a wind hue: lime never colours a wind relationship. */
+  --sky: #bff04d;
+  --on-aurora: #131807; /* ink on the lime accent */
+  /* Accent gradient endpoints, shared by the gradient and the ScoreRing stops so a skin swap
+     keeps them in sync. Night Trail runs lime -> deeper lime for a near-flat volt pill. */
+  --aurora-a: #cdf45f;
+  --aurora-b: #a8e637;
   --aurora: linear-gradient(100deg, var(--aurora-a), var(--aurora-b));
 
   /* Derived surfaces (composed from core hues, no new hex) */
   --surface-2: color-mix(in srgb, var(--surface) 70%, var(--bg));
-  --overlay: color-mix(in srgb, var(--bg) 55%, transparent);
+  --overlay: color-mix(in srgb, var(--bg) 78%, transparent);
 
   /* --- Radii (DESIGN §2) -------------------------------------------------------------- */
-  --radius-card: 20px;
+  --radius-card: 24px;
   --radius-pill: 999px;
 
   /* --- Spacing: 8-pt grid (DESIGN §2) ------------------------------------------------- */
@@ -54,4 +58,7 @@
   --motion-fast: 150ms;
   --motion-med: 300ms;
   --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+
+  /* --- Shell chrome (bottom tab bar, DEC-055) ----------------------------------------- */
+  --tabbar-h: 64px;
 }

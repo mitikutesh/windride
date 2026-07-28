@@ -17,7 +17,7 @@ export function DiscoverRoutesButton() {
     <div className="wr-discover">
       <button
         type="button"
-        className="wr-navlink"
+        className="wr-btn wr-btn--outline"
         disabled={loading}
         onClick={() => void discover(usePlanStore.getState().inputs)}
       >
