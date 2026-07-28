@@ -389,37 +389,39 @@ button {
   align-items: center;
   justify-content: center;
 }
-/* Basemap layer switcher (Streets / Cycling / Satellite / Terrain). */
+/* Basemap layer switcher (DEC-055): a single round layers toggle that expands downward into
+   the Streets / Cycling / Satellite / Terrain pills — one place, map stays clear. */
 .wr-map__layers {
   position: absolute;
   top: var(--space-2);
   right: var(--space-2);
-  z-index: 1;
+  z-index: 2;
   display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
+  flex-direction: column;
+  align-items: flex-end;
   gap: var(--space-1);
-  padding: var(--space-1);
+}
+.wr-map__layer {
+  padding: 0 var(--space-3);
+  min-height: var(--hit-min);
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text);
   background: var(--overlay);
   border: 1px solid var(--line);
   border-radius: var(--radius-pill);
   backdrop-filter: blur(6px);
-}
-.wr-map__layer {
-  padding: 6px 12px;
-  min-height: 32px;
-  font: inherit;
-  font-size: 0.8rem;
-  color: var(--text);
-  background: transparent;
-  border: none;
-  border-radius: var(--radius-pill);
   cursor: pointer;
 }
 .wr-map__layer.is-active {
   background: var(--aurora);
   color: var(--on-aurora);
-  font-weight: 600;
+  border-color: transparent;
+}
+.wr-map__layer:focus-visible {
+  outline: 2px solid var(--sky);
+  outline-offset: 2px;
 }
 /* First-run "add your API key" prompt (shared-build onboarding). */
 .wr-keyprompt {

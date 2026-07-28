@@ -17,8 +17,8 @@ export default defineConfig({
         name: 'WindRide',
         short_name: 'WindRide',
         description: "Wind-aware cycling route planner — the least suffering for today's wind.",
-        theme_color: '#0A1220',
-        background_color: '#0A1220',
+        theme_color: '#0E120D',
+        background_color: '#0E120D',
         display: 'standalone',
         orientation: 'portrait',
         start_url: '.', // relative so the installed PWA launches correctly under a subpath (Pages) too
