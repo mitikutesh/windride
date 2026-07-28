@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { ConditionsStrip, DistanceSlider, PrimaryButton, Segmented, Toggle } from '../components';
 import { CapabilityNotice } from '../components/CapabilityNotice';
 import { DiscoverRoutesButton } from '../components/DiscoverRoutesButton';
@@ -17,6 +17,7 @@ import { localYMD } from '../../utils/units';
 /** Plan screen (WR-008): inputs -> "Find today's route" -> pipeline (mocks or live per env). */
 export function PlanScreen() {
   const inputs = usePlanStore((s) => s.inputs);
+  const [locateFailed, setLocateFailed] = useState(false);
   const conditions = usePlanStore((s) => s.conditions);
   const status = usePlanStore((s) => s.status);
   const progress = usePlanStore((s) => s.progress);
@@ -168,15 +169,24 @@ export function PlanScreen() {
         <button
           type="button"
           className="wr-navlink"
-          onClick={() =>
+          onClick={() => {
+            setLocateFailed(false);
             void usePlanStore
               .getState()
               .locate()
-              .then(() => usePlanStore.getState().loadConditions())
-          }
+              .then((ok) => {
+                setLocateFailed(!ok);
+                return usePlanStore.getState().loadConditions();
+              });
+          }}
         >
           Use my location
         </button>
+        {locateFailed ? (
+          <p className="wr-muted" role="status">
+            Couldn’t get your location — check the browser’s location permission.
+          </p>
+        ) : null}
       </details>
 
       <PrimaryButton onClick={() => void generate()} disabled={busy}>

@@ -32,7 +32,8 @@ interface PlanState {
   /** Ranked downwind one-ways (WR-026), shown inline on the Plan screen. */
   downwind: DownwindResult[];
   setInput: (patch: Partial<PlanInputs>) => void;
-  locate: (opts?: { timeoutMs?: number; maximumAgeMs?: number }) => Promise<void>;
+  /** Resolves true when a position was adopted, false on denial/timeout/unsupported. */
+  locate: (opts?: { timeoutMs?: number; maximumAgeMs?: number }) => Promise<boolean>;
   loadConditions: () => Promise<void>;
   generate: () => Promise<void>;
 }
@@ -89,9 +90,9 @@ export const usePlanStore = create<PlanState>()(
         })),
 
       locate: (opts) =>
-        new Promise<void>((resolve) => {
+        new Promise<boolean>((resolve) => {
           if (typeof navigator === 'undefined' || !navigator.geolocation) {
-            resolve();
+            resolve(false);
             return;
           }
           set({ status: 'locating' });
@@ -105,15 +106,16 @@ export const usePlanStore = create<PlanState>()(
                 startSource: 'geo',
                 status: 'idle',
               }));
-              resolve();
+              resolve(true);
             },
             () => {
               set({ status: 'idle' }); // keep the previous start on failure
-              resolve();
+              resolve(false);
             },
             {
               timeout: opts?.timeoutMs ?? 8000,
-              // A recent cached position is fine — this feeds route planning, not turn-by-turn nav.
+              // Default 0 = always take a fresh reading; generate() opts into a short maximumAge
+              // so a seconds-old fix is reused instead of stalling the plan on a new GPS lock.
               maximumAge: opts?.maximumAgeMs ?? 0,
             },
           );

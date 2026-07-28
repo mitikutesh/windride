@@ -90,7 +90,7 @@ describe('proposeReroute', () => {
   const inputs = {
     current: { lat: 60, lon: 24 },
     route: line('orig'),
-    track: {} as never,
+    track: { total: 1000 } as never,
     progressM: 100,
   };
   function fakeController(ri: typeof inputs | null) {
@@ -116,6 +116,24 @@ describe('proposeReroute', () => {
     expect(r.proposal.analysis.candidate.id).toBe('spliced'); // ready to apply on Accept
     expect(r.proposal.rejoinAtM).toBe(600); // rejoins the ORIGINAL route downstream
     expect(ctrl.applied).toHaveLength(0); // nothing swapped without the rider's Accept
+  });
+
+  it('previewPolyline covers only the detour leg, not the whole spliced route', async () => {
+    // Spliced route: 1000 m advertised, original tail beyond the rejoin = 1000 − 600 = 400 m,
+    // so the fetched leg ends 600 m along the spliced polyline — the preview must stop there.
+    const r = await proposeReroute(
+      rerouter(async () => ({ ok: true, route: line('spliced'), rejoinAtM: 600 })),
+      fakeController(inputs),
+      ref,
+      speed,
+    );
+    if (r.result !== 'proposed') throw new Error('expected a proposal');
+    const preview = r.proposal.previewPolyline;
+    const full = line('spliced').polyline;
+    expect(preview[0]).toEqual(full[0]); // starts at the rider
+    const last = preview[preview.length - 1];
+    expect(last.lat).toBeGreaterThan(full[0].lat); // reaches forward…
+    expect(last.lat).toBeLessThan(full[full.length - 1].lat); // …but stops before the finish
   });
 
   it('reports near-finish without proposing anything', async () => {

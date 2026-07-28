@@ -62,7 +62,38 @@ Discovered for later: the reroute preview is fetched from the confirm-time posit
 rider may drift ~100 m before accepting; the reroute snapper's windowed acquire absorbs this,
 but a "refresh proposal" affordance could help on long decisions. Ribbon/dot after a reroute
 re-baselines to the spliced route's timeline (whole-ride fraction, not plan fraction).
+`end()` still feeds calibration (WR-024) the ORIGINAL plan analysis even when the ride was
+rerouted — rerouted rides pair GPS points against segments the rider didn't ride (pre-existing,
+now a real flow); consider excluding rerouted rides from calibration or snapshotting the live
+analysis.
 
 Tests: +1 nav (position truth), reroute tests rewritten for proposeReroute (4), +2 UI flow
 (ask→preview→accept; decline), +5 planStore location tests. Full gate green: 647 tests, lint
 clean, build OK.
+
+## Fable 5 review pass — fixes
+
+An independent Fable 5 review of commit 3dad49e returned 2 SHOULD-FIX + 4 NITs; all addressed:
+
+- **S1 — in-flight fetch outlived the ride/episode.** `offRouteRef` was only ever written by
+  `handleFix`, so after End (GPS stopped) it stayed `'alert'` forever and a slow reroute fetch
+  could re-open the preview on the ENDED screen; Accept would then mutate (and voice-announce
+  through) the dead controller. Fixed: the confirm callback captures its controller and discards
+  the result via `isStale()` (`controllerRef.current !== controller || offRouteRef.current !==
+  'alert'`), and `start()`/`resumeUnfinished()`/`end()` reset `offRouteRef` to `'on-route'`.
+  Regression test: deferred-fetch UI test "a rider who rejoins mid-fetch gets no stale dialog".
+- **S2 — Accept while paused voiced a cue.** The offer intentionally works while paused (a
+  stopped rider deciding is the normal case), but `applyReroute` unconditionally announced
+  "New route", breaking the pause contract ("pausing stops cue output"). Fixed: `applyReroute`
+  announces only when not paused; the swap itself still happens. Regression test added.
+- **N3 — preview overpainted the whole route.** The dashed preview drew the entire spliced
+  polyline to the finish; now `proposeReroute` returns `previewPolyline` — the detour LEG only,
+  sliced at `spliced.distanceM − (track.total − rejoinAtM)` — so the dashed line shows exactly
+  what changes and visibly meets the planned route. `rejoinAtM` is no longer unused. Test added.
+- **N4 — misleading `maximumAge` comment** reworded (default 0 = always fresh; generate() opts
+  into 60 s reuse).
+- **N5 — "Use my location" failed silently**: `locate()` now resolves a boolean; the button
+  shows "Couldn't get your location" on denial/timeout.
+- **N6 — calibration-after-reroute mismatch** logged under Discovered for later (above).
+
+Gate after review fixes: 650 tests, lint clean, build OK.

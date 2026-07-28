@@ -12,7 +12,7 @@ import {
   type RideRecorder,
 } from '../../nav/recorder';
 import type { Rerouter } from '../../nav/offRoute';
-import { proposeReroute } from '../../nav/reroute';
+import { proposeReroute, type RerouteProposal } from '../../nav/reroute';
 import { RideController, type RideState } from '../../nav/rideController';
 import type { CandidateAnalysis } from '../../engine/scoring';
 import { activeSpeedSettings, useCalibrationStore } from '../../state/calibrationStore';
@@ -82,7 +82,7 @@ export function RideScreen() {
   const refAnalysisRef = useRef<CandidateAnalysis | null>(null);
   const reroutingRef = useRef(false);
   const [reroutePhase, setReroutePhase] = useState<ReroutePhase>('idle');
-  const [rerouteProposal, setRerouteProposal] = useState<CandidateAnalysis | null>(null);
+  const [rerouteProposal, setRerouteProposal] = useState<RerouteProposal | null>(null);
   const [rerouteError, setRerouteError] = useState<{ message: string; retryable: boolean } | null>(
     null,
   );
@@ -196,6 +196,10 @@ export function RideScreen() {
     reroutingRef.current = true;
     setReroutePhase('loading');
     setRerouteError(null);
+    // The result is stale — show nothing — if by the time it resolves the rider has rejoined the
+    // route, ended the ride, or started a new one (fresh controller). offRouteRef is reset to
+    // 'on-route' by end/start/resume, so one guard covers all three.
+    const isStale = () => controllerRef.current !== controller || offRouteRef.current !== 'alert';
     void proposeReroute(
       rerouterRef.current,
       controller,
@@ -203,11 +207,9 @@ export function RideScreen() {
       activeSpeedSettings(),
     )
       .then((r) => {
-        // The rider rejoined the route while the leg was loading — the proposal is stale; the
-        // episode-reset effect has already (or will) put the dialog away. Show nothing.
-        if (offRouteRef.current !== 'alert') return;
+        if (isStale()) return;
         if (r.result === 'proposed') {
-          setRerouteProposal(r.proposal.analysis);
+          setRerouteProposal(r.proposal);
           setReroutePhase('preview');
         } else if (r.result === 'near-finish') {
           // NAVIGATION_SPEC §3: never reroute to the finish — retrying can't change this.
@@ -225,7 +227,7 @@ export function RideScreen() {
         }
       })
       .catch(() => {
-        if (offRouteRef.current !== 'alert') return; // rejoined mid-fetch — nothing to report
+        if (isStale()) return; // rejoined / ended / new ride mid-fetch — nothing to report
         setRerouteError({
           message: 'Could not fetch a reroute (offline or quota). You can retry.',
           retryable: true,
@@ -242,8 +244,8 @@ export function RideScreen() {
   const acceptReroute = useCallback(() => {
     const controller = controllerRef.current;
     if (!controller || !rerouteProposal) return;
-    controller.applyReroute(rerouteProposal);
-    setLiveAnalysis(rerouteProposal);
+    controller.applyReroute(rerouteProposal.analysis);
+    setLiveAnalysis(rerouteProposal.analysis);
     setRerouteProposal(null);
     setRerouteError(null);
     setReroutePhase('idle');
@@ -284,6 +286,7 @@ export function RideScreen() {
     refAnalysisRef.current = scored.analysis; // original forecast wind, for reroute re-analysis
     reroutingRef.current = false;
     rerouteDeclinedRef.current = false;
+    offRouteRef.current = 'on-route'; // stale-guard baseline: kills any prior ride's late fetch
     setReroutePhase('idle');
     setRerouteProposal(null);
     setRerouteError(null);
@@ -342,7 +345,9 @@ export function RideScreen() {
       void useNoveltyStore.getState().recordRide(points);
       void refreshRides();
     });
-    // A reroute conversation can't outlive the ride it belongs to.
+    // A reroute conversation can't outlive the ride it belongs to — including a fetch still in
+    // flight: resetting offRouteRef makes the confirm callback's stale-guard discard its result.
+    offRouteRef.current = 'on-route';
     setReroutePhase('idle');
     setRerouteProposal(null);
     setRerouteError(null);
@@ -378,6 +383,7 @@ export function RideScreen() {
       refAnalysisRef.current = scored.analysis;
       reroutingRef.current = false;
       rerouteDeclinedRef.current = false;
+      offRouteRef.current = 'on-route';
       setReroutePhase('idle');
       setRerouteProposal(null);
       setRerouteError(null);
@@ -445,7 +451,7 @@ export function RideScreen() {
             : null
         }
         previewPolyline={
-          reroutePhase === 'preview' ? (rerouteProposal?.candidate.polyline ?? null) : null
+          reroutePhase === 'preview' ? (rerouteProposal?.previewPolyline ?? null) : null
         }
         batterySaver={batterySaver}
         zoomM={zoomM}

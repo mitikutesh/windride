@@ -25,10 +25,15 @@ vi.mock('../../nav/locationService', () => ({
 }));
 
 // The Rerouter talks to the live router — stub it with a canned rejoin leg (fixtures-only policy).
-const reroute = vi.hoisted(() => ({ attempts: 0 }));
+// `defer: true` parks the result until release() fires, to exercise the mid-fetch stale guards.
+const reroute = vi.hoisted(() => ({
+  attempts: 0,
+  defer: false,
+  release: null as null | (() => void),
+}));
 vi.mock('../../state/rerouter', () => ({
   makeRerouter: () => ({
-    attempt: async () => {
+    attempt: () => {
       reroute.attempts += 1;
       const seg = {
         a: { lat: 60.002, lon: 24 },
@@ -39,7 +44,7 @@ vi.mock('../../state/rerouter', () => ({
         surface: 'paved',
         exposure: 1,
       };
-      return {
+      const result = {
         ok: true,
         rejoinAtM: 600,
         route: {
@@ -50,6 +55,10 @@ vi.mock('../../state/rerouter', () => ({
           ascentM: 0,
         },
       };
+      if (!reroute.defer) return Promise.resolve(result);
+      return new Promise((resolve) => {
+        reroute.release = () => resolve(result);
+      });
     },
   }),
 }));
@@ -207,5 +216,39 @@ describe('<RideScreen />', () => {
     );
     expect(screen.queryByRole('alertdialog', { name: /Reroute/i })).not.toBeInTheDocument();
     expect(reroute.attempts).toBe(0);
+  });
+
+  it('a rider who rejoins mid-fetch gets no stale dialog (WR-051)', async () => {
+    seed();
+    reroute.attempts = 0;
+    reroute.defer = true;
+    try {
+      render(<RideScreen />);
+      fireEvent.click(screen.getByRole('button', { name: /Start ride/i }));
+
+      const t0 = Date.parse('2026-07-10T11:00:00Z');
+      const fixAt = (lat: number, lon: number, s: number): Fix => ({
+        lat,
+        lon,
+        time: new Date(t0 + s * 1000).toISOString(),
+        speed: 5,
+      });
+      act(() => geo.onFix?.(fixAt(60, 24, 0)));
+      for (let s = 1; s <= 13; s++) act(() => geo.onFix?.(fixAt(60.002, 24, s)));
+      fireEvent.click(await screen.findByRole('button', { name: /^Reroute$/i }));
+      expect(screen.getByText(/Finding a way back/i)).toBeInTheDocument();
+
+      // The rider finds their own way back onto the track while the leg is still loading…
+      act(() => geo.onFix?.(fixAt(60.0005, 24.0005, 14)));
+      // …then the fetch resolves: the proposal is stale and must be discarded, not previewed.
+      await act(async () => {
+        reroute.release?.();
+      });
+      expect(screen.queryByText(/rejoins your planned route/i)).not.toBeInTheDocument();
+      expect(screen.queryByRole('alertdialog', { name: /Reroute/i })).not.toBeInTheDocument();
+    } finally {
+      reroute.defer = false;
+      reroute.release = null;
+    }
   });
 });

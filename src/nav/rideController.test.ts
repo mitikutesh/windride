@@ -306,6 +306,20 @@ describe('RideController.applyReroute (auto-reroute swap)', () => {
     const onNew = controller.onFix({ lat: 60.301, lon: 24.9, time: '2026-07-10T09:01', speed: 4 });
     expect(onNew.onTrack).toBe(true);
   });
+
+  it('applyReroute while paused swaps silently — no voice cue during pause (WR-051)', () => {
+    const ann = fakeAnnouncer();
+    const controller = new RideController({ analysis: buildAnalysis(), announcer: ann });
+    controller.pause(); // a stopped rider accepting from the reroute dialog
+    ann.announce.mockClear();
+    const newLine: LatLon[] = [
+      { lat: 60.3, lon: 24.9 },
+      { lat: 60.31, lon: 24.9 },
+    ];
+    controller.applyReroute(analysisFor(newLine, 'paused-reroute'));
+    expect(controller.route.polyline).toEqual(newLine); // the swap still happens…
+    expect(ann.announce).not.toHaveBeenCalled(); // …but pause keeps cue output silent
+  });
 });
 
 describe('RideController — compass-blended heading (task #32)', () => {

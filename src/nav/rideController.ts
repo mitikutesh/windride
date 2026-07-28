@@ -165,12 +165,16 @@ export class RideController {
     this.monitor = new OffRouteMonitor();
     this.lastOffRoute = 'on-route';
     this.announcer.stop(); // drop stale turn cues for the old geometry
-    this.announcer.announce({
-      stepIndex: -3,
-      kind: 'turn',
-      text: 'New route, follow the track',
-      turnDistanceM: 0,
-    });
+    // A paused rider can Accept from the reroute dialog (WR-051) — the visual swap is enough;
+    // voicing a cue would break the pause contract ("pausing stops cue output").
+    if (!this.pausedFlag) {
+      this.announcer.announce({
+        stepIndex: -3,
+        kind: 'turn',
+        text: 'New route, follow the track',
+        turnDistanceM: 0,
+      });
+    }
   }
 
   get paused(): boolean {

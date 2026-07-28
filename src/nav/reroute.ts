@@ -9,7 +9,8 @@
  * never silently swap the route under someone doing 30 km/h). Wind on a mid-ride detour is treated
  * as ~uniform (the app's spatial-uniform model), reconstructed from the original plan's analysis.
  */
-import type { CandidateRoute, WindSample } from '../domain';
+import type { CandidateRoute, LatLon, WindSample } from '../domain';
+import { haversineM } from '../engine/geometry';
 import { analyzeCandidate, type CandidateAnalysis } from '../engine/scoring';
 import type { SpeedSettings } from '../engine/speedModel';
 import type { Rerouter } from './offRoute';
@@ -51,6 +52,31 @@ export interface RerouteProposal {
   analysis: CandidateAnalysis;
   /** Where (along the ORIGINAL track) the proposed leg rejoins the planned route. */
   rejoinAtM: number;
+  /** The DETOUR LEG only (rider → rejoin point), for the dashed map preview — drawing the whole
+   *  spliced route would overpaint the planned line to the finish and hide what actually changed. */
+  previewPolyline: LatLon[];
+}
+
+/** The polyline's leading slice up to along-distance `endM` (interpolated cut); whole line when
+ *  `endM` is not a usable positive length — a too-long dashed preview beats a missing one. */
+function slicePolyline(polyline: LatLon[], endM: number): LatLon[] {
+  if (!Number.isFinite(endM) || endM <= 0) return polyline;
+  const out: LatLon[] = [polyline[0]];
+  let acc = 0;
+  for (let i = 1; i < polyline.length; i++) {
+    const d = haversineM(polyline[i - 1], polyline[i]);
+    if (acc + d >= endM) {
+      const t = d > 0 ? (endM - acc) / d : 0;
+      out.push({
+        lat: polyline[i - 1].lat + (polyline[i].lat - polyline[i - 1].lat) * t,
+        lon: polyline[i - 1].lon + (polyline[i].lon - polyline[i - 1].lon) * t,
+      });
+      return out;
+    }
+    acc += d;
+    out.push(polyline[i]);
+  }
+  return out;
 }
 
 export type ProposeOutcome =
@@ -81,11 +107,15 @@ export async function proposeReroute(
     inputs.progressM,
   );
   if (outcome.ok) {
+    // The spliced route = [fetched leg][original tail beyond the rejoin]. The tail's length is
+    // (track.total − rejoinAtM), so the leg ends at spliced.distanceM minus that.
+    const legEndM = outcome.route.distanceM - (inputs.track.total - outcome.rejoinAtM);
     return {
       result: 'proposed',
       proposal: {
         analysis: reanalyzeReroute(outcome.route, ref, speed),
         rejoinAtM: outcome.rejoinAtM,
+        previewPolyline: slicePolyline(outcome.route.polyline, legEndM),
       },
     };
   }
