@@ -54,6 +54,9 @@ export interface RideState {
   autoPaused: boolean;
   /** Exposed-crosswind gust stretch within 500 m ahead (WR-021), else null. */
   gustAhead: { inM: number; maxGustMs: number } | null;
+  /** Raw GPS fix — the rider's TRUE position. The map marker uses this, never `snapped`, so the
+   *  rider is drawn where they actually are even when off the route (WR-051). */
+  position: LatLon;
   snapped: LatLon;
   paused: boolean;
 }
@@ -197,8 +200,9 @@ export class RideController {
 
   onFix(fix: Fix): RideState {
     const snap = this.snapper.update(fix);
+    const position: LatLon = { lat: fix.lat, lon: fix.lon };
     this.lastProgressM = snap.progressM;
-    this.lastPosition = { lat: fix.lat, lon: fix.lon };
+    this.lastPosition = position;
     const prevTMs = this.lastFix?.tMs;
     const measuredMs = this.speedOf(fix); // null when unknown (don't poison the EMA)
     const speedMs = measuredMs ?? 0;
@@ -236,8 +240,8 @@ export class RideController {
       snap.perpendicularM,
       Number.isFinite(tMs) ? tMs : 0,
     );
-    // Audible off-route alert once per episode (NAVIGATION_SPEC §3). Full auto-reroute-splice is a
-    // deferred follow-up (DEC-022) — meanwhile the bearing-to-track arrow guides the rider back.
+    // Audible off-route alert once per episode (NAVIGATION_SPEC §3). The Ride screen then offers a
+    // confirm-first reroute (WR-051); the bearing-to-track arrow guides the rider meanwhile.
     if (offRoute === 'alert' && this.lastOffRoute !== 'alert') {
       this.announcer.announce({
         stepIndex: -1,
@@ -287,6 +291,7 @@ export class RideController {
       timeFraction,
       autoPaused,
       gustAhead,
+      position,
       snapped: snap.snapped,
       paused: this.pausedFlag,
     };

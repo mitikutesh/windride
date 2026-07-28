@@ -3,8 +3,7 @@ import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import type { LatLon } from '../../domain';
 import { detectGustStretches } from '../../engine/gustFlags';
-import type { ScoredCandidate } from '../../engine/scoring';
-import { routeToWindGeoJSON } from '../routeGeo';
+import { routeToWindGeoJSON, type RouteGeoInput } from '../routeGeo';
 import { MAP_COLORS, WIND_COLORS } from '../windColors';
 import { DEFAULT_BASEMAP } from '../basemaps';
 import {
@@ -19,8 +18,11 @@ import { BasemapSwitcher } from './BasemapSwitcher';
 const STYLE = 'https://tiles.openfreemap.org/styles/liberty';
 
 interface RideMapProps {
-  scored: ScoredCandidate;
+  /** The route being navigated — the original plan, or the live spliced analysis after a reroute. */
+  scored: RouteGeoInput;
   rider: { position: LatLon; headingDeg: number | null } | null;
+  /** A PROPOSED reroute polyline (confirm flow, WR-051) — drawn dashed until accepted/declined. */
+  previewPolyline?: LatLon[] | null;
   /** Battery saver / reduced-motion: snap the follow camera instead of easing. */
   batterySaver?: boolean;
   /** Metres across the view — the follow-camera zoom when riding (else the whole route is fit). */
@@ -42,6 +44,7 @@ interface RideMapProps {
 export function RideMap({
   scored,
   rider,
+  previewPolyline = null,
   batterySaver = false,
   zoomM,
   following = true,
@@ -64,9 +67,11 @@ export function RideMap({
   const scoredRef = useRef(scored);
   const riderRef = useRef(rider);
   const zoomRef = useRef(zoomM);
+  const previewRef = useRef(previewPolyline);
   scoredRef.current = scored;
   riderRef.current = rider;
   zoomRef.current = zoomM;
+  previewRef.current = previewPolyline;
 
   useEffect(() => {
     const container = containerRef.current;
@@ -134,6 +139,20 @@ export function RideMap({
           },
         });
       }
+      // Proposed-reroute preview (WR-051): a dashed line the rider can inspect before accepting.
+      // Sits above the wind-coloured route so the detour is unmistakable.
+      map.addSource('wr-preview', { type: 'geojson', data: previewFC(previewRef.current) });
+      map.addLayer({
+        id: 'wr-preview',
+        type: 'line',
+        source: 'wr-preview',
+        layout: { 'line-cap': 'round' },
+        paint: {
+          'line-color': MAP_COLORS.start,
+          'line-width': 5,
+          'line-dasharray': [0.8, 1.6],
+        },
+      });
       // Gust-stretch warning markers at each stretch midpoint (WR-021).
       map.addSource('wr-gusts', { type: 'geojson', data: gustFC(scoredRef.current) });
       map.addLayer({
@@ -170,6 +189,15 @@ export function RideMap({
     (map.getSource('wr-gusts') as maplibregl.GeoJSONSource | undefined)?.setData(gustFC(scored));
   }, [scored]);
 
+  // Proposed-reroute preview appears/disappears with the confirm dialog (WR-051).
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !readyRef.current) return;
+    (map.getSource('wr-preview') as maplibregl.GeoJSONSource | undefined)?.setData(
+      previewFC(previewPolyline),
+    );
+  }, [previewPolyline]);
+
   // Rider marker moves on every fix; the camera only follows while `following` (free-look leaves the
   // rider's chosen viewport untouched). Flipping `following` back on (Recenter) recenters here.
   useEffect(() => {
@@ -196,7 +224,7 @@ export function RideMap({
   );
 }
 
-function gustFC(scored: ScoredCandidate) {
+function gustFC(scored: RouteGeoInput) {
   return {
     type: 'FeatureCollection' as const,
     features: detectGustStretches(scored.analysis.segments).map((s) => ({
@@ -204,6 +232,26 @@ function gustFC(scored: ScoredCandidate) {
       properties: {},
       geometry: { type: 'Point' as const, coordinates: [s.midpoint.lon, s.midpoint.lat] },
     })),
+  };
+}
+
+/** The proposed-reroute polyline as GeoJSON, or an empty collection when there is no proposal. */
+function previewFC(polyline: LatLon[] | null | undefined) {
+  return {
+    type: 'FeatureCollection' as const,
+    features:
+      polyline && polyline.length >= 2
+        ? [
+            {
+              type: 'Feature' as const,
+              properties: {},
+              geometry: {
+                type: 'LineString' as const,
+                coordinates: polyline.map((p) => [p.lon, p.lat] as [number, number]),
+              },
+            },
+          ]
+        : [],
   };
 }
 
@@ -243,7 +291,7 @@ function updateCamera(
   rider: RideMapProps['rider'],
   zoomM: number | null | undefined,
   batterySaver: boolean,
-  scored: ScoredCandidate,
+  scored: RouteGeoInput,
 ) {
   if (rider) {
     const width = map.getContainer().clientWidth || 360;

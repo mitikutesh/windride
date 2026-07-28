@@ -31,6 +31,7 @@ Test contract · Technical notes · Out of scope · Log.
 | WR-015 | Off-route detect + rejoin-track reroute | 013 | M | DONE |
 | WR-016 | Ride screen: glance zone, wind HUD, wake lock | 014,015 | L | DONE |
 | WR-017 | Recorder: crash-safe idb, pause, GPX out | 013 | M | DONE |
+| WR-051 | Confirm-first reroute + true-position marker + fresh plan start | 015,016 | M | DONE |
 
 ## Epic 3 · Conditions Brain (v0.3)
 | ID | Story | Deps | Size | Status |

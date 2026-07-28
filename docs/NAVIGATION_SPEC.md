@@ -10,11 +10,17 @@ ONLY within [progressM − 100 m, progressM + 300 m]; accept if perpendicular di
 progress may only move forward (small jitter tolerance −15 m). This makes self-crossing loops
 and out-and-backs safe. Global nearest-point is forbidden except at cold start.
 
-## 3. Off-route (offRoute.ts)
-Trigger: perpendicular distance > 45 m sustained > 10 s → audible alert →
-one pointToPoint() call from current position to the track point at progressM + 500 m →
-splice returned leg into the stored route; everything beyond is untouched. NEVER reroute to
-the finish. If reroute fails (quota/network): keep alerting, show bearing-to-track arrow.
+## 3. Off-route (offRoute.ts) — confirm-first reroute (WR-051)
+Trigger: perpendicular distance > 45 m sustained > 10 s → audible alert + bearing-to-track
+arrow → the Ride screen ASKS "reroute back to your planned route?" — no silent rerouting, no
+automatic router traffic while lost. On confirm: one pointToPoint() call from current position
+to the track point at progressM + 500 m → splice returned leg into the stored route (everything
+beyond is untouched) → show the proposal as a DASHED line → only an explicit Accept swaps it
+into live navigation. Decline silences the offer for the current off-route episode (re-arms
+once back on the route). NEVER reroute to the finish. If the fetch fails (quota/network): keep
+alerting, keep the bearing-to-track arrow, offer a manual retry.
+The map's rider marker always shows the RAW GPS fix — the true position, even off the route;
+only progress/cues/ETA use the snapped point.
 
 ## 4. Cues (cues.ts)
 From provider steps bound to track distances. Announce at 200 m and 40 m (scale ±40% with

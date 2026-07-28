@@ -1,20 +1,57 @@
 import { describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import type { CandidateRoute, Segment, WindSample } from '../../domain';
+import type { Fix } from '../../nav/fixSource';
 import { scoreCandidates } from '../../engine/scoring';
 import { useResultsStore } from '../../state/resultsStore';
 
-// GeolocationSource needs a real browser; mock it so we can assert start/stop lifecycle.
-const geo = vi.hoisted(() => ({ stop: vi.fn(), started: 0 }));
+// GeolocationSource needs a real browser; mock it so we can assert start/stop lifecycle AND drive
+// fixes through the live pipeline (the reroute-flow test walks a rider off the route).
+const geo = vi.hoisted(() => ({
+  stop: vi.fn(),
+  started: 0,
+  onFix: null as null | ((f: Fix) => void),
+}));
 vi.mock('../../nav/locationService', () => ({
   GeolocationSource: class {
-    start() {
+    start(cb: (f: Fix) => void) {
       geo.started += 1;
+      geo.onFix = cb;
     }
     stop() {
       geo.stop();
     }
   },
+}));
+
+// The Rerouter talks to the live router — stub it with a canned rejoin leg (fixtures-only policy).
+const reroute = vi.hoisted(() => ({ attempts: 0 }));
+vi.mock('../../state/rerouter', () => ({
+  makeRerouter: () => ({
+    attempt: async () => {
+      reroute.attempts += 1;
+      const seg = {
+        a: { lat: 60.002, lon: 24 },
+        b: { lat: 60.004, lon: 24.004 },
+        lengthM: 500,
+        bearingDeg: 45,
+        gradePct: 0,
+        surface: 'paved',
+        exposure: 1,
+      };
+      return {
+        ok: true,
+        rejoinAtM: 600,
+        route: {
+          id: 'detour',
+          polyline: [seg.a, seg.b],
+          segments: [seg],
+          distanceM: 500,
+          ascentM: 0,
+        },
+      };
+    },
+  }),
 }));
 
 import { RideScreen } from './RideScreen';
@@ -111,5 +148,64 @@ describe('<RideScreen />', () => {
     fireEvent.click(screen.getByRole('button', { name: /Start ride/i }));
     unmount();
     expect(geo.stop).toHaveBeenCalled();
+  });
+
+  it('off-route asks before rerouting, previews the new route, and applies only on Accept (WR-051)', async () => {
+    seed();
+    reroute.attempts = 0;
+    render(<RideScreen />);
+    fireEvent.click(screen.getByRole('button', { name: /Start ride/i }));
+
+    const t0 = Date.parse('2026-07-10T09:00:00Z');
+    const fixAt = (lat: number, lon: number, s: number): Fix => ({
+      lat,
+      lon,
+      time: new Date(t0 + s * 1000).toISOString(),
+      speed: 5,
+    });
+    // Latch on-route at the start point, then ride ~100 m beside the track for >10 s.
+    act(() => geo.onFix?.(fixAt(60, 24, 0)));
+    for (let s = 1; s <= 13; s++) act(() => geo.onFix?.(fixAt(60.002, 24, s)));
+
+    // 1) Sustained off-route ⇒ the app ASKS — nothing was fetched yet.
+    expect(await screen.findByText(/reroute back to your planned route\?/i)).toBeInTheDocument();
+    expect(reroute.attempts).toBe(0);
+
+    // 2) Rider confirms ⇒ one fetch, shown as a PREVIEW — still not applied.
+    fireEvent.click(screen.getByRole('button', { name: /^Reroute$/i }));
+    expect(await screen.findByText(/rejoins your planned route ahead/i)).toBeInTheDocument();
+    expect(reroute.attempts).toBe(1);
+
+    // 3) Rider accepts ⇒ the dialog closes and the ride continues on the new route.
+    fireEvent.click(screen.getByRole('button', { name: /^Accept$/i }));
+    expect(screen.queryByRole('alertdialog', { name: /Reroute/i })).not.toBeInTheDocument();
+  });
+
+  it('declining the offer keeps the planned route and does not call the router (WR-051)', async () => {
+    seed();
+    reroute.attempts = 0;
+    render(<RideScreen />);
+    fireEvent.click(screen.getByRole('button', { name: /Start ride/i }));
+
+    const t0 = Date.parse('2026-07-10T10:00:00Z');
+    act(() => geo.onFix?.({ lat: 60, lon: 24, time: new Date(t0).toISOString(), speed: 5 }));
+    for (let s = 1; s <= 13; s++) {
+      act(() =>
+        geo.onFix?.({
+          lat: 60.002,
+          lon: 24,
+          time: new Date(t0 + s * 1000).toISOString(),
+          speed: 5,
+        }),
+      );
+    }
+    fireEvent.click(await screen.findByRole('button', { name: /No thanks/i }));
+    expect(screen.queryByRole('alertdialog', { name: /Reroute/i })).not.toBeInTheDocument();
+    // Still off-route on the next fix — but the episode was declined, so no re-offer, no fetch.
+    act(() =>
+      geo.onFix?.({ lat: 60.002, lon: 24, time: new Date(t0 + 14_000).toISOString(), speed: 5 }),
+    );
+    expect(screen.queryByRole('alertdialog', { name: /Reroute/i })).not.toBeInTheDocument();
+    expect(reroute.attempts).toBe(0);
   });
 });

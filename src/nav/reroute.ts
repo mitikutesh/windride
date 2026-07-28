@@ -1,10 +1,13 @@
 /**
- * nav/reroute.ts — live auto-reroute wiring (DEC-022 follow-up).
+ * nav/reroute.ts — confirmed reroute proposals (DEC-022 follow-up, reshaped by WR-051).
  *
  * Ties the WR-015 Rerouter to the RideController: on a sustained off-route, fetch a fresh leg back to
- * a rejoin point, splice it, RE-ANALYSE the spliced geometry for per-segment wind (so the ETA and
- * wind HUD keep working), and swap it into the ride. Wind on a mid-ride detour is treated as ~uniform
- * (the app's spatial-uniform model), reconstructed from the original plan's analysis.
+ * a rejoin point on the ORIGINAL route (~500 m downstream — everything beyond is preserved), splice
+ * it, and RE-ANALYSE the spliced geometry for per-segment wind (so the ETA and wind HUD keep
+ * working). Nothing is applied here: `proposeReroute` returns the analysed proposal for the Ride
+ * screen to preview, and only an explicit rider Accept calls `controller.applyReroute` (WR-051 —
+ * never silently swap the route under someone doing 30 km/h). Wind on a mid-ride detour is treated
+ * as ~uniform (the app's spatial-uniform model), reconstructed from the original plan's analysis.
  */
 import type { CandidateRoute, WindSample } from '../domain';
 import { analyzeCandidate, type CandidateAnalysis } from '../engine/scoring';
@@ -42,22 +45,33 @@ export function reanalyzeReroute(
   return analyzeCandidate(route, windBySegment, { targetDistanceM: route.distanceM, speed });
 }
 
-export type RerouteResult = 'rerouted' | 'near-finish' | 'failed' | 'skipped';
+/** A fetched + re-analysed reroute awaiting the rider's Accept (WR-051). */
+export interface RerouteProposal {
+  /** Ready to hand to `RideController.applyReroute` if the rider accepts. */
+  analysis: CandidateAnalysis;
+  /** Where (along the ORIGINAL track) the proposed leg rejoins the planned route. */
+  rejoinAtM: number;
+}
+
+export type ProposeOutcome =
+  | { result: 'proposed'; proposal: RerouteProposal }
+  | { result: 'near-finish' }
+  | { result: 'failed'; nextRetryMs: number }
+  | { result: 'skipped' };
 
 /**
- * One reroute attempt: ask the router for a rejoin leg, re-analyse it, and apply it to the live ride.
- * `ref` is the ORIGINAL plan analysis (real forecast wind) — not the last spliced one — so repeated
- * reroutes don't compound wind-reconstruction error. Backoff on failure is the Rerouter's job
- * (its attempt counter drives outcome.nextRetryMs).
+ * One rider-confirmed reroute request: ask the router for a leg back to the original route, splice +
+ * re-analyse it, and return it as a PROPOSAL — the caller previews it and applies only on an explicit
+ * Accept. `ref` is the ORIGINAL plan analysis (real forecast wind) — not the last spliced one — so
+ * repeated reroutes don't compound wind-reconstruction error. Backoff bookkeeping on failure is the
+ * Rerouter's job (its attempt counter drives outcome.nextRetryMs).
  */
-export async function attemptReroute(
+export async function proposeReroute(
   rerouter: Rerouter,
   controller: RideController,
   ref: CandidateAnalysis,
   speed: SpeedSettings,
-  /** Re-checked when the leg resolves — skip applying if the ride paused/ended mid-fetch. */
-  canApply?: () => boolean,
-): Promise<{ result: RerouteResult; nextRetryMs?: number }> {
+): Promise<ProposeOutcome> {
   const inputs = controller.rerouteInputs();
   if (!inputs) return { result: 'skipped' };
   const outcome = await rerouter.attempt(
@@ -67,9 +81,13 @@ export async function attemptReroute(
     inputs.progressM,
   );
   if (outcome.ok) {
-    if (canApply && !canApply()) return { result: 'skipped' }; // ride paused/ended while loading
-    controller.applyReroute(reanalyzeReroute(outcome.route, ref, speed));
-    return { result: 'rerouted' };
+    return {
+      result: 'proposed',
+      proposal: {
+        analysis: reanalyzeReroute(outcome.route, ref, speed),
+        rejoinAtM: outcome.rejoinAtM,
+      },
+    };
   }
   if (outcome.reason === 'near-finish') return { result: 'near-finish' };
   return { result: 'failed', nextRetryMs: outcome.nextRetryMs };

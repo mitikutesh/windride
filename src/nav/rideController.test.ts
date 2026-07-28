@@ -150,6 +150,41 @@ describe('RideController', () => {
     expect(offRouteSays).toHaveLength(1);
   });
 
+  it('reports the TRUE fix position even off-route — the marker must not stick to the track (WR-051)', () => {
+    // Same due-east straight route; the rider is well north of it.
+    const line: LatLon[] = [
+      { lat: 60, lon: 24 },
+      { lat: 60, lon: 24.05 },
+    ];
+    const segments = resample({ polyline: line });
+    const sample: WindSample = {
+      windMs: 4,
+      windFromDeg: 200,
+      gustMs: 6,
+      precipProb: 0,
+      tempC: 15,
+      time: '2026-07-10T09:00',
+    };
+    const straight = analyzeCandidate(
+      {
+        id: 'straight',
+        polyline: line,
+        segments,
+        distanceM: polylineLengthM(line),
+        ascentM: 0,
+        steps: [],
+      },
+      segments.map(() => [sample]),
+      { targetDistanceM: polylineLengthM(line) },
+    );
+    const controller = new RideController({ analysis: straight, announcer: fakeAnnouncer() });
+    controller.onFix({ lat: 60, lon: 24.01, time: '2026-07-10T09:00:00Z' }); // latch on-track
+    const s = controller.onFix({ lat: 60.002, lon: 24.01, time: '2026-07-10T09:00:01Z' }); // ~222 m north
+    expect(s.position).toEqual({ lat: 60.002, lon: 24.01 }); // the raw fix, verbatim
+    expect(s.snapped.lat).toBeCloseTo(60, 4); // the snap stays on the track…
+    expect(s.position.lat).not.toBeCloseTo(s.snapped.lat, 4); // …and the two must differ off-route
+  });
+
   it('warns once about an upcoming exposed-crosswind gust stretch (WR-021)', () => {
     // A due-east route; wind from the north = crosswind. First 3 segments sheltered (unflagged),
     // the rest exposed with 16 m/s gusts → a flagged stretch starting ~900 m in.

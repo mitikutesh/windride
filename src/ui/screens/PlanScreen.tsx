@@ -6,7 +6,7 @@ import { DownwindResults } from '../components/DownwindResults';
 import { MissingKeyBanner } from '../components/MissingKeyBanner';
 import { NlPlanBox } from '../components/NlPlanBox';
 import { suggestWinter } from '../../engine/winter';
-import { DEFAULT_START, usePlanStore } from '../../state/planStore';
+import { usePlanStore } from '../../state/planStore';
 import { useCapability } from '../../state/useCapabilities';
 import { useNoveltyStore } from '../../state/noveltyStore';
 import { useSavedRoutesStore } from '../../state/savedRoutesStore';
@@ -29,14 +29,13 @@ export function PlanScreen() {
   const savedRoutes = useSavedRoutesStore((s) => s.routes);
   const removeRoute = useSavedRoutesStore((s) => s.remove);
 
-  // After idb hydration: geolocate ONLY if the start is still the default (never clobber a
-  // persisted/manual start), then load the conditions strip.
+  // After idb hydration: refresh geolocation so plans start from where the rider IS (WR-051 —
+  // a location persisted last week must not silently anchor today's ride). Only a hand-typed
+  // ('manual') start is left alone. Then load the conditions strip for that point.
   useEffect(() => {
     const run = () => {
       const s = usePlanStore.getState();
-      const atDefault =
-        s.inputs.start.lat === DEFAULT_START.lat && s.inputs.start.lon === DEFAULT_START.lon;
-      const located = atDefault ? s.locate() : Promise.resolve();
+      const located = s.startSource !== 'manual' ? s.locate() : Promise.resolve();
       void located.then(() => usePlanStore.getState().loadConditions());
       void useSavedRoutesStore.getState().refresh();
       void useNoveltyStore.getState().hydrate(); // ridden roads for the Novelty sub-score (WR-028)
@@ -165,6 +164,19 @@ export function PlanScreen() {
             />
           </label>
         </div>
+        {/* Hand-typed coords stick until this hands the start back to geolocation (WR-051). */}
+        <button
+          type="button"
+          className="wr-navlink"
+          onClick={() =>
+            void usePlanStore
+              .getState()
+              .locate()
+              .then(() => usePlanStore.getState().loadConditions())
+          }
+        >
+          Use my location
+        </button>
       </details>
 
       <PrimaryButton onClick={() => void generate()} disabled={busy}>

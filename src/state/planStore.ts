@@ -15,16 +15,24 @@ export interface PlanError {
   message: string;
 }
 
+/**
+ * How the start point was set (WR-051 stale-start fix). 'default'/'geo' starts are ephemeral —
+ * every new plan re-fetches the CURRENT location so riding somewhere new never plans from where
+ * you were yesterday. Only a hand-typed ('manual') start is sticky.
+ */
+export type StartSource = 'default' | 'geo' | 'manual';
+
 interface PlanState {
   inputs: PlanInputs;
   conditions: Conditions | null;
   status: PlanStatus;
   progress: string;
   error: PlanError | null;
+  startSource: StartSource;
   /** Ranked downwind one-ways (WR-026), shown inline on the Plan screen. */
   downwind: DownwindResult[];
   setInput: (patch: Partial<PlanInputs>) => void;
-  locate: () => Promise<void>;
+  locate: (opts?: { timeoutMs?: number; maximumAgeMs?: number }) => Promise<void>;
   loadConditions: () => Promise<void>;
   generate: () => Promise<void>;
 }
@@ -67,12 +75,20 @@ export const usePlanStore = create<PlanState>()(
       status: 'idle',
       progress: '',
       error: null,
+      startSource: 'default',
       downwind: [],
 
       // Any input change invalidates the shown downwind results (they were for the old wind/distance).
-      setInput: (patch) => set((s) => ({ inputs: { ...s.inputs, ...patch }, downwind: [] })),
+      // A patch that touches `start` is a deliberate hand-set start — mark it manual so auto-locate
+      // stops clobbering it (typed coords, NL "start from X", …).
+      setInput: (patch) =>
+        set((s) => ({
+          inputs: { ...s.inputs, ...patch },
+          downwind: [],
+          ...(patch.start ? { startSource: 'manual' as const } : {}),
+        })),
 
-      locate: () =>
+      locate: (opts) =>
         new Promise<void>((resolve) => {
           if (typeof navigator === 'undefined' || !navigator.geolocation) {
             resolve();
@@ -86,15 +102,20 @@ export const usePlanStore = create<PlanState>()(
                   ...s.inputs,
                   start: { lat: pos.coords.latitude, lon: pos.coords.longitude },
                 },
+                startSource: 'geo',
                 status: 'idle',
               }));
               resolve();
             },
             () => {
-              set({ status: 'idle' }); // keep the default start on failure
+              set({ status: 'idle' }); // keep the previous start on failure
               resolve();
             },
-            { timeout: 8000 },
+            {
+              timeout: opts?.timeoutMs ?? 8000,
+              // A recent cached position is fine — this feeds route planning, not turn-by-turn nav.
+              maximumAge: opts?.maximumAgeMs ?? 0,
+            },
           );
         }),
 
@@ -125,6 +146,11 @@ export const usePlanStore = create<PlanState>()(
       },
 
       generate: async () => {
+        // Every NEW plan starts from where the rider is NOW (WR-051): refresh geolocation first
+        // unless the start was set by hand. Failure/denial falls back to the stored start.
+        if (get().startSource !== 'manual') {
+          await get().locate({ timeoutMs: 5000, maximumAgeMs: 60_000 });
+        }
         // Downwind is its own pipeline (one-way point-to-point + transit return, WR-026) and its
         // results render inline on the Plan screen rather than the loop Results grid.
         if (get().inputs.routeType === 'downwind') {
@@ -208,7 +234,9 @@ export const usePlanStore = create<PlanState>()(
     {
       name: 'windride-plan',
       storage: createJSONStorage(() => idbStateStorage),
-      partialize: (s) => ({ inputs: s.inputs }),
+      // startSource persists with the inputs; pre-WR-051 stores lack it and hydrate as 'default',
+      // so their (possibly stale) persisted start gets refreshed on the next visit/plan.
+      partialize: (s) => ({ inputs: s.inputs, startSource: s.startSource }),
     },
   ),
 );

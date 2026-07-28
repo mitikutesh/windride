@@ -31,11 +31,15 @@ export interface WindFeatureCollection {
   features: WindLineFeature[];
 }
 
+/** The subset of a ScoredCandidate the geometry helpers need — a mid-ride reroute produces a bare
+ *  CandidateAnalysis (no scores), and `{ candidate: a.candidate, analysis: a }` satisfies this. */
+export type RouteGeoInput = Pick<ScoredCandidate, 'candidate' | 'analysis'>;
+
 /**
  * One LineString feature per segment, coloured by wind relationship (per-feature colour so the
  * whole route is a single GeoJSON source, not N layers — WR-009 perf requirement).
  */
-export function routeToWindGeoJSON(scored: ScoredCandidate): WindFeatureCollection {
+export function routeToWindGeoJSON(scored: RouteGeoInput): WindFeatureCollection {
   const poly = scored.candidate.polyline;
   // Cumulative distance along the source polyline, so each segment feature can include the
   // ORIGINAL intermediate vertices between its boundaries (a straight a->b chord cuts corners).
@@ -67,7 +71,7 @@ export function routeToWindGeoJSON(scored: ScoredCandidate): WindFeatureCollecti
 }
 
 /** Time-weighted wind story bar segments in route order (feeds WindRibbon). */
-export function routeToRibbon(scored: ScoredCandidate): RibbonSegment[] {
+export function routeToRibbon(scored: RouteGeoInput): RibbonSegment[] {
   const total = scored.analysis.totalTimeS || 1;
   return scored.analysis.segments.map((sa) => ({
     fraction: sa.timeS / total,

@@ -3,7 +3,7 @@ import type { CandidateRoute } from '../domain';
 import type { CandidateAnalysis, SegmentAnalysis } from '../engine/scoring';
 import { DEFAULT_SPEED_SETTINGS } from '../engine/speedModel';
 import type { Rerouter } from './offRoute';
-import { attemptReroute, reanalyzeReroute, referenceWind } from './reroute';
+import { proposeReroute, reanalyzeReroute, referenceWind } from './reroute';
 import type { RideController } from './rideController';
 
 /** A one-segment analysis with known wind, for the reference-wind reconstruction. */
@@ -84,7 +84,7 @@ describe('reanalyzeReroute', () => {
   });
 });
 
-describe('attemptReroute', () => {
+describe('proposeReroute', () => {
   const ref = analysisWith(1);
   const speed = DEFAULT_SPEED_SETTINGS;
   const inputs = {
@@ -103,22 +103,24 @@ describe('attemptReroute', () => {
   }
   const rerouter = (attempt: () => Promise<unknown>) => ({ attempt }) as unknown as Rerouter;
 
-  it('applies a re-analysed route on a successful reroute', async () => {
+  it('returns a re-analysed proposal WITHOUT applying it (confirm flow — WR-051)', async () => {
     const ctrl = fakeController(inputs);
-    const r = await attemptReroute(
+    const r = await proposeReroute(
       rerouter(async () => ({ ok: true, route: line('spliced'), rejoinAtM: 600 })),
       ctrl,
       ref,
       speed,
     );
-    expect(r.result).toBe('rerouted');
-    expect(ctrl.applied).toHaveLength(1);
-    expect(ctrl.applied[0].candidate.id).toBe('spliced'); // the swapped-in route
+    expect(r.result).toBe('proposed');
+    if (r.result !== 'proposed') throw new Error('unreachable');
+    expect(r.proposal.analysis.candidate.id).toBe('spliced'); // ready to apply on Accept
+    expect(r.proposal.rejoinAtM).toBe(600); // rejoins the ORIGINAL route downstream
+    expect(ctrl.applied).toHaveLength(0); // nothing swapped without the rider's Accept
   });
 
-  it('reports near-finish without applying anything', async () => {
+  it('reports near-finish without proposing anything', async () => {
     const ctrl = fakeController(inputs);
-    const r = await attemptReroute(
+    const r = await proposeReroute(
       rerouter(async () => ({ ok: false, reason: 'near-finish' })),
       ctrl,
       ref,
@@ -129,7 +131,7 @@ describe('attemptReroute', () => {
   });
 
   it('reports failure with the backoff delay', async () => {
-    const r = await attemptReroute(
+    const r = await proposeReroute(
       rerouter(async () => ({
         ok: false,
         reason: 'provider-error',
@@ -143,21 +145,8 @@ describe('attemptReroute', () => {
     expect(r).toEqual({ result: 'failed', nextRetryMs: 4000 });
   });
 
-  it('skips applying when canApply is false (ride paused/ended while the leg loaded)', async () => {
-    const ctrl = fakeController(inputs);
-    const r = await attemptReroute(
-      rerouter(async () => ({ ok: true, route: line('spliced'), rejoinAtM: 600 })),
-      ctrl,
-      ref,
-      speed,
-      () => false, // ride is no longer live by the time the leg resolves
-    );
-    expect(r.result).toBe('skipped');
-    expect(ctrl.applied).toHaveLength(0); // nothing swapped into a non-live ride
-  });
-
   it('skips before the first fix (no inputs)', async () => {
-    const r = await attemptReroute(
+    const r = await proposeReroute(
       rerouter(async () => {
         throw new Error('must not be called');
       }),

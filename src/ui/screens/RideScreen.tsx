@@ -12,7 +12,7 @@ import {
   type RideRecorder,
 } from '../../nav/recorder';
 import type { Rerouter } from '../../nav/offRoute';
-import { attemptReroute } from '../../nav/reroute';
+import { proposeReroute } from '../../nav/reroute';
 import { RideController, type RideState } from '../../nav/rideController';
 import type { CandidateAnalysis } from '../../engine/scoring';
 import { activeSpeedSettings, useCalibrationStore } from '../../state/calibrationStore';
@@ -41,10 +41,14 @@ const median = (xs: number[]): number => {
 
 const DevReplayPanel = lazy(() => import('../components/DevReplayPanel'));
 
-/** Min gap between reroutes (success or failure) — protects the ORS free-tier budget when lost. */
-const REROUTE_COOLDOWN_MS = 20_000;
-
 type RideStatus = 'idle' | 'riding' | 'paused' | 'ended';
+
+/**
+ * Confirm-first reroute (WR-051): 'offer' asks "reroute?", 'loading' fetches the leg, 'preview'
+ * shows the proposed route (dashed on the map) awaiting Accept, 'error' offers a manual retry.
+ * Every ORS call is behind an explicit rider tap — no automatic traffic while lost.
+ */
+type ReroutePhase = 'idle' | 'offer' | 'loading' | 'preview' | 'error';
 
 /**
  * Ride screen (WR-016): the saddle UI — wind-coloured map, next-turn card, wind HUD, and a glance
@@ -72,12 +76,23 @@ export function RideScreen() {
   // Freshest blended heading for the map arrow (task #32) — refreshed per fix and, between fixes,
   // by compass events so the arrow swings when a stopped rider turns the phone.
   const [mapHeading, setMapHeading] = useState<number | null>(null);
-  // Auto-reroute (DEC-022 wiring): a Rerouter, the ORIGINAL plan analysis (for reference wind), an
-  // in-flight guard, and a backoff clock so a failed attempt doesn't hammer the router.
+  // Confirmed reroute (WR-051): a Rerouter, the ORIGINAL plan analysis (for reference wind), and an
+  // in-flight guard. The rider drives every step — offer → confirm → preview → accept.
   const rerouterRef = useRef<Rerouter | null>(null);
   const refAnalysisRef = useRef<CandidateAnalysis | null>(null);
   const reroutingRef = useRef(false);
-  const rerouteRetryAtRef = useRef(0);
+  const [reroutePhase, setReroutePhase] = useState<ReroutePhase>('idle');
+  const [rerouteProposal, setRerouteProposal] = useState<CandidateAnalysis | null>(null);
+  const [rerouteError, setRerouteError] = useState<{ message: string; retryable: boolean } | null>(
+    null,
+  );
+  // "No thanks" silences the offer for the CURRENT off-route episode only; returning to the route
+  // re-arms it, so wandering off again asks again.
+  const rerouteDeclinedRef = useRef(false);
+  // The route being navigated right now: the plan's analysis until a reroute is accepted, then the
+  // live spliced analysis. The map, ribbon and preview all render THIS — an accepted reroute must be
+  // visible, not just swapped inside the controller.
+  const [liveAnalysis, setLiveAnalysis] = useState<CandidateAnalysis | null>(null);
 
   useWakeLock(status === 'riding');
 
@@ -110,7 +125,16 @@ export function RideScreen() {
     [],
   );
 
-  const ribbon = useMemo(() => (scored ? routeToRibbon(scored) : []), [scored]);
+  // What the map/ribbon render: the plan until a reroute is accepted, then the live spliced route.
+  const liveScored = useMemo(
+    () =>
+      liveAnalysis
+        ? { candidate: liveAnalysis.candidate, analysis: liveAnalysis }
+        : (scored ?? null),
+    [liveAnalysis, scored],
+  );
+
+  const ribbon = useMemo(() => (liveScored ? routeToRibbon(liveScored) : []), [liveScored]);
   // The ribbon is laid out by TIME share, so the dot must use the modelled time fraction, not
   // distance — otherwise it sits in the wrong wind band on headwind/tailwind routes.
   const dotFraction = rideState?.timeFraction ?? 0;
@@ -133,49 +157,107 @@ export function RideScreen() {
   // a Details toggle so the map dominates (the thing you actually look at on the bike).
   const [detailsOpen, setDetailsOpen] = useState(false);
 
+  // Latest off-route state as a ref, so async reroute callbacks can check it without a stale closure.
+  const offRouteRef = useRef<RideState['offRoute']>('on-route');
+
   const handleFix = useCallback((fix: Fix) => {
     const controller = controllerRef.current;
     if (!controller) return;
     recorderRef.current.addFix(fix);
     if (recorderRef.current.lastError) setRecError(true); // recording stopped persisting
     const state = controller.onFix(fix);
+    offRouteRef.current = state.offRoute;
     setRideState(state);
     setMapHeading(state.headingDeg); // per-fix blended heading; compass events refine it between fixes
+  }, []);
 
-    // Sustained off-route WHILE ACTIVELY RIDING ⇒ fetch a fresh leg, splice + re-analyse it, and swap
-    // the route in (DEC-022). One attempt in flight at a time; success + failure both cool down
-    // (never hammer the router / blow the free-tier budget); near-finish stops retrying. `paused`
-    // covers both pause and end (end() pauses the controller), so a reroute never fires or applies
-    // once the rider stops.
-    if (
-      state.offRoute === 'alert' &&
-      !controller.paused &&
-      rerouterRef.current &&
-      refAnalysisRef.current &&
-      !reroutingRef.current &&
-      Date.now() >= rerouteRetryAtRef.current
-    ) {
-      reroutingRef.current = true;
-      void attemptReroute(
-        rerouterRef.current,
-        controller,
-        refAnalysisRef.current,
-        activeSpeedSettings(),
-        () => !controller.paused, // don't apply/announce if the ride paused/ended mid-fetch
-      )
-        .then((r) => {
-          if (r.result === 'rerouted') rerouteRetryAtRef.current = Date.now() + REROUTE_COOLDOWN_MS;
-          else if (r.result === 'failed')
-            rerouteRetryAtRef.current = Date.now() + (r.nextRetryMs ?? 5000);
-          else if (r.result === 'near-finish') rerouteRetryAtRef.current = Number.POSITIVE_INFINITY;
-        })
-        .catch(() => {
-          rerouteRetryAtRef.current = Date.now() + 5000;
-        })
-        .finally(() => {
-          reroutingRef.current = false;
-        });
+  // Reroute offer follows the off-route state (WR-051): a sustained off-route opens the "Reroute?"
+  // offer (unless declined this episode); getting back ON the route ends the episode — any offer,
+  // loading result, or un-accepted preview is stale the moment the rider rejoins, so drop it all.
+  const offRoute = rideState?.offRoute ?? 'on-route';
+  useEffect(() => {
+    if (offRoute === 'alert') {
+      if (!rerouteDeclinedRef.current) setReroutePhase((p) => (p === 'idle' ? 'offer' : p));
+    } else if (offRoute === 'on-route') {
+      rerouteDeclinedRef.current = false;
+      setReroutePhase('idle');
+      setRerouteProposal(null);
+      setRerouteError(null);
     }
+  }, [offRoute]);
+
+  // Rider confirmed "Reroute": ONE router call for a leg back to the original route (~500 m
+  // downstream — everything after the rejoin point is preserved). The result is only a proposal;
+  // nothing is applied until Accept.
+  const confirmReroute = useCallback(() => {
+    const controller = controllerRef.current;
+    if (!controller || !rerouterRef.current || !refAnalysisRef.current || reroutingRef.current)
+      return;
+    reroutingRef.current = true;
+    setReroutePhase('loading');
+    setRerouteError(null);
+    void proposeReroute(
+      rerouterRef.current,
+      controller,
+      refAnalysisRef.current,
+      activeSpeedSettings(),
+    )
+      .then((r) => {
+        // The rider rejoined the route while the leg was loading — the proposal is stale; the
+        // episode-reset effect has already (or will) put the dialog away. Show nothing.
+        if (offRouteRef.current !== 'alert') return;
+        if (r.result === 'proposed') {
+          setRerouteProposal(r.proposal.analysis);
+          setReroutePhase('preview');
+        } else if (r.result === 'near-finish') {
+          // NAVIGATION_SPEC §3: never reroute to the finish — retrying can't change this.
+          setRerouteError({
+            message: 'Too close to the finish to reroute — follow the arrow back to the track.',
+            retryable: false,
+          });
+          setReroutePhase('error');
+        } else {
+          setRerouteError({
+            message: 'Could not fetch a reroute (offline or quota). You can retry.',
+            retryable: true,
+          });
+          setReroutePhase('error');
+        }
+      })
+      .catch(() => {
+        if (offRouteRef.current !== 'alert') return; // rejoined mid-fetch — nothing to report
+        setRerouteError({
+          message: 'Could not fetch a reroute (offline or quota). You can retry.',
+          retryable: true,
+        });
+        setReroutePhase('error');
+      })
+      .finally(() => {
+        reroutingRef.current = false;
+      });
+  }, []);
+
+  // Rider accepted the previewed route: NOW swap it into the controller and into everything the
+  // screen renders (map line, ribbon, gust markers). The controller announces "New route".
+  const acceptReroute = useCallback(() => {
+    const controller = controllerRef.current;
+    if (!controller || !rerouteProposal) return;
+    controller.applyReroute(rerouteProposal);
+    setLiveAnalysis(rerouteProposal);
+    setRerouteProposal(null);
+    setRerouteError(null);
+    setReroutePhase('idle');
+    rerouteDeclinedRef.current = false;
+    setFollowing(true); // snap the camera back to the rider on the fresh route
+  }, [rerouteProposal]);
+
+  // "No thanks" / "Keep current" / error dismiss: stay on the planned route, keep the bearing-to-
+  // track arrow, and don't ask again until the rider has been back on the route once.
+  const dismissReroute = useCallback(() => {
+    rerouteDeclinedRef.current = true;
+    setRerouteProposal(null);
+    setRerouteError(null);
+    setReroutePhase('idle');
   }, []);
 
   // Device-compass heading (task #32). MUST run inside the Start/Resume gesture — iOS gates the
@@ -201,7 +283,11 @@ export function RideScreen() {
     rerouterRef.current = makeRerouter();
     refAnalysisRef.current = scored.analysis; // original forecast wind, for reroute re-analysis
     reroutingRef.current = false;
-    rerouteRetryAtRef.current = 0;
+    rerouteDeclinedRef.current = false;
+    setReroutePhase('idle');
+    setRerouteProposal(null);
+    setRerouteError(null);
+    setLiveAnalysis(null); // a fresh ride navigates the plan, not a previous ride's reroute
     const name = `WindRide ${scored.evidence.distanceKm.toFixed(0)} km`;
     recorderRef.current = new IdbRideRecorder({
       rideId: crypto.randomUUID(),
@@ -256,6 +342,10 @@ export function RideScreen() {
       void useNoveltyStore.getState().recordRide(points);
       void refreshRides();
     });
+    // A reroute conversation can't outlive the ride it belongs to.
+    setReroutePhase('idle');
+    setRerouteProposal(null);
+    setRerouteError(null);
     setStatus('ended');
   }, [refreshRides, scored]);
 
@@ -287,7 +377,11 @@ export function RideScreen() {
       rerouterRef.current = makeRerouter();
       refAnalysisRef.current = scored.analysis;
       reroutingRef.current = false;
-      rerouteRetryAtRef.current = 0;
+      rerouteDeclinedRef.current = false;
+      setReroutePhase('idle');
+      setRerouteProposal(null);
+      setRerouteError(null);
+      setLiveAnalysis(null);
       recorderRef.current = new IdbRideRecorder({
         rideId: unfinished.id, // keep the existing recording row — do NOT call start()
         name: unfinished.name,
@@ -342,11 +436,16 @@ export function RideScreen() {
   const mapEl = (
     <div className={`wr-ride__map${riding ? ' wr-ride__map--full' : ''}`}>
       <RideMap
-        scored={scored}
+        scored={liveScored ?? scored}
         rider={
           rideState
-            ? { position: rideState.snapped, headingDeg: mapHeading ?? rideState.headingDeg }
+            ? // The RAW fix, never the snapped point — off the route the marker must show where the
+              // rider actually is, not cling to the track (WR-051).
+              { position: rideState.position, headingDeg: mapHeading ?? rideState.headingDeg }
             : null
+        }
+        previewPolyline={
+          reroutePhase === 'preview' ? (rerouteProposal?.candidate.polyline ?? null) : null
         }
         batterySaver={batterySaver}
         zoomM={zoomM}
@@ -401,6 +500,49 @@ export function RideScreen() {
             <path d="M12 2 L18 20 L12 16 L6 20 Z" fill="currentColor" />
           </svg>
           Off route — {Math.round(rideState.toTrack.distanceM)} m to the track
+        </div>
+      ) : null}
+      {reroutePhase !== 'idle' ? (
+        // Confirm-first reroute dialog (WR-051): nothing is fetched or applied without a tap.
+        <div className="wr-ride__reroute" role="alertdialog" aria-label="Reroute">
+          {reroutePhase === 'offer' ? (
+            <>
+              <span>You’re off route — reroute back to your planned route?</span>
+              <div className="wr-ride__controls">
+                <PrimaryButton onClick={confirmReroute}>Reroute</PrimaryButton>
+                <button type="button" className="wr-btn-secondary" onClick={dismissReroute}>
+                  No thanks
+                </button>
+              </div>
+            </>
+          ) : null}
+          {reroutePhase === 'loading' ? <span>Finding a way back to your route…</span> : null}
+          {reroutePhase === 'preview' ? (
+            <>
+              <span>
+                New route found (dashed line) — it rejoins your planned route ahead. Accept?
+              </span>
+              <div className="wr-ride__controls">
+                <PrimaryButton onClick={acceptReroute}>Accept</PrimaryButton>
+                <button type="button" className="wr-btn-secondary" onClick={dismissReroute}>
+                  Keep current
+                </button>
+              </div>
+            </>
+          ) : null}
+          {reroutePhase === 'error' && rerouteError ? (
+            <>
+              <span>{rerouteError.message}</span>
+              <div className="wr-ride__controls">
+                {rerouteError.retryable ? (
+                  <PrimaryButton onClick={confirmReroute}>Retry</PrimaryButton>
+                ) : null}
+                <button type="button" className="wr-btn-secondary" onClick={dismissReroute}>
+                  Dismiss
+                </button>
+              </div>
+            </>
+          ) : null}
         </div>
       ) : null}
       {gpsError ? (
