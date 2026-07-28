@@ -17,10 +17,10 @@ export const WIND_COLORS: Record<WindKind, string> = {
 /** Map chrome colours (mirrored from tokens.css: ghost=--text2, start=--sky, arrow=--text,
  *  arrowHalo=--bg). windColors.test.ts keeps these in sync. */
 export const MAP_COLORS = {
-  ghost: '#8ca1c0',
-  start: '#4da3ff',
-  arrow: '#edf3fb',
-  arrowHalo: '#0a1220',
+  ghost: '#a9b8a3',
+  start: '#bff04d',
+  arrow: '#f1f5ec',
+  arrowHalo: '#0e120d',
 };
 
 export function windColor(kind: WindKind): string {
