@@ -84,3 +84,9 @@ least-privilege `windride-github-deploy` role (trust pinned to
 Upload it in the AWS Console → CloudFormation → Create stack (region eu-north-1), then copy the
 stack Outputs into the GitHub secret/variables listed above. If the account already has the
 GitHub OIDC provider, set the `CreateOidcProvider` parameter to `false`.
+
+If the hosting stack is ALREADY deployed (e.g. an earlier manual `cdk deploy WindRideHosting`),
+use `infra/oneclick-deploy-link.template.json` instead — it creates only the OIDC provider +
+deploy role, taking the existing stack's `SiteBucketName` and `DistributionId` outputs as
+parameters. (Deploying the full one-click template into such an account fails with
+"already exists" on the Origin Access Control.)

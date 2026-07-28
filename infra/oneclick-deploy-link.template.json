@@ -1,0 +1,127 @@
+{
+ "AWSTemplateFormatVersion": "2010-09-09",
+ "Description": "WindRide GitHub deploy link ONLY \u2014 for accounts where the WindRideHosting stack (S3 + CloudFront) already exists. Creates the GitHub Actions OIDC provider (optional) and the least-privilege windride-github-deploy role, pointed at the existing bucket/distribution via parameters.",
+ "Parameters": {
+  "SiteBucketName": {
+   "Type": "String",
+   "Description": "Existing site bucket \u2014 the WindRideHosting stack's SiteBucketName output."
+  },
+  "DistributionId": {
+   "Type": "String",
+   "Description": "Existing CloudFront distribution \u2014 the WindRideHosting stack's DistributionId output."
+  },
+  "CreateOidcProvider": {
+   "Type": "String",
+   "Default": "true",
+   "AllowedValues": [
+    "true",
+    "false"
+   ],
+   "Description": "Set to false ONLY if this account already has the token.actions.githubusercontent.com OIDC provider."
+  }
+ },
+ "Conditions": {
+  "MakeOidc": {
+   "Fn::Equals": [
+    {
+     "Ref": "CreateOidcProvider"
+    },
+    "true"
+   ]
+  }
+ },
+ "Resources": {
+  "GitHubOidcProvider": {
+   "Type": "AWS::IAM::OIDCProvider",
+   "Condition": "MakeOidc",
+   "Properties": {
+    "Url": "https://token.actions.githubusercontent.com",
+    "ClientIdList": [
+     "sts.amazonaws.com"
+    ],
+    "ThumbprintList": [
+     "6938fd4d98bab03faadb97b34396831e3780aea1",
+     "1c58a3a8518e8759bf075b76b750d4f2df264fcd"
+    ]
+   }
+  },
+  "GitHubDeployRole": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "RoleName": "windride-github-deploy",
+    "Description": "Assumed by mitikutesh/windride production-environment GitHub Actions runs via OIDC; can only sync the site bucket and invalidate the distribution.",
+    "MaxSessionDuration": 3600,
+    "AssumeRolePolicyDocument": {
+     "Version": "2012-10-17",
+     "Statement": [
+      {
+       "Effect": "Allow",
+       "Principal": {
+        "Federated": {
+         "Fn::Sub": "arn:aws:iam::${AWS::AccountId}:oidc-provider/token.actions.githubusercontent.com"
+        }
+       },
+       "Action": "sts:AssumeRoleWithWebIdentity",
+       "Condition": {
+        "StringEquals": {
+         "token.actions.githubusercontent.com:aud": "sts.amazonaws.com",
+         "token.actions.githubusercontent.com:sub": "repo:mitikutesh/windride:environment:production"
+        }
+       }
+      }
+     ]
+    },
+    "Policies": [
+     {
+      "PolicyName": "site-deploy-least-privilege",
+      "PolicyDocument": {
+       "Version": "2012-10-17",
+       "Statement": [
+        {
+         "Sid": "ListSiteBucket",
+         "Effect": "Allow",
+         "Action": "s3:ListBucket",
+         "Resource": {
+          "Fn::Sub": "arn:aws:s3:::${SiteBucketName}"
+         }
+        },
+        {
+         "Sid": "WriteSiteObjects",
+         "Effect": "Allow",
+         "Action": [
+          "s3:GetObject",
+          "s3:PutObject",
+          "s3:PutObjectAcl",
+          "s3:DeleteObject"
+         ],
+         "Resource": {
+          "Fn::Sub": "arn:aws:s3:::${SiteBucketName}/*"
+         }
+        },
+        {
+         "Sid": "InvalidateCdn",
+         "Effect": "Allow",
+         "Action": "cloudfront:CreateInvalidation",
+         "Resource": {
+          "Fn::Sub": "arn:aws:cloudfront::${AWS::AccountId}:distribution/${DistributionId}"
+         }
+        }
+       ]
+      }
+     }
+    ]
+   }
+  }
+ },
+ "Outputs": {
+  "DeployRoleArn": {
+   "Description": "GitHub secret AWS_DEPLOY_ROLE_ARN",
+   "Value": {
+    "Fn::GetAtt": [
+     "GitHubDeployRole",
+     "Arn"
+    ]
+   }
+  }
+ }
+}
