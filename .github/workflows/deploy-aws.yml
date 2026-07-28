@@ -58,15 +58,22 @@ jobs:
         run: |
           aws s3 sync dist "s3://${{ vars.SITE_BUCKET }}" --delete --cache-control "no-cache"
 
+      # Re-UPLOAD from the local build rather than S3->S3 copy: an S3->S3 copy with
+      # --metadata-directive REPLACE wipes Content-Type (no MIME re-guess on copies), and a JS
+      # module served as binary/octet-stream is refused by browsers — blank page in production.
+      # Local uploads re-guess MIME from the extension, so types survive the cache re-stamp.
       - name: Re-stamp content-hashed assets as immutable
         run: |
-          aws s3 cp "s3://${{ vars.SITE_BUCKET }}" "s3://${{ vars.SITE_BUCKET }}" --recursive \
-            --metadata-directive REPLACE \
-            --cache-control "public,max-age=31536000,immutable" \
-            --exclude "*" --include "assets/*" --include "workbox-*.js"
+          aws s3 cp dist/assets "s3://${{ vars.SITE_BUCKET }}/assets" --recursive \
+            --cache-control "public,max-age=31536000,immutable"
+          aws s3 cp dist "s3://${{ vars.SITE_BUCKET }}" --recursive \
+            --exclude "*" --include "workbox-*.js" \
+            --cache-control "public,max-age=31536000,immutable"
 
+      # "/assets/*" shouldn't need invalidating (content-hashed names) but is included so a
+      # metadata-only fix like the MIME repair above actually reaches the edge caches.
       - name: Invalidate CloudFront (entry + unhashed runtime files)
         run: |
           aws cloudfront create-invalidation \
             --distribution-id "${{ vars.CLOUDFRONT_DISTRIBUTION_ID }}" \
-            --paths "/" "/index.html" "/sw.js" "/manifest.webmanifest" "/data/*"
+            --paths "/" "/index.html" "/sw.js" "/manifest.webmanifest" "/data/*" "/assets/*"
