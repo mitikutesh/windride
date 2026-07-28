@@ -7,7 +7,7 @@ import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import { authConfigured, CognitoAuthClient } from '../adapters/auth/cognito';
 import type { AuthClient, Session } from '../adapters/auth/types';
-import { isProviderError } from '../adapters/errors';
+import { isBrowserOffline, isProviderError } from '../adapters/errors';
 import { idbStateStorage } from './persist';
 
 // Re-exported so UI can name the session type without importing adapters (ARCHITECTURE §3 boundary).
@@ -48,7 +48,12 @@ function authErrorReason(e: unknown): string {
   if (isProviderError(e)) {
     if (e.code === 'no-config') return 'Accounts aren’t set up in this build.';
     if (e.kind === 'quota') return 'Too many attempts — please wait a bit and try again.';
-    if (e.kind === 'network') return 'You appear to be offline. Check your connection.';
+    if (e.kind === 'network') {
+      // Auth needs no user-supplied key, but still be honest about offline vs unreachable.
+      return e.code === 'offline' || isBrowserOffline()
+        ? 'You appear to be offline. Check your connection.'
+        : 'Couldn’t reach the sign-in service — it may be temporarily unavailable. Try again in a moment.';
+    }
     switch (e.code) {
       case 'UsernameExists':
         return 'That email is already registered — sign in instead.';

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import roundtripRaw from '../../../fixtures/ors/roundtrip-sample.geojson?raw';
 import type { LatLon } from '../../domain';
 import type { ProviderErrorKind } from '../errors';
@@ -161,6 +161,112 @@ describe('OrsRouteProvider', () => {
     await provider.pointToPoint(a, b, 'cycling-regular');
     await provider.pointToPoint(a, b, 'cycling-regular');
     expect(calls).toBe(1);
+  });
+});
+
+// The goal-fix suite: a wrong/missing key must produce an explanatory typed error, never a
+// generic "network" that the UI phrases as "you appear to be offline".
+describe('OrsRouteProvider failure classification', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  const rtParams = (seed: number) => ({
+    start: { lat: 60.15, lon: 24.65 },
+    lengthM: 50_000,
+    seed,
+    points: 4 as const,
+    profile: 'cycling-regular' as const,
+  });
+  const statusFetch = (status: number, body: unknown = {}) =>
+    (async () =>
+      ({ ok: false, status, json: async () => body }) as Response) as unknown as typeof fetch;
+  const provider = (fetchFn: typeof fetch, apiKey = 'test') =>
+    new OrsRouteProvider({ apiKey, fetchFn, now: () => FIXED_NOW, timeoutMs: 1000 });
+
+  it("maps 401/403 to badResponse with code 'auth', surfacing ORS's own message", async () => {
+    await expect(
+      provider(statusFetch(403, { error: 'Access to this API has been disallowed' })).roundTrip(
+        rtParams(101),
+      ),
+    ).rejects.toMatchObject({
+      kind: 'badResponse',
+      code: 'auth',
+      message: 'Access to this API has been disallowed',
+    });
+    await expect(provider(statusFetch(401)).roundTrip(rtParams(102))).rejects.toMatchObject({
+      code: 'auth',
+    });
+  });
+
+  it("fails fast with code 'no-key' when no key is configured — zero live calls", async () => {
+    let calls = 0;
+    const counting = (async () => {
+      calls++;
+      return jsonResponse(ROUNDTRIP);
+    }) as unknown as typeof fetch;
+    await expect(provider(counting, '   ').roundTrip(rtParams(103))).rejects.toMatchObject({
+      kind: 'badResponse',
+      code: 'no-key',
+    });
+    expect(calls).toBe(0);
+  });
+
+  it('trims whitespace from the key so a pasted newline cannot corrupt the Authorization header', async () => {
+    let auth: string | undefined;
+    const capture = (async (_url: string, init: RequestInit) => {
+      auth = (init.headers as Record<string, string>).Authorization;
+      return jsonResponse(ROUNDTRIP);
+    }) as unknown as typeof fetch;
+    await provider(capture, ' abc123\n').roundTrip(rtParams(104));
+    expect(auth).toBe('abc123');
+  });
+
+  it("classifies a fetch failure while apparently online as 'unreachable', never offline", async () => {
+    const boom = (async () => {
+      throw new TypeError('Failed to fetch');
+    }) as unknown as typeof fetch;
+    await expect(provider(boom).roundTrip(rtParams(105))).rejects.toMatchObject({
+      kind: 'network',
+      code: 'unreachable',
+    });
+  });
+
+  it("classifies a fetch failure as 'offline' only when the browser reports onLine=false", async () => {
+    vi.stubGlobal('navigator', { onLine: false });
+    const boom = (async () => {
+      throw new TypeError('Failed to fetch');
+    }) as unknown as typeof fetch;
+    await expect(provider(boom).roundTrip(rtParams(106))).rejects.toMatchObject({
+      kind: 'network',
+      code: 'offline',
+    });
+  });
+
+  it("surfaces an aborted request as code 'timeout'", async () => {
+    const hang = ((_url: string, init: RequestInit) =>
+      new Promise((_res, rej) => {
+        init.signal?.addEventListener('abort', () =>
+          rej(new DOMException('aborted', 'AbortError')),
+        );
+      })) as unknown as typeof fetch;
+    await expect(
+      new OrsRouteProvider({
+        apiKey: 'test',
+        fetchFn: hang,
+        now: () => FIXED_NOW,
+        timeoutMs: 20,
+      }).roundTrip(rtParams(107)),
+    ).rejects.toMatchObject({ kind: 'network', code: 'timeout' });
+  });
+
+  it('includes the ORS error-body message in other bad responses', async () => {
+    await expect(
+      provider(
+        statusFetch(404, { error: { code: 2010, message: 'Could not find routable point' } }),
+      ).roundTrip(rtParams(108)),
+    ).rejects.toMatchObject({
+      kind: 'badResponse',
+      message: 'HTTP 404: Could not find routable point',
+    });
   });
 });
 

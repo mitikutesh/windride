@@ -3,7 +3,12 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import { getProviders, getTransitProvider } from '../adapters/registry';
-import { isProviderError, type ProviderError, type ProviderErrorKind } from '../adapters/errors';
+import {
+  isBrowserOffline,
+  isProviderError,
+  type ProviderError,
+  type ProviderErrorKind,
+} from '../adapters/errors';
 import { idbStateStorage } from './persist';
 import { useResultsStore } from './resultsStore';
 import { runPlan, type Conditions, type PlanInputs, type PlanProgress } from './plan/runPlan';
@@ -56,15 +61,33 @@ function progressText(p: PlanProgress): string {
   return p.phase === 'weather' ? 'Reading the wind…' : 'Scoring routes…';
 }
 
-function phrase(e: ProviderError): string {
+/**
+ * Honest, actionable copy for a plan failure — names the likely cause + fix instead of a blanket
+ * "you're offline" (a bad/missing ORS key must never masquerade as a connection problem).
+ * Exported for tests; mirrors aiFailureReason / ridesStore.stravaFailureReason.
+ */
+export function planFailureReason(e: ProviderError): string {
   if (e.code === 'roundtrip-cap') return 'That distance is above the 100 km round-trip limit.';
+  if (e.code === 'no-key') {
+    return 'Live routing needs an openrouteservice API key — add yours in Kit → API keys.';
+  }
+  if (e.code === 'auth') {
+    return 'openrouteservice rejected your API key. Double-check it in Kit → API keys — a stray space, a typo, or a key that isn’t activated yet are the usual culprits.';
+  }
+  if (e.code === 'timeout') {
+    return 'The routing/weather service took too long to answer. Try again in a moment.';
+  }
   switch (e.kind) {
     case 'quota':
       return 'Daily forecast/route limit reached — please try again later.';
     case 'network':
-      return 'You appear to be offline. Check your connection and try again.';
+      // Only claim "offline" when the browser actually is; a blocked request while online is
+      // more often a rejected key (CORS-blocked 401/403) than a connection problem.
+      return e.code === 'offline' || isBrowserOffline()
+        ? 'You appear to be offline. Check your connection and try again.'
+        : 'Couldn’t reach the service even though you seem to be online. If you just added an API key it may be invalid — check it in Kit → API keys, then try again.';
     default:
-      return 'The routing/weather service returned something unexpected.';
+      return `The routing/weather service returned something unexpected${e.message ? ` (${e.message})` : ''}.`;
   }
 }
 
@@ -184,7 +207,7 @@ export const usePlanStore = create<PlanState>()(
             set({ downwind: results, status: 'ready', progress: '' });
           } catch (e) {
             const error: PlanError = isProviderError(e)
-              ? { kind: e.kind, message: phrase(e) }
+              ? { kind: e.kind, message: planFailureReason(e) }
               : { kind: 'network', message: (e as Error).message ?? 'Something went wrong.' };
             set({ status: 'error', error, progress: '' });
           }
@@ -227,7 +250,7 @@ export const usePlanStore = create<PlanState>()(
           }
         } catch (e) {
           const error: PlanError = isProviderError(e)
-            ? { kind: e.kind, message: phrase(e) }
+            ? { kind: e.kind, message: planFailureReason(e) }
             : { kind: 'network', message: (e as Error).message ?? 'Something went wrong.' };
           set({ status: 'error', error, progress: '' });
         }

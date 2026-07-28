@@ -49,7 +49,8 @@ function KeyRow({ meta }: { meta: KeyMeta }) {
   const [flash, setFlash] = useState<'saved' | 'cleared' | 'error' | null>(null);
 
   const save = async () => {
-    const ok = await saveKey(meta.name, draft);
+    // Trim: a trailing newline from a copy-paste corrupts the Authorization header downstream.
+    const ok = await saveKey(meta.name, draft.trim());
     setDraft('');
     setFlash(ok ? 'saved' : 'error');
   };

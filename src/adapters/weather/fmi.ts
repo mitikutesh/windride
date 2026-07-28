@@ -17,7 +17,7 @@
  * from temperature + humidity + wind (Australian apparent-temperature formula).
  */
 import type { Daylight, LatLon, WindGrid, WindSample } from '../../domain';
-import { ProviderError } from '../errors';
+import { fetchFailure, ProviderError } from '../errors';
 import { createWeatherCache, type WeatherCache } from './cache';
 import type { WeatherProvider } from './index';
 import { OpenMeteoProvider } from './openMeteo';
@@ -170,7 +170,7 @@ export class FmiWeatherProvider implements WeatherProvider {
     try {
       res = await this.fetchFn(this.buildUrl(p, hours));
     } catch {
-      throw new ProviderError('network', 'FMI fetch failed');
+      throw fetchFailure('FMI', false);
     }
     if (res.status === 429) throw new ProviderError('quota', 'FMI rate limited');
     if (!res.ok) throw new ProviderError('badResponse', `FMI ${res.status}`);

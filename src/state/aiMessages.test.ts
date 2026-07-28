@@ -11,7 +11,11 @@ describe('aiFailureReason', () => {
 
   it('phrases quota and network distinctly', () => {
     expect(aiFailureReason(new ProviderError('quota', 'rate'), 'x')).toMatch(/limit/i);
-    expect(aiFailureReason(new ProviderError('network', 'down'), 'x')).toMatch(/offline/i);
+    // While apparently online, a failed request is NOT phrased as "offline" (often a key problem).
+    expect(aiFailureReason(new ProviderError('network', 'down'), 'x')).toMatch(/Kit → AI/);
+    expect(aiFailureReason(new ProviderError('network', 'down', 'offline'), 'x')).toMatch(
+      /offline/i,
+    );
   });
 
   it('falls back to a feature-specific retry for other/validation failures', () => {

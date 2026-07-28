@@ -3,7 +3,7 @@
 // CC-BY 4.0 (attribution in the UI footer, WR-002). wind_direction is meteorological (FROM) —
 // see CLAUDE.md domain warnings.
 import type { Daylight, LatLon, WindGrid, WindSample } from '../../domain';
-import { ProviderError } from '../errors';
+import { fetchFailure, ProviderError } from '../errors';
 import { createWeatherCache, type WeatherCache } from './cache';
 import type { WeatherProvider } from './index';
 
@@ -121,7 +121,7 @@ export class OpenMeteoProvider implements WeatherProvider {
     try {
       res = await this.fetchFn(url);
     } catch {
-      throw new ProviderError('network', 'fetch failed');
+      throw fetchFailure('Open-Meteo', false);
     }
     if (res.status === 429) throw new ProviderError('quota', 'Open-Meteo daily limit');
     if (!res.ok) throw new ProviderError('badResponse', `HTTP ${res.status}`);

@@ -12,7 +12,7 @@ import type {
   TurnStep,
 } from '../../domain';
 import { expandRangesToEdges, normalizeDeg, overlapRatio, resample } from '../../engine/geometry';
-import { ProviderError } from '../errors';
+import { fetchFailure, ProviderError } from '../errors';
 import { createIdbCache, type TtlCache } from '../idbCache';
 import type { RouteProvider } from './index';
 
@@ -161,6 +161,16 @@ function shortHash(s: string): string {
   return (h >>> 0).toString(36);
 }
 
+/** Best-effort extraction of ORS's own error message from a non-OK body (shape varies by status). */
+async function orsErrorDetail(res: Response): Promise<string | undefined> {
+  try {
+    const body = (await res.json()) as { error?: string | { message?: string } };
+    return typeof body.error === 'string' ? body.error : body.error?.message;
+  } catch {
+    return undefined;
+  }
+}
+
 export class OrsRouteProvider implements RouteProvider {
   private readonly apiKey: string;
   private readonly fetchFn: typeof fetch;
@@ -169,7 +179,9 @@ export class OrsRouteProvider implements RouteProvider {
   private readonly timeoutMs: number;
 
   constructor(opts: OrsOptions = {}) {
-    this.apiKey = opts.apiKey ?? import.meta.env.VITE_ORS_API_KEY ?? '';
+    // Trim: a key pasted with a trailing newline/space makes fetch() throw on the invalid
+    // Authorization header — indistinguishable from being offline, so it must never reach fetch.
+    this.apiKey = (opts.apiKey ?? import.meta.env.VITE_ORS_API_KEY ?? '').trim();
     this.fetchFn = opts.fetchFn ?? fetch.bind(globalThis);
     this.now = opts.now ?? (() => Date.now());
     this.cache =
@@ -178,6 +190,11 @@ export class OrsRouteProvider implements RouteProvider {
   }
 
   private async post(profile: string, body: unknown): Promise<OrsResponse> {
+    // A missing key can never succeed — fail fast with an actionable code instead of burning a
+    // live call that comes back as an opaque 403/CORS failure.
+    if (!this.apiKey) {
+      throw new ProviderError('badResponse', 'openrouteservice API key missing', 'no-key');
+    }
     liveCalls++;
     if (import.meta.env.MODE === 'development') {
       console.info(`[ORS] live call #${liveCalls} (${profile})`);
@@ -196,20 +213,25 @@ export class OrsRouteProvider implements RouteProvider {
           signal: controller.signal,
         });
       } catch {
+        throw fetchFailure('ORS', controller.signal.aborted);
+      }
+      if (res.status === 401 || res.status === 403) {
         throw new ProviderError(
-          'network',
-          controller.signal.aborted ? 'timed out' : 'fetch failed',
+          'badResponse',
+          (await orsErrorDetail(res)) ?? 'openrouteservice rejected the API key',
+          'auth',
         );
       }
       if (res.status === 429) throw new ProviderError('quota', 'ORS rate limit');
-      if (!res.ok) throw new ProviderError('badResponse', `HTTP ${res.status}`);
+      if (!res.ok) {
+        const detail = await orsErrorDetail(res);
+        throw new ProviderError('badResponse', `HTTP ${res.status}${detail ? `: ${detail}` : ''}`);
+      }
       try {
         return (await res.json()) as OrsResponse;
       } catch {
-        throw new ProviderError(
-          controller.signal.aborted ? 'network' : 'badResponse',
-          controller.signal.aborted ? 'timed out reading body' : 'invalid JSON',
-        );
+        if (controller.signal.aborted) throw fetchFailure('ORS', true);
+        throw new ProviderError('badResponse', 'invalid JSON');
       }
     } finally {
       clearTimeout(timer);

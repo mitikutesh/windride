@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { DEFAULT_START, usePlanStore } from './planStore';
+import { ProviderError } from '../adapters/errors';
+import { DEFAULT_START, planFailureReason, usePlanStore } from './planStore';
 
 // generate() must fail fast AFTER the locate gate — these tests assert the gate, not the pipeline.
 vi.mock('../adapters/registry', () => ({
@@ -76,5 +77,43 @@ describe('planStore start location (WR-051 stale-start fix)', () => {
     await usePlanStore.getState().generate();
     expect(geo).not.toHaveBeenCalled();
     expect(usePlanStore.getState().inputs.start).toEqual({ lat: 59.33, lon: 18.07 });
+  });
+});
+
+// The "/goal" fix: a bad or missing ORS key must be named as a key problem — the blanket
+// "You appear to be offline" is reserved for when the browser is actually offline.
+describe('planFailureReason (explanatory failure copy)', () => {
+  it('blames the key, not the connection, when the provider rejected it', () => {
+    const msg = planFailureReason(new ProviderError('badResponse', 'rejected', 'auth'));
+    expect(msg).toMatch(/API key/i);
+    expect(msg).not.toMatch(/offline/i);
+  });
+
+  it('points at Kit → API keys when no key is configured', () => {
+    expect(planFailureReason(new ProviderError('badResponse', 'missing', 'no-key'))).toMatch(
+      /Kit → API keys/,
+    );
+  });
+
+  it("never claims offline for an 'unreachable' failure (online but blocked — e.g. bad key)", () => {
+    const msg = planFailureReason(new ProviderError('network', 'blocked', 'unreachable'));
+    expect(msg).not.toMatch(/appear to be offline/i);
+    expect(msg).toMatch(/API key/i);
+  });
+
+  it("keeps the offline copy for an 'offline'-coded failure", () => {
+    expect(planFailureReason(new ProviderError('network', 'down', 'offline'))).toMatch(
+      /appear to be offline/i,
+    );
+  });
+
+  it("surfaces a timeout as a timeout, not as 'offline'", () => {
+    expect(planFailureReason(new ProviderError('network', 'slow', 'timeout'))).toMatch(/too long/i);
+  });
+
+  it('includes the provider detail for unexpected responses', () => {
+    expect(planFailureReason(new ProviderError('badResponse', 'no route feature'))).toMatch(
+      /no route feature/,
+    );
   });
 });
