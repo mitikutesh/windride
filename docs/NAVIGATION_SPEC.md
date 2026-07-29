@@ -8,7 +8,12 @@ The chosen CandidateRoute (polyline + steps + per-segment wind), GPS fixes at ~1
 Maintain `progressM` (distance along track). Each fix: search nearest point on the polyline
 ONLY within [progressM − 100 m, progressM + 300 m]; accept if perpendicular distance < 60 m;
 progress may only move forward (small jitter tolerance −15 m). This makes self-crossing loops
-and out-and-backs safe. Global nearest-point is forbidden except at cold start.
+and out-and-backs safe. Global nearest-point is forbidden except at cold start (where closed-loop
+start==finish ties prefer the start arm). Outage recovery (DEC-058): while no fix is being
+accepted, the FORWARD bound widens with time since the last accepted fix (bounded by a generous
+rider speed); a candidate beyond +300 m commits only after 3 consecutive agreeing in-gate fixes,
+so one glitchy fix can never teleport progress. The backward bound never widens — a rider who
+went backwards past −100 m recovers via the §3 confirm-first reroute, not silently.
 
 ## 3. Off-route (offRoute.ts) — confirm-first reroute (WR-051)
 Trigger: perpendicular distance > 45 m sustained > 10 s → audible alert + bearing-to-track

@@ -8,6 +8,7 @@ import { analyzeCandidate } from '../engine/scoring';
 import type { Announcer } from './announcer';
 import { parseTraceToFixes } from './replay';
 import { RideController } from './rideController';
+import { pointAtDistance, prepareTrack } from './snap';
 
 const cleanRoute = JSON.parse(cleanRouteRaw) as LatLon[];
 
@@ -379,5 +380,29 @@ describe('RideController — compass-blended heading (task #32)', () => {
     expect(controller.setCompassHeading(123)).toBeCloseTo(123, 3);
     // Dropping the compass falls back to the (still unknown) travel bearing → null.
     expect(controller.setCompassHeading(null)).toBeNull();
+  });
+});
+
+describe('RideController — seeded starts (F-004) and resume seeding', () => {
+  const analysis = buildAnalysis();
+
+  it('a fresh ride is seeded at the route start, never globally latched', () => {
+    const controller = new RideController({ analysis, announcer: fakeAnnouncer() });
+    const p = pointAtDistance(prepareTrack(cleanRoute), 890);
+    const state = controller.onFix({ ...p, time: '2026-07-10T09:00:00.000Z' });
+    // Held inside [0, +300 m]: a first fix far along a loop must not start the ride "mid-route"
+    // (on a closed loop the equivalent jitter case would start it "already finished").
+    expect(state.onTrack).toBe(false);
+    expect(state.progressM).toBeLessThanOrEqual(301);
+  });
+
+  it('resume seeds from the recorded path — the first fix latches mid-route immediately', () => {
+    const resumePath = cleanRoute.slice(0, Math.floor(cleanRoute.length / 2));
+    const ridden = polylineLengthM(resumePath);
+    const controller = new RideController({ analysis, announcer: fakeAnnouncer(), resumePath });
+    const last = resumePath[resumePath.length - 1];
+    const state = controller.onFix({ ...last, time: '2026-07-10T09:00:00.000Z' });
+    expect(state.onTrack).toBe(true);
+    expect(Math.abs(state.progressM - ridden)).toBeLessThan(50);
   });
 });

@@ -42,6 +42,23 @@ describe('toGpx / fromGpx', () => {
     expect(gpxFilename(51.8, '2026-07-17T12:00:00Z')).toBe('windride-2026-07-17-52km.gpx');
   });
 
+  it('tolerates a malformed track from legacy idb: no throw, junk points skipped (F-002)', () => {
+    const noPoints = { name: 'broken' } as unknown as GpxTrack;
+    expect(toGpx(noPoints)).toContain('<trkseg>');
+    const junk = {
+      points: [
+        { lat: 60.15, lon: 24.65 },
+        { lat: NaN, lon: 24.66 },
+        { lat: '61" onload="x' as unknown as number, lon: 24.67 },
+        { lat: 60.16, lon: 24.68, ele: NaN },
+      ],
+    } as GpxTrack;
+    const xml = toGpx(junk);
+    expect(fromGpx(xml)).toHaveLength(2); // only the two finite points survive
+    expect(xml).not.toContain('onload'); // string lat can't inject attributes
+    expect(xml).not.toContain('NaN');
+  });
+
   it('parses a mix of self-closing and paired trkpts without dropping points', () => {
     const xml = `<gpx><trk><trkseg>
       <trkpt lat="60.1" lon="24.1"/>

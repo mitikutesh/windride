@@ -70,7 +70,9 @@ export class BackendStack extends Stack {
       authType: lambda.FunctionUrlAuthType.NONE, // health is public; auth'd routes verify JWT in-handler
       cors: {
         allowedOrigins: [...(props.allowedOrigins ?? []), 'http://localhost:5173'],
-        allowedMethods: [lambda.HttpMethod.GET, lambda.HttpMethod.POST, lambda.HttpMethod.DELETE],
+        // Must cover every method routed in lambda/index.mjs (PUT /sync is the sync push, F-001);
+        // the covering test in test/backend-stack.test.ts fails if the two drift apart.
+        allowedMethods: [lambda.HttpMethod.GET, lambda.HttpMethod.PUT, lambda.HttpMethod.DELETE],
         allowedHeaders: ['authorization', 'content-type'],
       },
     });

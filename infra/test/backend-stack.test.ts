@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { App } from 'aws-cdk-lib';
 import { Match, Template } from 'aws-cdk-lib/assertions';
 import { describe, expect, it } from 'vitest';
@@ -47,6 +49,21 @@ describe('BackendStack (WR-038)', () => {
       Cors: Match.objectLike({ AllowOrigins: Match.arrayWith(['https://windride.example.com']) }),
     });
     t.resourceCountIs('AWS::ApiGateway::RestApi', 0); // Function URL, not API Gateway
+  });
+
+  it('CORS AllowMethods covers every method routed in lambda/index.mjs (F-001)', () => {
+    const t = synth();
+    const urls = t.findResources('AWS::Lambda::Url');
+    const cors = (Object.values(urls)[0].Properties as { Cors: { AllowMethods: string[] } }).Cors;
+    expect(cors.AllowMethods).toEqual(['GET', 'PUT', 'DELETE']);
+
+    // Covering check: parse the handler's dispatch (`method === '...'`). If the routing style is
+    // ever refactored so the regex matches nothing, the non-empty assertion fails loudly instead
+    // of the coverage check passing over an empty set.
+    const handler = readFileSync(join(__dirname, '..', 'lambda', 'index.mjs'), 'utf8');
+    const routed = new Set([...handler.matchAll(/method === '([A-Z]+)'/g)].map((m) => m[1]));
+    expect(routed.size).toBeGreaterThan(0);
+    for (const method of routed) expect(cors.AllowMethods).toContain(method);
   });
 
   it('grants the Lambda read/write on ONLY its own table (positively: no wildcard resource)', () => {

@@ -37,10 +37,14 @@ export function toGpx(track: GpxTrack): string {
   const creator = escapeXml(track.creator ?? 'WindRide');
   const name = track.name ? `    <name>${escapeXml(track.name)}</name>\n` : '';
   const metaTime = track.time ? `    <time>${escapeXml(track.time)}</time>\n` : '';
-  const pts = track.points
+  // Tracks come from idb and may predate the sync-pull validation (F-002): a missing points array
+  // or non-finite/string coordinates must degrade to a valid (if sparse) document, never a throw
+  // on Export or attribute injection into the XML.
+  const pts = (Array.isArray(track.points) ? track.points : [])
+    .filter((p) => Number.isFinite(p?.lat) && Number.isFinite(p?.lon))
     .map((p) => {
-      const ele = p.ele !== undefined ? `<ele>${p.ele}</ele>` : '';
-      const time = p.time ? `<time>${escapeXml(p.time)}</time>` : '';
+      const ele = Number.isFinite(p.ele) ? `<ele>${p.ele}</ele>` : '';
+      const time = p.time ? `<time>${escapeXml(String(p.time))}</time>` : '';
       const inner = ele || time ? `${ele}${time}` : '';
       return inner
         ? `      <trkpt lat="${p.lat}" lon="${p.lon}">${inner}</trkpt>`

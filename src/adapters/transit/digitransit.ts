@@ -79,7 +79,9 @@ export class DigitransitProvider implements TransitProvider {
   private readonly cache = new Map<string, { expiresAt: number; value: Promise<ReturnService> }>();
 
   constructor(opts: DigitransitOptions = {}) {
-    this.apiKey = opts.apiKey ?? import.meta.env.VITE_DIGITRANSIT_KEY ?? '';
+    // DEV-only .env fallback (DEC-059): dead-code-eliminated from prod builds — no baked keys.
+    this.apiKey =
+      opts.apiKey ?? (import.meta.env.DEV ? import.meta.env.VITE_DIGITRANSIT_KEY : undefined) ?? '';
     this.fetchFn = opts.fetchFn ?? fetch.bind(globalThis);
     this.endpoint = opts.endpoint ?? DEFAULT_ENDPOINT;
     this.radiusM = opts.radiusM ?? 800;

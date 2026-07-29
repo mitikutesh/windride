@@ -436,7 +436,11 @@ export function RideScreen() {
       const announcer = armAudio(cueMode);
       announcerRef.current = announcer;
       setMuted(cueMode === 'silent');
-      controllerRef.current = new RideController({ analysis: scored.analysis, announcer });
+      controllerRef.current = new RideController({
+        analysis: scored.analysis,
+        announcer,
+        resumePath: resumePoints, // seed the snapper at the rider's real progress, not the start
+      });
       rerouterRef.current = makeRerouter();
       refAnalysisRef.current = scored.analysis;
       reroutingRef.current = false;

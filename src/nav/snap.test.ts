@@ -7,6 +7,7 @@ import type { LatLon } from '../domain';
 import type { Fix } from './fixSource';
 import { parseTraceToFixes, mulberry32, applyJitter } from './replay';
 import {
+  estimateProgressFromPath,
   prepareTrack,
   Snapper,
   SNAP_JITTER_TOLERANCE_M,
@@ -111,6 +112,130 @@ describe('Snapper — core behaviour', () => {
     const r = s.update(fx(60.005 - backM / 111_320, 24));
     expect(r.progressM).toBeLessThan(mid);
     expect(mid - r.progressM).toBeLessThanOrEqual(SNAP_JITTER_TOLERANCE_M + 1);
+  });
+});
+
+// A rectangular closed loop: start == finish exactly, like every planned round-trip.
+const loop: LatLon[] = [
+  { lat: 60, lon: 24 },
+  { lat: 60.005, lon: 24 },
+  { lat: 60.005, lon: 24.01 },
+  { lat: 60, lon: 24.01 },
+  { lat: 60, lon: 24 },
+];
+
+describe('Snapper — cold start on closed loops (F-004)', () => {
+  it('latches the START arm even when first-fix jitter favours the finish arm', () => {
+    const track = prepareTrack(loop);
+    // 2.2 m up the start arm but 4.5 m along the finish arm: the finish arm is strictly nearer
+    // (perp 2.2 m vs 4.5 m), so plain min-perp would begin the ride at ~total ("already done").
+    const r = new Snapper(track).update(fx(60.00002, 24.00008));
+    expect(r.onTrack).toBe(true);
+    expect(r.progressM).toBeLessThan(30); // start arm
+    expect(r.progressM).toBeLessThan(track.total - 100); // decisively not the finish arm
+  });
+
+  it('unambiguous cold starts are unaffected by the tie-break', () => {
+    const track = prepareTrack(loop);
+    const r = new Snapper(track).update(fx(60.003, 24.0001)); // clearly on the west arm
+    expect(r.onTrack).toBe(true);
+    expect(r.progressM).toBeGreaterThan(300);
+    expect(r.progressM).toBeLessThan(400);
+  });
+});
+
+describe('Snapper — outage re-acquisition (F-003, DEC-058)', () => {
+  const T0 = Date.parse('2026-07-10T09:00:00.000Z');
+  // Fixes along the straight track: `m` metres due north of the start, at second `tS`.
+  const fxAt = (m: number, tS: number, lonOff = 0): Fix => ({
+    lat: 60 + m / 111_320,
+    lon: 24 + lonOff,
+    time: new Date(T0 + tS * 1000).toISOString(),
+  });
+
+  it('re-latches within 3 fixes after a 60 s GPS gap that outruns the +300 m window', () => {
+    const s = new Snapper(prepareTrack(straight), 0);
+    expect(s.update(fxAt(0, 0)).accepted).toBe(true);
+    expect(s.update(fxAt(7, 1)).accepted).toBe(true);
+    // 60 s tunnel at ~25 km/h: the rider reappears ~430 m along — beyond progress + 300 m.
+    const r1 = s.update(fxAt(430, 61));
+    expect(r1.accepted).toBe(false); // gated: one far fix must never teleport progress
+    expect(r1.progressM).toBeLessThan(50);
+    expect(s.update(fxAt(437, 62)).accepted).toBe(false);
+    const r3 = s.update(fxAt(444, 63));
+    expect(r3.accepted).toBe(true); // third agreeing candidate commits
+    expect(r3.onTrack).toBe(true);
+    expect(r3.progressM).toBeGreaterThan(420);
+    expect(r3.progressM).toBeLessThan(460);
+    expect(s.update(fxAt(451, 64)).accepted).toBe(true); // normal windowed progress resumes
+  });
+
+  it('recovers from a position jump under continuous fix cadence (count-based widening)', () => {
+    const s = new Snapper(prepareTrack(straight), 0);
+    expect(s.update(fxAt(0, 0)).accepted).toBe(true);
+    // Fixes keep arriving at 1 Hz but positions leap beyond the window (backgrounded app).
+    let committedAt = -1;
+    for (let i = 1; i <= 15; i++) {
+      const r = s.update(fxAt(430 + i * 7, i));
+      if (r.accepted) {
+        committedAt = i;
+        expect(r.progressM).toBeGreaterThan(430);
+        break;
+      }
+    }
+    expect(committedAt).toBeGreaterThan(0);
+    expect(committedAt).toBeLessThanOrEqual(12); // recovered well before the off-route flow gives up
+  });
+
+  it('never commits on inconsistent far candidates (ambiguity cannot teleport progress)', () => {
+    const s = new Snapper(prepareTrack(straight), 0);
+    expect(s.update(fxAt(0, 0)).accepted).toBe(true);
+    for (let i = 1; i <= 12; i++) {
+      // Alternate between two distant spots — each plausible alone, inconsistent as a streak.
+      const r = s.update(fxAt(i % 2 ? 500 : 900, i));
+      expect(r.accepted).toBe(false);
+      expect(r.progressM).toBeLessThan(50);
+    }
+  });
+
+  it('stays honestly off-track while the rider is genuinely off the route (no false commit)', () => {
+    const s = new Snapper(prepareTrack(straight), 0);
+    expect(s.update(fxAt(0, 0)).accepted).toBe(true);
+    for (let i = 1; i <= 20; i++) {
+      const r = s.update(fxAt(100 + i * 7, i, 0.01)); // ~556 m east of the line, moving north
+      expect(r.accepted).toBe(false);
+      expect(r.onTrack).toBe(false);
+    }
+  });
+});
+
+describe('estimateProgressFromPath (resume seeding)', () => {
+  // Out-and-back along one line: the outbound and return arms overlap exactly (perp ties).
+  const outAndBack = prepareTrack([
+    { lat: 60, lon: 24 },
+    { lat: 60.01, lon: 24 },
+    { lat: 60, lon: 24 },
+  ]);
+
+  it('disambiguates overlapping arms with the recorded distance (return leg)', () => {
+    // Out ~1112 m, back ~445 m: physically ~667 m north but ~1557 m ridden — the return arm.
+    const path: LatLon[] = [
+      { lat: 60, lon: 24 },
+      { lat: 60.01, lon: 24 },
+      { lat: 60.006, lon: 24 },
+    ];
+    const seed = estimateProgressFromPath(outAndBack, path);
+    expect(seed).toBeGreaterThan(outAndBack.total / 2); // not the ~667 m outbound alias
+    expect(Math.abs(seed - 1557)).toBeLessThan(50);
+  });
+
+  it('stays on the outbound arm for a short path; empty path seeds 0', () => {
+    const path: LatLon[] = [
+      { lat: 60, lon: 24 },
+      { lat: 60.002, lon: 24 },
+    ];
+    expect(Math.abs(estimateProgressFromPath(outAndBack, path) - 222)).toBeLessThan(50);
+    expect(estimateProgressFromPath(outAndBack, [])).toBe(0);
   });
 });
 

@@ -45,9 +45,11 @@ export function liveApisEnabled(): boolean {
   return runtime.liveApis ?? import.meta.env.VITE_LIVE_APIS === 'true';
 }
 
-/** True when live routing has a key from ANY source: the runtime override or the Vite-env fallback. */
+/** True when live routing has a key from ANY source: the runtime override or, in dev builds only,
+ *  the Vite-env fallback (DEC-059 — prod bundles are statically key-free, so prod must not claim
+ *  a baked key exists). */
 export function hasRoutingKey(): boolean {
-  return Boolean(runtimeKey('ors') || import.meta.env.VITE_ORS_API_KEY);
+  return Boolean(runtimeKey('ors') || (import.meta.env.DEV && import.meta.env.VITE_ORS_API_KEY));
 }
 
 /** The AI provider the user picked in Kit, or null when unset (DEC-043). Consumed by WR-045+

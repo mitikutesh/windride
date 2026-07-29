@@ -8,7 +8,7 @@
     "test": "vitest run",
     "synth": "cdk synth",
     "diff": "cdk diff",
-    "deploy": "cdk deploy"
+    "deploy": "vitest run && cdk deploy"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

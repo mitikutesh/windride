@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import type { SavedRoute } from '../../data/db';
 import type { PlanInputs } from '../plan/runPlan';
-import { buildSyncDoc, isSavedRoute, isSyncDoc, mergeSyncDocs, type SyncDoc } from './syncDoc';
+import {
+  buildSyncDoc,
+  isSavedRoute,
+  isSyncDoc,
+  isValidRemoteRoute,
+  mergeSyncDocs,
+  type SyncDoc,
+} from './syncDoc';
 
 const route = (id: string, savedAt = 1000): SavedRoute => ({
   id,
@@ -92,6 +99,48 @@ describe('mergeSyncDocs', () => {
     const merged = mergeSyncDocs(doc([]), remote);
     expect(merged.savedRoutes.map((r) => r.id)).toEqual(['b']); // '{id:x}' had no track → dropped
   });
+
+  it('deep-rejects remote routes that would crash the app, keeping valid siblings (F-002)', () => {
+    const noDistance = { ...route('nd'), distanceKm: undefined };
+    const nanDistance = { ...route('nan'), distanceKm: NaN };
+    const noPoints = { ...route('np'), track: {} };
+    const badLat = { ...route('bl'), track: { points: [{ lat: 91, lon: 24 }] } };
+    const remote = {
+      savedRoutes: [noDistance, nanDistance, noPoints, badLat, route('ok')],
+      prefs,
+      tombstones: {},
+    } as unknown as SyncDoc;
+    expect(mergeSyncDocs(doc([]), remote).savedRoutes.map((r) => r.id)).toEqual(['ok']);
+  });
+
+  it('a LOCAL route with a junk point still syncs — the deep guard is remote-only', () => {
+    // Regression guard: deep-filtering local routes would make defaultApply DELETE them (the
+    // merged doc set-difference). Local entries must stay on the shallow guard.
+    const legacy = {
+      ...route('legacy'),
+      track: { points: [{ lat: NaN, lon: 24 }] },
+    } as unknown as SavedRoute;
+    expect(mergeSyncDocs(doc([legacy]), null).savedRoutes.map((r) => r.id)).toEqual(['legacy']);
+  });
+
+  it('strips junk fields inside a pulled track (allow-list copy)', () => {
+    const dirtyTrack = {
+      ...route('a'),
+      track: { name: 'n', points: [{ lat: 60, lon: 24, evil: 'LEAK' }], injected: 'LEAK' },
+    } as unknown as SavedRoute;
+    const merged = mergeSyncDocs(doc([]), doc([dirtyTrack]));
+    expect(JSON.stringify(merged)).not.toContain('LEAK');
+    expect(merged.savedRoutes[0].track.points[0]).toEqual({ lat: 60, lon: 24 });
+  });
+
+  it('ignores unparseable tombstones instead of suppressing the route forever', () => {
+    // savedAt > Date.parse('garbage') is NaN-false, so without the guard the route would be
+    // deleted on every device and the junk tombstone re-uploaded (F-108).
+    const remote = doc([route('a')], { a: 'not-a-date' });
+    const merged = mergeSyncDocs(doc([]), remote);
+    expect(merged.savedRoutes.map((r) => r.id)).toEqual(['a']);
+    expect(merged.tombstones).toEqual({});
+  });
 });
 
 describe('guards', () => {
@@ -103,5 +152,19 @@ describe('guards', () => {
   it('isSyncDoc accepts a doc and rejects junk', () => {
     expect(isSyncDoc({ savedRoutes: [], prefs: {} })).toBe(true);
     expect(isSyncDoc({ savedRoutes: 'no' })).toBe(false);
+  });
+  it('isValidRemoteRoute validates every consumed field', () => {
+    expect(isValidRemoteRoute(route('a'))).toBe(true); // empty points array is valid
+    expect(isValidRemoteRoute({ ...route('a'), ascentM: Infinity })).toBe(false);
+    expect(isValidRemoteRoute({ ...route('a'), savedAt: NaN })).toBe(false);
+    const pts = (n: number) => Array.from({ length: n }, () => ({ lat: 60, lon: 24 }));
+    expect(isValidRemoteRoute({ ...route('a'), track: { points: pts(3) } })).toBe(true);
+    expect(isValidRemoteRoute({ ...route('a'), track: { points: pts(50_001) } })).toBe(false);
+    expect(isValidRemoteRoute({ ...route('a'), track: { points: [{ lat: 60, lon: -181 }] } })).toBe(
+      false,
+    );
+    expect(
+      isValidRemoteRoute({ ...route('a'), track: { points: [{ lat: 60, lon: 24, ele: NaN }] } }),
+    ).toBe(false);
   });
 });

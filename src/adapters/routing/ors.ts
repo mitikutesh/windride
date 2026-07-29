@@ -181,7 +181,13 @@ export class OrsRouteProvider implements RouteProvider {
   constructor(opts: OrsOptions = {}) {
     // Trim: a key pasted with a trailing newline/space makes fetch() throw on the invalid
     // Authorization header — indistinguishable from being offline, so it must never reach fetch.
-    this.apiKey = (opts.apiKey ?? import.meta.env.VITE_ORS_API_KEY ?? '').trim();
+    // The .env fallback is DEV-only (DEC-059): Vite dead-code-eliminates it from prod builds, so
+    // the owner's key can never be baked into dist/. Production keys come from the runtime keychain.
+    this.apiKey = (
+      opts.apiKey ??
+      (import.meta.env.DEV ? import.meta.env.VITE_ORS_API_KEY : undefined) ??
+      ''
+    ).trim();
     this.fetchFn = opts.fetchFn ?? fetch.bind(globalThis);
     this.now = opts.now ?? (() => Date.now());
     this.cache =

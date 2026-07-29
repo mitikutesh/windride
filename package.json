@@ -9,7 +9,7 @@
   },
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b && vite build && node scripts/check-dist-keys.mjs",
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",

@@ -17,7 +17,7 @@ import { classifyWindKind, type WindKind } from '../engine/wind';
 import { detectGustStretches, type GustStretch } from '../engine/gustFlags';
 import { bearingToTrack, OffRouteMonitor, type OffRouteState } from './offRoute';
 import { AUTO_PAUSE_S, MOVING_SPEED_MS } from './rideSummary';
-import { prepareTrack, Snapper, type Track } from './snap';
+import { estimateProgressFromPath, prepareTrack, Snapper, type Track } from './snap';
 import { nextWindTransition, toWindHudSegments, type WindTransition } from './windHud';
 
 export interface NextTurn {
@@ -65,6 +65,12 @@ export interface RideControllerOptions {
   analysis: CandidateAnalysis;
   announcer: Announcer;
   unit?: UnitSystem;
+  /**
+   * The recorded points of a crash-interrupted ride being resumed. Seeds the snapper near the
+   * rider's real progress (see estimateProgressFromPath) instead of the route start — a fresh ride
+   * always seeds 0 (F-004: a closed loop must never cold-latch at the finish arm).
+   */
+  resumePath?: LatLon[];
 }
 
 /** What the reroute coordinator needs to ask the router for a fresh leg (WR follow-up, DEC-022). */
@@ -109,13 +115,20 @@ export class RideController {
   constructor(opts: RideControllerOptions) {
     this.announcer = opts.announcer;
     this.unit = opts.unit ?? 'metric';
-    this.load(opts.analysis);
+    this.load(opts.analysis, 0); // rides start at the route start (F-004)
+    if (opts.resumePath?.length) {
+      const seed = estimateProgressFromPath(this.track, opts.resumePath);
+      this.snapper = new Snapper(this.track, seed);
+      this.lastProgressM = seed;
+    }
   }
 
   /**
    * (Re)build all route-derived state from an analysis — used by the constructor and applyReroute.
-   * `seedProgressM` seeds the new snapper (reroute passes 0, the spliced leg's start) so it uses the
-   * windowed search from there instead of a global cold-start that could mis-latch on a loop.
+   * `seedProgressM` seeds the new snapper (the constructor passes 0 — rides start at the route
+   * start; reroute passes 0 — the spliced leg's start) so it uses the windowed search from there
+   * instead of a global cold-start that could mis-latch on a loop (F-004). Resume overrides the
+   * seed afterwards from the recorded path.
    */
   private load(analysis: CandidateAnalysis, seedProgressM: number | null = null): void {
     this.analysis = analysis;
