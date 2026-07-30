@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
+import { CuratedCredit } from './components/CuratedCredit';
 import type { Route } from './useHashRoute';
 
 interface NavItem {
@@ -100,7 +101,8 @@ export function AppShell({ route, children }: AppShellProps) {
           Mitiku Geleta
         </a>{' '}
         · © OpenStreetMap contributors · Weather by the Finnish Meteorological Institute &amp;
-        Open-Meteo (CC-BY 4.0) ·{' '}
+        Open-Meteo (CC-BY 4.0)
+        <CuratedCredit /> ·{' '}
         <a className="wr-link" href="#/privacy">
           Privacy
         </a>

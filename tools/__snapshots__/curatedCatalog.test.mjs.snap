@@ -1,0 +1,39 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`buildCatalog > produces the expected entry metadata 1`] = `
+[
+  {
+    "attribution": "Route data © Bikeland (bikeland.fi)",
+    "bbox": {
+      "maxLat": 60.31433,
+      "maxLon": 24.53344,
+      "minLat": 60.28267,
+      "minLon": 24.46956,
+    },
+    "id": "bikeland-nuuksio-gravel-loop",
+    "kind": "loop",
+    "lengthKm": 11,
+    "name": "Nuuksio gravel loop",
+    "points": "33 points",
+    "source": "bikeland",
+    "tier": "curated",
+  },
+  {
+    "attribution": "© OpenStreetMap contributors (ODbL)",
+    "bbox": {
+      "maxLat": 60.23735,
+      "maxLon": 25.07386,
+      "minLat": 60.16,
+      "minLon": 24.94,
+    },
+    "id": "osm-r-1234567",
+    "kind": "linear",
+    "lengthKm": 12.1,
+    "name": "Itämeren rengastie",
+    "partial": true,
+    "points": "4 points",
+    "source": "osm",
+    "tier": "ncn",
+  },
+]
+`;

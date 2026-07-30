@@ -4,6 +4,7 @@ import { RouteMap } from '../components/RouteMap';
 import { HeatStrip } from '../components/HeatStrip';
 import { FeelsChart } from '../components/FeelsChart';
 import { CapabilityNotice } from '../components/CapabilityNotice';
+import { CuratedBadge } from '../components/CuratedBadge';
 import { RideBriefing } from '../components/RideBriefing';
 import { ScenicSpots } from '../components/ScenicSpots';
 import { WinterCaution } from '../components/WinterCaution';
@@ -93,6 +94,7 @@ export function ResultsScreen() {
         {discoveryNotes[selected.candidate.id] ? (
           <p className="wr-results__discovery">✨ {discoveryNotes[selected.candidate.id]}</p>
         ) : null}
+        <CuratedBadge candidateId={selected.candidate.id} />
         {selectedRow && selectedRow.cells.length > 0 ? (
           <HeatStrip
             cells={selectedRow.cells}

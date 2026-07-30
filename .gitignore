@@ -47,3 +47,7 @@ tools/exposure_grid/.cache/
 
 # Strava local OAuth config (client secret + refresh token)
 tools/.strava.json
+
+# Hand-downloaded Bikeland GPX inputs + the cached Overpass reply (WR-052). The BUILT catalog
+# (public/data/curated-fi.json) is committed; its raw inputs are not ours to redistribute.
+tools/curated_in/

@@ -79,6 +79,37 @@ export type RoundTripParams = {
 
 export type Daylight = { sunrise: string; sunset: string };
 
+/**
+ * How a curated route earned its place in the catalog (WR-052): an OSM signed-network tier
+ * (international / national / regional cycle network) or a hand-curated publisher route.
+ * PROVENANCE ONLY — the engine never reads this, so a tier can never nudge a score.
+ */
+export type CurationTier = 'icn' | 'ncn' | 'rcn' | 'curated';
+
+/**
+ * One officially curated, signed route from the static catalog built by
+ * `tools/fetch_curated_routes.mjs` (WR-052, DEC-060). Geometry is simplified to ~15 m with exact
+ * endpoints; `lengthKm` is measured on that same simplified line, so km, map and ETA agree.
+ */
+export type CuratedRoute = {
+  /** Stable across rebuilds: `osm-r-<relationId>` or `bikeland-<slug>`. */
+  id: string;
+  name: string;
+  source: 'bikeland' | 'osm';
+  tier: CurationTier;
+  kind: 'loop' | 'linear';
+  lengthKm: number;
+  bbox: { minLat: number; minLon: number; maxLat: number; maxLon: number };
+  /** Required credit for this entry's source (ODbL for OSM, publisher credit for Bikeland). */
+  attribution: string;
+  /**
+   * True when the signed route is mapped in disconnected pieces and this entry holds only its
+   * longest continuous section — so the UI can say so instead of implying the whole route.
+   */
+  partial: boolean;
+  polyline: LatLon[];
+};
+
 /** Summary of a recorded ride (WR-017). Times in seconds, distance in metres. */
 export type RideSummary = {
   distanceM: number;

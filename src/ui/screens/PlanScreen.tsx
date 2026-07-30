@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { ConditionsStrip, DistanceSlider, PrimaryButton, Segmented, Toggle } from '../components';
 import { CapabilityNotice } from '../components/CapabilityNotice';
+import { CuratedRoutesButton } from '../components/CuratedRoutesButton';
 import { DiscoverRoutesButton } from '../components/DiscoverRoutesButton';
 import { DownwindResults } from '../components/DownwindResults';
 import { MissingKeyBanner } from '../components/MissingKeyBanner';
@@ -189,7 +190,8 @@ export function PlanScreen() {
         ) : null}
       </details>
 
-      {/* The two ways to get a route are peers — equal size, equal visibility (DEC-055). */}
+      {/* The ways to get a route are peers — equal size, equal visibility (DEC-055). Curated
+          routes need no key, so unlike AI discovery the button is always there (WR-052). */}
       <div className="wr-plan__actions">
         <PrimaryButton onClick={() => void generate()} disabled={busy}>
           {status === 'loading'
@@ -199,6 +201,7 @@ export function PlanScreen() {
               : "Find today's route"}
         </PrimaryButton>
         {aiReady && inputs.routeType !== 'downwind' ? <DiscoverRoutesButton /> : null}
+        {inputs.routeType !== 'downwind' ? <CuratedRoutesButton /> : null}
       </div>
 
       {status === 'error' && error ? (

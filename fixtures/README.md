@@ -17,3 +17,10 @@ After capture, fixtures are frozen: adapter parsers change only together with fi
   (see DEC-013) — once captured they replace/augment this fixture per the freeze policy below.
 - golden/ — created by WR-007/011: hand-computed scoring cases and the acceptance scenario
 - traces/ — created by WR-012: synthetic GPX traces (clean loop, off-route, figure-eight)
+- curated/ — WR-052 ingest fixtures (all synthetic, never captured from a live provider):
+  `bikeland-sample.gpx` (a closed ~11 km track shaped like a bikeland.fi export),
+  `overpass-sample.json` (one relation whose members include a REVERSED way, an `alternative`
+  spur, a non-way member and a disjoint fragment — the stitching contract — plus a sub-5 km
+  relation for the min-length report), `overpass-oversize.json` (one dense ~307 km route used to
+  trip the size guard against a deliberately small budget), and `catalog-sample.json` (a built
+  catalog with one deliberately malformed entry, read by the adapter and store tests).

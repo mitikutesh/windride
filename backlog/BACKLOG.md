@@ -76,6 +76,11 @@ parallel with Epic 5.
 | WR-049 | Post-ride AI summary (plan vs ride) | 044 | S | DONE |
 | WR-050 | Capability readiness + honest missing/failing messaging (AI, Strava, keys) | 044 | M | DONE |
 
+## Epic 7 · Curated Routes (v0.7) — "known-good Finnish routes, ranked by today's wind"
+| ID | Story | Deps | Size | Status |
+|---|---|---|---|---|
+| WR-052 | Curated FI route catalog: tools/ ingest → static S3 asset → wind-scored discovery | 047 | L | DONE |
+
 ## Sequencing rules
 Epics close in order; inside an epic, dependency order wins over ID order if they conflict.
 Exception: Epic 6 is backend-independent (needs only WR-044) and may proceed in parallel

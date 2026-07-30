@@ -1010,12 +1010,37 @@
   margin-top: 0;
 }
 .wr-plan__actions .wr-btn,
-.wr-discover .wr-btn {
+.wr-discover .wr-btn,
+.wr-curated .wr-btn {
   width: 100%;
 }
 .wr-results__discovery {
   color: var(--sky);
   font-size: 0.9rem;
+}
+
+/* Curated Finnish routes (WR-052) — a keyless peer of the Plan CTA and AI discovery. */
+.wr-curated {
+  margin-top: 0;
+}
+.wr-curated-badge {
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  background: var(--surface-2);
+}
+.wr-curated-badge__name {
+  margin: 0;
+  font-weight: 600;
+}
+.wr-curated-badge__meta {
+  margin: var(--space-1) 0 0;
+  font-size: 0.85rem;
+  color: var(--text2);
+}
+.wr-curated-badge .wr-muted {
+  margin: var(--space-1) 0 0;
+  font-size: 0.8rem;
 }
 
 /* Scenic spots / POI photos (WR-048). */

@@ -45,7 +45,9 @@ export default defineConfig({
     environment: 'node',
     environmentMatchGlobs: [['src/ui/**', 'jsdom']],
     setupFiles: ['./vitest.setup.ts'],
-    include: ['src/**/*.{test,spec}.{ts,tsx}'],
+    // tools/**.test.mjs covers the manual preprocessing scripts (WR-052): they are plain ESM so
+    // `node tools/…` runs them without a build step, and the tests import exactly that module.
+    include: ['src/**/*.{test,spec}.{ts,tsx}', 'tools/**/*.{test,spec}.mjs'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'html'],

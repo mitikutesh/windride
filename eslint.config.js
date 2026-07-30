@@ -17,7 +17,9 @@ import prettier from 'eslint-config-prettier';
 export default tseslint.config(
   // infra/ is a self-contained AWS CDK project with its own toolchain (tsconfig, vitest, aws-cdk-lib)
   // — it is linted/tested from within infra/, never by the app's root gate (WR-037).
-  { ignores: ['dist', 'dev-dist', 'coverage', 'node_modules', 'infra'] },
+  // .claude/ holds agent tooling (skills, workflow scripts), not app source — already excluded
+  // from Prettier for the same reason.
+  { ignores: ['dist', 'dev-dist', 'coverage', 'node_modules', 'infra', '.claude'] },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     files: ['**/*.{ts,tsx}'],

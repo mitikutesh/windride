@@ -38,6 +38,12 @@ export interface ScoreRoutesOpts {
   now: number;
   /** Injectable shelter-grid loader (tests supply null/synthetic; default loads the asset). */
   loadGrid?: () => Promise<DecodedGrid | null>;
+  /**
+   * Override the hard distance filter (default ±15 %). Only for candidates whose length is a FACT
+   * rather than a target the router can retry — curated catalog routes (WR-052). Ranking is
+   * untouched: the distance sub-score still prefers routes closest to the requested distance.
+   */
+  distanceTolerancePct?: number;
 }
 
 function forecastHours(distanceKm: number): number {
@@ -96,6 +102,9 @@ export async function scoreBuiltRoutes(
     homeBeforeDark,
     minutesUntilSunset,
     startHourIndex: departureHour,
+    ...(opts.distanceTolerancePct !== undefined
+      ? { distanceTolerancePct: opts.distanceTolerancePct }
+      : {}),
   });
 
   // Ice-risk caution (WR-027) — same computation as runPlan, so it never vanishes on discovered

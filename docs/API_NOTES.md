@@ -51,3 +51,37 @@ the fixture + parser together and note it in the story Log.
 
 ## 6. .env contract (mirrored in .env.example)
 VITE_ORS_API_KEY= · VITE_STRAVA_CLIENT_ID= · VITE_LIVE_APIS=false (tests must pass with false)
+
+## 7. Overpass API (curated route catalog, WR-052) — no key, BUILD TIME ONLY
+- Endpoint `https://overpass-api.de/api/interpreter` (POST, body = Overpass QL). Free community
+  infrastructure; the usage policy asks for an identifiable client and no hammering, so the query
+  runs **only** from `tools/fetch_curated_routes.mjs` (manual, ~yearly), with an honest User-Agent
+  and exactly one retry after a 30 s backoff on 429/502/503/504. **The app never calls Overpass** —
+  the browser only fetches the same-origin `data/curated-fi.json` this script produces (DEC-060).
+- The query (one bbox, one `out geom`):
+  ```
+  [out:json][timeout:600];
+  relation["route"="bicycle"]["network"~"^(icn|ncn|rcn)$"](59.7,19.0,70.1,31.6);
+  out geom;
+  ```
+  `out geom` inlines each member way's coordinates, so no second `way`/`node` round-trip is needed.
+- Shape: `elements[]` of `type:"relation"` with `tags` and `members[]`; way members carry
+  `geometry:[{lat,lon},…]` and a `role` (`""`, `"forward"`, `"alternative"`, `"excursion"`, …).
+- Gotchas: (a) member ways are stored in **either direction** — stitch by matching endpoints, not by
+  order; (b) relations are routinely mapped in **disconnected pieces**, so gaps over ~100 m start a
+  new chain (never bridge them — that invents geometry) and the entry is flagged `partial`;
+  (c) a bbox on relations also returns **cross-border** routes (Swedish/Norwegian legs near the
+  border) — real signed routes, kept; (d) `network` may hold several tokens (`"rcn;lcn"`).
+- Licence: ODbL. Derived entries carry `© OpenStreetMap contributors (ODbL)` and the footer shows it
+  while curated routes are on screen. Use `--cache` / `--from-cache` when tuning the transform so
+  re-runs never re-hit the endpoint.
+- Measured 2026-07-30 (Finland bbox, icn|ncn|rcn): 193 relations → 138 catalog routes ≥ 5 km,
+  0.68 MB of the 1.5 MB budget, 42 flagged partial.
+
+## 8. Bikeland (bikeland.fi) — no API, manual GPX only
+- Bikeland publishes Finland's curated national cycling routes but exposes **no public API**, so
+  nothing is scraped. Download the GPX by hand into `tools/curated_in/` (gitignored) and re-run
+  `node tools/fetch_curated_routes.mjs`; the parser reads `<trk>`/`<rte>` points and the track name.
+- Entries are credited `Route data © Bikeland (bikeland.fi)` in the attribution footer.
+- komoot is deliberately absent: its highlights/popularity data is partner-only. Strava data is
+  banned from scoring and any ML/AI path by their terms (CLAUDE.md) — upload-only, as ever.
