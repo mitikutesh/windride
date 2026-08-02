@@ -28,6 +28,18 @@ export const SNAP_PERP_GATE_M = 60;
 export const SNAP_JITTER_TOLERANCE_M = 15;
 /** Perp distances within this band of the minimum are a tie — geometry alone can't pick a branch. */
 export const SNAP_TIE_BAND_M = 10;
+/**
+ * Two in-window candidates whose progress differs by more than this are different ARMS of the route
+ * — the two directions of an out-and-back, or the two crossings of a figure-eight — rather than two
+ * projections of the same neighbourhood (WR-054).
+ *
+ * Must stay comfortably above SNAP_TIE_BAND_M: on a straight stretch a candidate `d` metres behind
+ * has a perpendicular distance of about `d`, so it can only look like a tie while `d` ≤ the tie band.
+ * Anything beyond that is real geometry doubling back on itself. It must also stay well BELOW the
+ * arm separation near an out-and-back's fold (~2× the distance still to ride to it), or the fold
+ * itself would be left undefended — which is exactly where the turnaround cue lives.
+ */
+export const SNAP_ARM_SEPARATION_M = 25;
 /** Generous rider speed bound (72 km/h): how fast the forward window may widen while lost. */
 export const REACQ_SPEED_MS = 20;
 /** Consecutive agreeing beyond-window candidates required before progress commits (DEC-058). */
@@ -117,8 +129,21 @@ function firstSegmentAtOrAfter(cum: number[], lo: number): number {
  * Nearest point on the polyline within the distance window [lo, hi]. Scans only in-window segments
  * and clamps each projection to the portion of the segment inside the window, so progress can never
  * jump past `hi`. Returns the best (minimum perpendicular) candidate.
+ *
+ * `preferProgressM` breaks TIES, the same way `nearestGlobalNear` does for the cold start: among
+ * candidates within `SNAP_TIE_BAND_M` of the best perpendicular, the one whose progress is closest
+ * to it wins. This matters on an out-and-back, where the outbound and return arms are the SAME
+ * polyline for the entire route, so both arms are always equidistant and plain min-perp picks
+ * between them on floating-point noise (WR-054): progress would leap to the mirrored position and
+ * then freeze, because progress may only move forward. Omit it to keep plain min-perp.
  */
-function nearestInWindow(track: Track, p: LatLon, lo: number, hi: number) {
+function nearestInWindow(
+  track: Track,
+  p: LatLon,
+  lo: number,
+  hi: number,
+  preferProgressM?: number,
+) {
   const { points, cum } = track;
   let best = { progressM: lo, perpM: Infinity, point: points[0] };
   for (let i = firstSegmentAtOrAfter(cum, lo); i < points.length - 1; i++) {
@@ -133,7 +158,21 @@ function nearestInWindow(track: Track, p: LatLon, lo: number, hi: number) {
       t = 0;
     }
     const { perpM, point } = perpAt(p, points[i], points[i + 1], t);
-    if (perpM < best.perpM) best = { progressM: cum[i] + t * segLen, perpM, point };
+    const progressM = cum[i] + t * segLen;
+    // Two candidates that are equally close but FAR APART along the route are different arms of the
+    // route, not two projections of the same neighbourhood: stay on the arm we are already on. The
+    // separation test matters — without it, on a straight stretch every candidate a few metres
+    // behind is also "within the tie band" (its perpendicular IS that along-track gap), and
+    // preferring the nearest-to-current would drag progress backwards on every fix.
+    const tie = Math.abs(perpM - best.perpM) <= SNAP_TIE_BAND_M;
+    const differentArm = Math.abs(progressM - best.progressM) > SNAP_ARM_SEPARATION_M;
+    if (tie && differentArm && preferProgressM !== undefined) {
+      if (Math.abs(progressM - preferProgressM) < Math.abs(best.progressM - preferProgressM)) {
+        best = { progressM, perpM, point };
+      }
+    } else if (perpM < best.perpM) {
+      best = { progressM, perpM, point };
+    }
   }
   return best;
 }
@@ -214,7 +253,8 @@ export class Snapper {
     }
     const lo = Math.max(0, this.progressM - SNAP_WINDOW_BACK_M);
     const hi = Math.min(total, this.progressM + SNAP_WINDOW_FWD_M);
-    const c = nearestInWindow(this.track, fix, lo, hi);
+    // Tie-break toward where we already are: on an out-and-back both arms are always equidistant.
+    const c = nearestInWindow(this.track, fix, lo, hi, this.progressM);
     const onTrack = c.perpM < SNAP_PERP_GATE_M;
     const accepted = onTrack && c.progressM >= this.progressM - SNAP_JITTER_TOLERANCE_M;
     if (accepted) {
@@ -230,7 +270,7 @@ export class Snapper {
     this.unacceptedCount++;
     const extraM = Math.min(this.lostSeconds(tMs), REACQ_MAX_LOST_S) * REACQ_SPEED_MS;
     if (extraM > 0 && hi < total) {
-      const w = nearestInWindow(this.track, fix, hi, Math.min(total, hi + extraM));
+      const w = nearestInWindow(this.track, fix, hi, Math.min(total, hi + extraM), this.progressM);
       if (w.perpM < SNAP_PERP_GATE_M) {
         if (this.confirmReacquire(w.progressM, tMs)) {
           this.progressM = w.progressM;

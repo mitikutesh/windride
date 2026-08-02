@@ -6,23 +6,44 @@
  * testable end to end. Pausing stops cue output and gates cue firing.
  */
 import type { CandidateAnalysis } from '../engine/scoring';
-import { haversineM } from '../engine/geometry';
+import { bearingDeg, haversineM } from '../engine/geometry';
 import type { CandidateRoute, LatLon } from '../domain';
 import type { Announcer } from './announcer';
-import { buildCuePoints, CueScheduler, type UnitSystem } from './cues';
+import {
+  buildCuePoints,
+  CueScheduler,
+  nextManeuver,
+  proximityToManeuverM,
+  type UnitSystem,
+} from './cues';
 import type { Fix } from './fixSource';
 import { EtaEstimator } from './eta';
 import { blendHeading, HeadingSmoother } from './heading';
+import { MapBearingGate } from './mapBearing';
+import { turnKindOf, type TurnKind } from './turnKind';
 import { classifyWindKind, type WindKind } from '../engine/wind';
 import { detectGustStretches, type GustStretch } from '../engine/gustFlags';
 import { bearingToTrack, OffRouteMonitor, type OffRouteState } from './offRoute';
 import { AUTO_PAUSE_S, MOVING_SPEED_MS } from './rideSummary';
-import { estimateProgressFromPath, prepareTrack, Snapper, type Track } from './snap';
+import {
+  estimateProgressFromPath,
+  pointAtDistance,
+  prepareTrack,
+  Snapper,
+  type Track,
+} from './snap';
 import { nextWindTransition, toWindHudSegments, type WindTransition } from './windHud';
+
+/** How far past a junction the outgoing bearing is measured — short enough to BE the road's direction. */
+export const JUNCTION_EXIT_M = 25;
 
 export interface NextTurn {
   instruction: string;
   inM: number;
+  /** Which maneuver this is, for the arrow (WR-056). From the provider code, guarded by the text. */
+  kind: TurnKind;
+  /** A second maneuver following closely, announced in the same breath — a small "then" hint. */
+  thenKind?: TurnKind;
 }
 
 export interface CurrentWind {
@@ -39,10 +60,29 @@ export interface RideState {
   /** Wind-aware ETA for the rest of the ride (s). */
   etaS: number;
   headingDeg: number | null;
+  /**
+   * Bearing to rotate the map to in heading-up mode (WR-053), or null before the rider has moved
+   * far enough to establish one. Deliberately NOT `headingDeg`: this one is gated GPS travel only,
+   * never the device compass, so the map can't spin while the rider stands still (mapBearing.ts).
+   */
+  mapBearingDeg: number | null;
   perpendicularM: number;
   onTrack: boolean;
   offRoute: OffRouteState;
   nextTurn: NextTurn | null;
+  /**
+   * Distance to the nearest maneuver the rider is steering THROUGH — not the same thing as
+   * `nextTurn.inM`: it stays 0 for a short grace window after the node is passed (mid-corner), skips
+   * the arrival step and "continue straight", and is null on a route with no steps. Drives the
+   * junction-approach zoom (WR-055).
+   */
+  turnProximityM: number | null;
+  /**
+   * The next junction the rider steers through, and the bearing the route LEAVES it on (WR-057) —
+   * for the on-map arrow. Null when no maneuver is ahead. Whether to draw it is the camera's call,
+   * not this one's, so the Ride screen gates it on `turnProximityM`.
+   */
+  junction: { at: LatLon; outBearingDeg: number } | null;
   windTransition: WindTransition | null;
   /** Wind at the rider's current segment (HUD arrow + colour). */
   wind: CurrentWind | null;
@@ -98,6 +138,9 @@ export class RideController {
   private monitor = new OffRouteMonitor();
   private readonly eta = new EtaEstimator(); // speed EMA survives a reroute — the rider is unchanged
   private readonly heading = new HeadingSmoother();
+  // Map rotation (WR-053) is gated on travel only — see mapBearing.ts for why the compass is
+  // excluded. Survives a reroute: it describes the rider's motion, not the route.
+  private readonly mapBearing = new MapBearingGate();
   // Latest device-compass heading (task #32) + last speed, so the blended display heading can be
   // recomputed on a compass event between GPS fixes (a stationary rider turning the phone).
   private compassDeg: number | null = null;
@@ -227,7 +270,10 @@ export class RideController {
     // Display heading = GPS travel bearing blended with the device compass by speed (task #32):
     // travel when moving, compass when stopped. This per-fix value feeds the whole RideState — map
     // arrow, wind HUD, off-route arrow (the between-fix compass refinement below reaches only the map).
-    const headingDeg = blendHeading(this.heading.update(fix), this.compassDeg, speedMs);
+    const travelDeg = this.heading.update(fix);
+    const headingDeg = blendHeading(travelDeg, this.compassDeg, speedMs);
+    // The MAP bearing takes the raw travel bearing, before the compass is blended in (WR-053).
+    const mapBearingDeg = this.mapBearing.update(position, travelDeg);
 
     // Auto-pause: accumulate trailing sub-threshold time, reset on movement (NAVIGATION_SPEC §6).
     const dtS = prevTMs !== undefined ? (Date.parse(fix.time) - prevTMs) / 1000 : 0;
@@ -297,10 +343,13 @@ export class RideController {
       speedKmh: speedMs * 3.6,
       etaS,
       headingDeg,
+      mapBearingDeg,
       perpendicularM: snap.perpendicularM,
       onTrack: snap.onTrack,
       offRoute,
       nextTurn: this.nextTurn(snap.progressM),
+      turnProximityM: proximityToManeuverM(this.cuePoints, snap.progressM),
+      junction: this.junctionAt(snap.progressM),
       windTransition: nextWindTransition(this.hudSegs, snap.progressM),
       wind: this.windAt(snap.progressM),
       toTrack:
@@ -357,10 +406,33 @@ export class RideController {
     return Math.max(0, this.analysis.totalTimeS - elapsed);
   }
 
+  /**
+   * Where the next junction is and which way the route leaves it. The outgoing bearing is a chord over
+   * JUNCTION_EXIT_M — short enough that the chord IS the road's direction, and it needs no averaging
+   * machinery. Clamped at the route end so a maneuver near the finish still yields a bearing.
+   */
+  private junctionAt(progressM: number): RideState['junction'] {
+    const cue = nextManeuver(this.cuePoints, progressM);
+    if (!cue) return null;
+    const at = pointAtDistance(this.track, cue.turnDistanceM);
+    const exitM = Math.min(cue.turnDistanceM + JUNCTION_EXIT_M, this.track.total);
+    if (exitM <= cue.turnDistanceM) return null; // the maneuver sits on the last vertex
+    const outBearingDeg = bearingDeg(at, pointAtDistance(this.track, exitM));
+    return { at, outBearingDeg };
+  }
+
   private nextTurn(progressM: number): NextTurn | null {
     for (const cue of this.cuePoints) {
+      // A fully-suppressed cue shares its junction with the one before it (WR-056) — it is not a
+      // separate thing to show on the card.
+      if (cue.suppress === 'all') continue;
       if (cue.turnDistanceM > progressM) {
-        return { instruction: cue.instruction, inM: cue.turnDistanceM - progressM };
+        return {
+          instruction: cue.instruction,
+          inM: cue.turnDistanceM - progressM,
+          kind: turnKindOf(cue),
+          thenKind: cue.thenKind,
+        };
       }
     }
     return null;

@@ -54,6 +54,31 @@ export type TurnStep = {
   wayPoints?: [number, number];
 };
 
+/**
+ * ORS maneuver type codes. Confirmed against a real 22.5 km capture (`fixtures/ors/real-small.json`,
+ * WR-056): every code agreed with its own instruction text — 0 "Turn left", 1 "Turn right",
+ * 2/3 sharp, 4/5 slight, 6 "Continue straight", 12/13 "Keep left/right". The older caution in
+ * nav/cues.ts about codes disagreeing with the text traced to a bug in the hand-made fixture, not to
+ * provider behaviour (WR-054 corrected it).
+ *
+ * The localized `instruction` text remains the source of truth for WORDING (street names, phrasing);
+ * these codes are the source of truth for the maneuver's KIND. See nav/turnKind.ts.
+ */
+export const ORS_LEFT = 0;
+export const ORS_RIGHT = 1;
+export const ORS_SHARP_LEFT = 2;
+export const ORS_SHARP_RIGHT = 3;
+export const ORS_SLIGHT_LEFT = 4;
+export const ORS_SLIGHT_RIGHT = 5;
+export const ORS_CONTINUE = 6;
+export const ORS_ROUNDABOUT_ENTER = 7;
+export const ORS_ROUNDABOUT_EXIT = 8;
+export const ORS_UTURN = 9;
+export const ORS_ARRIVAL = 10;
+export const ORS_DEPART = 11;
+export const ORS_KEEP_LEFT = 12;
+export const ORS_KEEP_RIGHT = 13;
+
 export type CandidateRoute = {
   id: string;
   polyline: LatLon[];

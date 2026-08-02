@@ -4,6 +4,7 @@ import type { CandidateRoute, Segment, WindSample } from '../../domain';
 import type { Fix } from '../../nav/fixSource';
 import { scoreCandidates } from '../../engine/scoring';
 import { useResultsStore } from '../../state/resultsStore';
+import { useRideSettingsStore } from '../../state/rideSettingsStore';
 
 // GeolocationSource needs a real browser; mock it so we can assert start/stop lifecycle AND drive
 // fixes through the live pipeline (the reroute-flow test walks a rider off the route).
@@ -64,6 +65,30 @@ vi.mock('../../state/rerouter', () => ({
 }));
 
 import { RideScreen } from './RideScreen';
+
+/**
+ * A candidate whose steps are three maneuvers that the pre-WR-056 glyph could not tell apart:
+ * "Keep left", "Turn left" and a roundabout (whose text contains no direction word at all).
+ */
+function candidateWithTurns(): CandidateRoute {
+  const c = candidate('T');
+  // ~30 m between vertices, so the two maneuvers land close enough to chain (< CUE_CHAIN_M).
+  const dLon = 30 / (111_320 * Math.cos((60 * Math.PI) / 180));
+  return {
+    ...c,
+    polyline: Array.from({ length: 20 }, (_v, i) => ({ lat: 60, lon: 24 + i * dLon })),
+    steps: [
+      { instruction: 'Head east', distanceM: 0, type: 11, wayPoints: [0, 0] },
+      { instruction: 'Keep left', distanceM: 0, type: 12, wayPoints: [10, 10] }, // ~300 m in
+      {
+        instruction: 'Enter the roundabout and take the 2nd exit onto Kehatie',
+        distanceM: 0,
+        type: 7,
+        wayPoints: [11, 11], // ~30 m later — chains onto the Keep left
+      },
+    ],
+  };
+}
 
 function candidate(id: string): CandidateRoute {
   const seg: Segment = {
@@ -250,5 +275,77 @@ describe('<RideScreen />', () => {
       reroute.defer = false;
       reroute.release = null;
     }
+  });
+
+  // --- turn glyph (WR-056) -----------------------------------------------------------------
+  it('draws the arrow from the maneuver KIND, not by keyword-matching the instruction', () => {
+    const { ranked } = scoreCandidates(
+      [{ candidate: candidateWithTurns(), windBySegment: steady() }],
+      {
+        targetDistanceM: 10_000,
+      },
+    );
+    useResultsStore.getState().setResults({ ranked, rejected: [] });
+    const { container } = render(<RideScreen />);
+    fireEvent.click(screen.getByRole('button', { name: /Start ride/i }));
+    act(() => geo.onFix?.({ lat: 60, lon: 24, time: '2026-07-10T14:00:00Z', speed: 5 }));
+
+    // The first maneuver is "Keep left" — which the old glyph drew identically to "Turn left".
+    expect(screen.getByLabelText('Next turn')).toBeInTheDocument();
+    expect(container.querySelector('[data-turn-kind]')).toHaveAttribute(
+      'data-turn-kind',
+      'keep-left',
+    );
+    // The roundabout follows within CUE_CHAIN_M, so it rides along as the "then" hint rather than
+    // being announced separately — and it is drawn as a roundabout, not as "straight ahead".
+    const kinds = [...container.querySelectorAll('[data-turn-kind]')].map((el) =>
+      el.getAttribute('data-turn-kind'),
+    );
+    expect(kinds).toContain('roundabout');
+  });
+
+  // --- map orientation (WR-053) ------------------------------------------------------------
+  it('offers a heading-up toggle once riding, on by default, and flips it', () => {
+    seed();
+    useRideSettingsStore.setState({ mapOrientation: 'heading-up' });
+    render(<RideScreen />);
+    fireEvent.click(screen.getByRole('button', { name: /Start ride/i }));
+    act(() => geo.onFix?.({ lat: 60, lon: 24, time: '2026-07-10T12:00:00Z', speed: 5 }));
+
+    const toggle = screen.getByRole('button', { name: /Rotate map to my heading/i });
+    expect(toggle).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('status')).toHaveTextContent(/follows your heading/i);
+
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute('aria-pressed', 'false');
+    expect(useRideSettingsStore.getState().mapOrientation).toBe('north-up');
+    expect(screen.getByRole('status')).toHaveTextContent(/north-up/i);
+  });
+
+  it('holds north-up while a reroute proposal is being previewed', async () => {
+    seed();
+    useRideSettingsStore.setState({ mapOrientation: 'heading-up' });
+    render(<RideScreen />);
+    fireEvent.click(screen.getByRole('button', { name: /Start ride/i }));
+
+    const t0 = Date.parse('2026-07-10T13:00:00Z');
+    const fixAt = (lat: number, lon: number, s: number): Fix => ({
+      lat,
+      lon,
+      time: new Date(t0 + s * 1000).toISOString(),
+      speed: 5,
+    });
+    act(() => geo.onFix?.(fixAt(60, 24, 0)));
+    expect(screen.getByRole('status')).toHaveTextContent(/follows your heading/i);
+
+    for (let s = 1; s <= 13; s++) act(() => geo.onFix?.(fixAt(60.002, 24, s)));
+    fireEvent.click(await screen.findByRole('button', { name: /^Reroute$/i }));
+    await screen.findByText(/rejoins your planned route ahead/i);
+    // The dashed proposal must be framed, not rotated off the edge of a rider-biased map...
+    expect(screen.getByRole('status')).toHaveTextContent(/north-up/i);
+    // ...and the rider's own preference is untouched, so it returns on Accept.
+    expect(useRideSettingsStore.getState().mapOrientation).toBe('heading-up');
+    fireEvent.click(screen.getByRole('button', { name: /^Accept$/i }));
+    expect(screen.getByRole('status')).toHaveTextContent(/follows your heading/i);
   });
 });

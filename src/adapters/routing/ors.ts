@@ -3,13 +3,15 @@
 // candidate generator, and overlap dedupe (engine/geometry.overlapRatio). Adapters are the only
 // place fetch() may appear (CLAUDE.md rule 4); free-tier budget matters (API_NOTES §2).
 import { destination } from '@turf/turf';
-import type {
-  CandidateRoute,
-  LatLon,
-  RoundTripParams,
-  Segment,
-  Surface,
-  TurnStep,
+import {
+  ORS_ARRIVAL,
+  ORS_UTURN,
+  type CandidateRoute,
+  type LatLon,
+  type RoundTripParams,
+  type Segment,
+  type Surface,
+  type TurnStep,
 } from '../../domain';
 import { expandRangesToEdges, normalizeDeg, overlapRatio, resample } from '../../engine/geometry';
 import { fetchFailure, ProviderError } from '../errors';
@@ -306,6 +308,12 @@ export interface GenerateOptions {
   onSettled?: (done: number, total: number) => void;
 }
 
+/**
+ * What the fold of an out-and-back says. Must avoid 'arrive'/'destination'/'goal' — `cues.ts`
+ * `isArrival` sniffs the instruction text as well as the maneuver code.
+ */
+export const TURNAROUND_INSTRUCTION = 'Turn around and ride back';
+
 /** Turn a one-way leg into a there-and-back CandidateRoute (segments mirrored, bearings +180). */
 function outAndBack(leg: CandidateRoute, id: string): CandidateRoute {
   const back = [...leg.polyline].reverse().slice(1);
@@ -324,8 +332,48 @@ function outAndBack(leg: CandidateRoute, id: string): CandidateRoute {
     segments,
     distanceM: leg.distanceM * 2,
     ascentM: ascentFromSegments(segments),
-    steps: leg.steps,
+    steps: outAndBackSteps(leg, polyline.length),
   };
+}
+
+/**
+ * Turn instructions for a doubled route (WR-054).
+ *
+ * The leg's own steps CANNOT be forwarded unchanged: the leg's ORS arrival step (type 10) sits at
+ * the leg's last vertex, which in the doubled polyline is the FOLD — so navigation announced "You
+ * have arrived" at the halfway point and then went silent, because no cue point existed past it.
+ *
+ * The outbound half of the doubled polyline is identical to the leg, so outbound `wayPoints` stay
+ * valid as-is. The leg's arrival becomes an explicit turnaround, and a real arrival is added at the
+ * true finish.
+ *
+ * The return leg deliberately carries NO street-level turns. ORS instructions cannot be honestly
+ * reversed — which way you turn at each node depends on the reversed geometry, and the instruction
+ * text is the source of truth for wording (see cues.ts) — so inventing them would be fabrication.
+ * Riders are retracing a road they have just ridden; NAVIGATION_SPEC §4 records the limitation.
+ */
+function outAndBackSteps(leg: CandidateRoute, totalPoints: number): TurnStep[] | undefined {
+  if (!leg.steps?.length) return leg.steps;
+  const foldIdx = leg.polyline.length - 1;
+  const endIdx = totalPoints - 1;
+  const outbound = leg.steps.filter((s) => s.type !== ORS_ARRIVAL);
+  return [
+    ...outbound,
+    // ORS u-turn code, so nothing downstream can mistake the fold for an arrival. The wording avoids
+    // 'arrive'/'destination'/'goal' for the same reason (cues.ts isArrival also sniffs the text).
+    {
+      instruction: TURNAROUND_INSTRUCTION,
+      distanceM: 0,
+      type: ORS_UTURN,
+      wayPoints: [foldIdx, foldIdx],
+    },
+    {
+      instruction: 'Arrive at your finish',
+      distanceM: 0,
+      type: ORS_ARRIVAL,
+      wayPoints: [endIdx, endIdx],
+    },
+  ];
 }
 
 /**

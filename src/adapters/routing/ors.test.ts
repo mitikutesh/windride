@@ -3,7 +3,13 @@ import roundtripRaw from '../../../fixtures/ors/roundtrip-sample.geojson?raw';
 import type { LatLon } from '../../domain';
 import type { ProviderErrorKind } from '../errors';
 import { describeRouteProviderContract } from '../providerContract';
-import { dedupeByOverlap, generateCandidates, OrsRouteProvider, parseOrsRoute } from './ors';
+import {
+  dedupeByOverlap,
+  generateCandidates,
+  OrsRouteProvider,
+  parseOrsRoute,
+  TURNAROUND_INSTRUCTION,
+} from './ors';
 
 const ROUNDTRIP = JSON.parse(roundtripRaw);
 const FIXED_NOW = 1_700_000_000_000;
@@ -29,6 +35,15 @@ function p2pCollection(a: [number, number], b: [number, number]) {
             {
               steps: [
                 { distance: 1000, duration: 120, type: 11, instruction: 'go', way_points: [0, 2] },
+                // Real ORS legs always end with an arrival step (type 10). The mock carries one so
+                // the out-and-back fold logic (WR-054) is exercised rather than accidentally skipped.
+                {
+                  distance: 0,
+                  duration: 0,
+                  type: 10,
+                  instruction: 'Arrive at your destination',
+                  way_points: [2, 2],
+                },
               ],
             },
           ],
@@ -316,6 +331,51 @@ describe('generateCandidates', () => {
     });
     const cands = await generateCandidates(provider, start, 50_000, 'cycling-regular');
     expect(cands.length).toBeGreaterThanOrEqual(3); // seed30 loop + 2 out-and-back
+  });
+
+  // WR-054: forwarding the leg's steps unchanged put the leg's ARRIVAL step on the fold, so an
+  // out-and-back announced "You have arrived" at halfway and then went silent for the return leg.
+  describe('out-and-back turn steps (WR-054)', () => {
+    async function outAndBackCandidate() {
+      const provider = new OrsRouteProvider({
+        apiKey: 'test',
+        fetchFn: diverseFetch(),
+        now: () => FIXED_NOW,
+      });
+      const cands = await generateCandidates(provider, start, 50_000, 'cycling-regular');
+      const oab = cands.find((c) => c.id.startsWith('ors-oab-'));
+      if (!oab) throw new Error('no out-and-back candidate generated');
+      return oab;
+    }
+
+    it('puts the only arrival step at the true finish, never at the fold', async () => {
+      const oab = await outAndBackCandidate();
+      const arrivals = (oab.steps ?? []).filter((s) => s.type === 10);
+      expect(arrivals).toHaveLength(1);
+      expect(arrivals[0].wayPoints).toEqual([oab.polyline.length - 1, oab.polyline.length - 1]);
+    });
+
+    it('marks the fold as a turnaround at the halfway vertex', async () => {
+      const oab = await outAndBackCandidate();
+      const turnarounds = (oab.steps ?? []).filter((s) => s.instruction === TURNAROUND_INSTRUCTION);
+      expect(turnarounds).toHaveLength(1);
+      // The doubled polyline is [leg, reverse(leg).slice(1)], so the fold is the leg's last vertex.
+      const foldIdx = (oab.polyline.length - 1) / 2;
+      expect(turnarounds[0].wayPoints).toEqual([foldIdx, foldIdx]);
+      expect(turnarounds[0].type).toBe(9); // u-turn, so nothing reads it as an arrival
+    });
+
+    it('preserves the outbound instructions and keeps every wayPoint index in range', async () => {
+      const oab = await outAndBackCandidate();
+      const steps = oab.steps ?? [];
+      expect(steps.map((s) => s.instruction)).toContain('go'); // the leg's own depart step survives
+      for (const s of steps) {
+        for (const idx of s.wayPoints ?? []) {
+          expect(idx).toBeGreaterThanOrEqual(0);
+          expect(idx).toBeLessThan(oab.polyline.length);
+        }
+      }
+    });
   });
 });
 

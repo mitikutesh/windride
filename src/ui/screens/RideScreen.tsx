@@ -14,11 +14,13 @@ import {
 import type { Rerouter } from '../../nav/offRoute';
 import { proposeReroute, type RerouteProposal } from '../../nav/reroute';
 import { RideController, type RideState } from '../../nav/rideController';
+import type { TurnKind } from '../../nav/turnKind';
 import type { CandidateAnalysis } from '../../engine/scoring';
 import { activeSpeedSettings, useCalibrationStore } from '../../state/calibrationStore';
 import { useNoveltyStore } from '../../state/noveltyStore';
 import { makeRerouter } from '../../state/rerouter';
 import { useResultsStore } from '../../state/resultsStore';
+import { useRideSettingsStore } from '../../state/rideSettingsStore';
 import { useRidesStore } from '../../state/ridesStore';
 import { gpxFilename } from '../../utils/gpx';
 import { formatDurationHM, localYMD, metresToKm } from '../../utils/units';
@@ -28,6 +30,7 @@ import { RideMap } from '../components/RideMap';
 import { WindHud } from '../components/WindHud';
 import { WinterCaution } from '../components/WinterCaution';
 import { downloadText } from '../download';
+import { cruiseZoomM, turnApproachZoomM, ZOOM_APPROACH_M } from '../mapCamera';
 import { routeToRibbon } from '../routeGeo';
 import { useWakeLock } from '../useWakeLock';
 
@@ -51,32 +54,103 @@ const arrivalClock = (etaS: number): string =>
     hour12: false,
   });
 
-/** Big saddle-readable arrow for the next-turn card, picked from the instruction text. */
-function TurnGlyph({ instruction }: { instruction: string }) {
-  const s = instruction.toLowerCase();
-  const paths = s.includes('u-turn')
-    ? ['M8 19 V11 a4 4 0 0 1 8 0 v7', 'M13 14 L16 18 L19 14']
-    : s.includes('left')
-      ? ['M17 19 V13 a3 3 0 0 0 -3 -3 H8', 'M11 6 L7 10 L11 14']
-      : s.includes('right')
-        ? ['M7 19 V13 a3 3 0 0 1 3 -3 h6', 'M13 6 L17 10 L13 14']
-        : ['M12 19 V7', 'M7 11 L12 6 L17 11'];
+/**
+ * How far off straight each maneuver kind points the arrow, in degrees (WR-056). Negative is left;
+ * SVG rotates clockwise. One arrow rotated per kind is systematically distinct — the old glyph
+ * substring-matched the instruction, so "Turn left", "Keep left" and "Sharp left" shared one arrow
+ * and a roundabout (whose sentence contains no direction word at all) drew as straight ahead.
+ */
+const TURN_ANGLE: Partial<Record<TurnKind, number>> = {
+  straight: 0,
+  'slight-left': -25,
+  'slight-right': 25,
+  left: -65,
+  right: 65,
+  'sharp-left': -115,
+  'sharp-right': 115,
+};
+
+const glyphStroke = {
+  fill: 'none',
+  stroke: 'currentColor',
+  strokeWidth: 2.6,
+  strokeLinecap: 'round' as const,
+  strokeLinejoin: 'round' as const,
+};
+
+/** Big saddle-readable arrow for the next-turn card, drawn from the maneuver KIND. */
+function TurnGlyph({ kind, size = 26 }: { kind: TurnKind; size?: number }) {
+  // The pivot sits low so even a 115° kick stays inside the viewBox.
+  const arrow = (
+    <>
+      <path d="M12 18 V8" {...glyphStroke} />
+      <path d="M7 13 L12 8 L17 13" {...glyphStroke} />
+    </>
+  );
+  let body: JSX.Element;
+  if (kind === 'uturn') {
+    body = (
+      <>
+        <path d="M8 19 V11 a4 4 0 0 1 8 0 v7" {...glyphStroke} />
+        <path d="M13 14 L16 18 L19 14" {...glyphStroke} />
+      </>
+    );
+  } else if (kind === 'roundabout') {
+    body = (
+      <>
+        <circle cx="11" cy="14" r="5" {...glyphStroke} />
+        <path d="M11 22 V19" {...glyphStroke} />
+        <path d="M16 11 L20 5" {...glyphStroke} />
+        <path d="M16 5 L20 5 L20 9" {...glyphStroke} />
+      </>
+    );
+  } else if (kind === 'keep-left' || kind === 'keep-right') {
+    const taken = kind === 'keep-left' ? 'M12 15 L7 7' : 'M12 15 L17 7';
+    const other = kind === 'keep-left' ? 'M12 15 L17 8' : 'M12 15 L7 8';
+    const head = kind === 'keep-left' ? 'M6 12 L7 7 L12 8' : 'M18 12 L17 7 L12 8';
+    body = (
+      <>
+        <path d="M12 21 V15" {...glyphStroke} />
+        <path d={other} {...glyphStroke} opacity={0.35} />
+        <path d={taken} {...glyphStroke} />
+        <path d={head} {...glyphStroke} />
+      </>
+    );
+  } else if (kind === 'arrive') {
+    body = (
+      <>
+        <circle cx="12" cy="12" r="7" {...glyphStroke} />
+        <circle cx="12" cy="12" r="2" fill="currentColor" />
+      </>
+    );
+  } else {
+    body = <g transform={`rotate(${TURN_ANGLE[kind] ?? 0} 12 18)`}>{arrow}</g>;
+  }
   return (
-    <svg viewBox="0 0 24 24" width={26} height={26} aria-hidden="true">
-      {paths.map((p) => (
-        <path
-          key={p}
-          d={p}
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2.6"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      ))}
+    <svg viewBox="0 0 24 24" width={size} height={size} aria-hidden="true" data-turn-kind={kind}>
+      {body}
     </svg>
   );
 }
+
+/**
+ * Device-orientation events fire at sensor rate (~60 Hz on Android). Pushing every one into React
+ * state re-renders — and re-ran the follow camera — dozens of times per second, so the map heading
+ * is published at ~8 Hz instead. The controller still sees every reading (its blend stays exact).
+ */
+const MAP_HEADING_MIN_INTERVAL_MS = 125;
+
+/**
+ * Live-ride map chrome in CSS px, so the follow camera never parks the rider underneath it. Mirrors
+ * components.css: the next-turn card above; `--ride-panel-clear` (200px) plus the floating button
+ * row below, or the details panel's `max-height: 78dvh` while it is open. Keep in sync with that file.
+ */
+const RIDE_INSET_TOP = 120;
+const RIDE_INSET_BOTTOM = 208;
+const DETAILS_SHEET_FRACTION = 0.78;
+
+/** Fixes to leave the junction zoom alone after an accepted reroute — see acceptReroute. */
+const REROUTE_SETTLE_FIXES = 3;
 
 const DevReplayPanel = lazy(() => import('../components/DevReplayPanel'));
 
@@ -118,6 +192,8 @@ export function RideScreen() {
   // Freshest blended heading for the map arrow (task #32) — refreshed per fix and, between fixes,
   // by compass events so the arrow swings when a stopped rider turns the phone.
   const [mapHeading, setMapHeading] = useState<number | null>(null);
+  /** When the compass last published to React state — see MAP_HEADING_MIN_INTERVAL_MS. */
+  const lastHeadingPushRef = useRef(0);
   // Confirmed reroute (WR-051): a Rerouter, the ORIGINAL plan analysis (for reference wind), and an
   // in-flight guard. The rider drives every step — offer → confirm → preview → accept.
   const rerouterRef = useRef<Rerouter | null>(null);
@@ -181,15 +257,7 @@ export function RideScreen() {
   // distance — otherwise it sits in the wrong wind band on headwind/tailwind routes.
   const dotFraction = rideState?.timeFraction ?? 0;
 
-  // Follow-the-rider map zoom (metres across the view). Auto-scales with speed — see further ahead
-  // when fast, tighter detail when slow/stopped — until the rider zooms manually (Auto restores it).
   const [manualZoomM, setManualZoomM] = useState<number | null>(null);
-  const autoZoomM = Math.round(
-    Math.max(250, Math.min(1600, 250 + (rideState?.speedKmh ?? 0) * 40)),
-  );
-  const zoomM = manualZoomM ?? autoZoomM;
-  const zoomIn = () => setManualZoomM((z) => Math.max(120, Math.round((z ?? autoZoomM) / 1.6)));
-  const zoomOut = () => setManualZoomM((z) => Math.min(4000, Math.round((z ?? autoZoomM) * 1.6)));
 
   // Follow-the-rider camera vs free-look. The map flips this to false when the rider drags/pinches
   // to look around; the Recenter control puts it back. Reset to true whenever a ride (re)starts.
@@ -198,6 +266,100 @@ export function RideScreen() {
   // While riding the map goes full-screen with a minimal HUD; the rest of the numbers live behind
   // a Details toggle so the map dominates (the thing you actually look at on the bike).
   const [detailsOpen, setDetailsOpen] = useState(false);
+
+  // Map orientation (WR-053). Heading-up rotates the map so up = travel direction, which is what
+  // makes a spoken "turn left" match the screen. Held in a persisted store — set once, on the bike.
+  const mapOrientation = useRideSettingsStore((s) => s.mapOrientation);
+  const toggleMapOrientation = useRideSettingsStore((s) => s.toggleMapOrientation);
+  // A reroute preview is an inspection view: on a rotated, rider-biased map a dashed proposal that
+  // rejoins beside or behind the rider can sit off-screen entirely, so hold north-up until it is
+  // accepted or dismissed.
+  const headingUp = mapOrientation === 'heading-up' && reroutePhase !== 'preview';
+  const mapBearingDeg = rideState?.mapBearingDeg ?? null;
+  // What the compass needle on the toggle shows: north's angle on screen. Mirrors the camera's rule
+  // that heading-up only takes effect once a bearing exists.
+  const rotating = headingUp && mapBearingDeg !== null;
+  const appliedBearingDeg = rotating ? mapBearingDeg : 0;
+  // Spoken to a screen reader, for which a rotating canvas conveys nothing. Says what the map is
+  // ACTUALLY doing, not what the setting says: heading-up waits for the first travel bearing.
+  const orientationLabel = !headingUp
+    ? 'Map is north-up'
+    : rotating
+      ? 'Map follows your heading'
+      : 'Map follows your heading once you are moving';
+
+  // One stable rider object per fix (and per throttled compass push). A fresh literal every render
+  // would re-run RideMap's marker AND camera effects on every unrelated state change.
+  const riderHeadingDeg = mapHeading ?? rideState?.headingDeg ?? null;
+  const rider = useMemo(
+    () =>
+      rideState
+        ? {
+            // The RAW fix, never the snapped point — off the route the marker must show where the
+            // rider actually is, not cling to the track (WR-051).
+            position: rideState.position,
+            headingDeg: riderHeadingDeg,
+            // The CAMERA follows the snapped point while on-track: at junction zoom 1 m is ~2.8 px,
+            // so following the raw fix slides the basemap ~14 px a second under a stationary chevron
+            // on ordinary standing wander. Off-track, where the rider truly is matters more.
+            anchor: rideState.onTrack ? rideState.snapped : rideState.position,
+          }
+        : null,
+    [rideState, riderHeadingDeg],
+  );
+
+  const viewportH = typeof window === 'undefined' ? 0 : window.innerHeight;
+  const insets = useMemo(() => {
+    if (status !== 'riding' && status !== 'paused') return { top: 0, bottom: 0 };
+    return {
+      top: RIDE_INSET_TOP,
+      bottom: detailsOpen ? Math.round(viewportH * DETAILS_SHEET_FRACTION) : RIDE_INSET_BOTTOM,
+    };
+  }, [status, detailsOpen, viewportH]);
+
+  /**
+   * Consecutive fixes the snapper refused (`!onTrack`), and a countdown of fixes to sit out after an
+   * accepted reroute. Both are refs written in handleFix and read during the render that the same fix
+   * triggers, so they are always consistent with `rideState`.
+   */
+  const offTrackStreakRef = useRef(0);
+  const rerouteSettleRef = useRef(0);
+
+  // Map zoom in metres across the view (WR-055). Cruise holds a constant ~30 s of road ahead;
+  // approaching a maneuver tightens further. Both are pure policy in ui/mapCamera.ts.
+  const cruiseM = cruiseZoomM(rideState?.speedKmh ?? 0);
+  // The junction override is suppressed wherever tightening would hurt more than help:
+  //  - detailsOpen: the sheet leaves a sliver of map, and at 140 m across the junction lands behind
+  //    the turn card;
+  //  - sustained off-route, OR two consecutive fixes the snapper refused: progress freezes the moment
+  //    a fix is rejected, so turnProximityM sticks near the last node and would pin maximum zoom at
+  //    the "where am I" moment. 'alert' alone is too late (it needs 10 s); one fix alone flickers;
+  //  - a reroute preview (an inspection view, already held north-up) and the first few fixes after
+  //    accepting one, since applyReroute restarts progress at 0 with its first step metres away;
+  //  - before a map bearing exists — the rider has not moved yet, and the very first camera frame
+  //    would otherwise jump straight from the whole-route fit into a 140 m box.
+  const junctionZoomAllowed =
+    !detailsOpen &&
+    (rideState?.offRoute ?? 'on-route') !== 'alert' &&
+    offTrackStreakRef.current < 2 &&
+    reroutePhase !== 'preview' &&
+    rerouteSettleRef.current === 0 &&
+    mapBearingDeg !== null;
+  const zoomM =
+    manualZoomM ??
+    (junctionZoomAllowed ? turnApproachZoomM(rideState?.turnProximityM ?? null, cruiseM) : cruiseM);
+  // Both handlers step from what is ON SCREEN, not from cruise: mid-approach the view can be 140 m
+  // across while cruise is much wider, and seeding from cruise would make "+" zoom OUT.
+  const zoomIn = () => setManualZoomM(Math.max(120, Math.round(zoomM / 1.6)));
+  const zoomOut = () => setManualZoomM(Math.min(4000, Math.round(zoomM * 1.6)));
+
+  // The on-map junction arrow (WR-057) rides along with the approach: it appears once the junction is
+  // near enough to matter, and stays out of the reroute-preview inspection view.
+  const proximityM = rideState?.turnProximityM ?? null;
+  const junctionArrow =
+    proximityM !== null && proximityM <= ZOOM_APPROACH_M && reroutePhase !== 'preview'
+      ? (rideState?.junction ?? null)
+      : null;
 
   // Latest off-route state as a ref, so async reroute callbacks can check it without a stale closure.
   const offRouteRef = useRef<RideState['offRoute']>('on-route');
@@ -209,6 +371,9 @@ export function RideScreen() {
     if (recorderRef.current.lastError) setRecError(true); // recording stopped persisting
     const state = controller.onFix(fix);
     offRouteRef.current = state.offRoute;
+    // Junction-zoom guards (WR-055): count refused fixes, and burn down the post-reroute settle.
+    offTrackStreakRef.current = state.onTrack ? 0 : offTrackStreakRef.current + 1;
+    if (rerouteSettleRef.current > 0) rerouteSettleRef.current -= 1;
     setRideState(state);
     setMapHeading(state.headingDeg); // per-fix blended heading; compass events refine it between fixes
   }, []);
@@ -287,6 +452,10 @@ export function RideScreen() {
     const controller = controllerRef.current;
     if (!controller || !rerouteProposal) return;
     controller.applyReroute(rerouteProposal.analysis);
+    // applyReroute restarts progress at 0 with the spliced leg's first step metres away, so the
+    // junction zoom would slam to its tightest on the very next fix — while the map may also be
+    // rotating most of the way round. Sit the approach out for a few fixes.
+    rerouteSettleRef.current = REROUTE_SETTLE_FIXES;
     setLiveAnalysis(rerouteProposal.analysis);
     setRerouteProposal(null);
     setRerouteError(null);
@@ -314,8 +483,14 @@ export function RideScreen() {
     void CompassHeadingSource.requestPermission().then((perm) => {
       if (perm !== 'granted' || compassRef.current !== compass) return; // denied, or superseded
       compass.start((deg) => {
+        // Every reading reaches the controller (it keeps the blend exact); only ~8 per second reach
+        // React — see MAP_HEADING_MIN_INTERVAL_MS.
         const blended = controllerRef.current?.setCompassHeading(deg);
-        if (blended != null) setMapHeading(blended);
+        if (blended == null) return;
+        const now = Date.now();
+        if (now - lastHeadingPushRef.current < MAP_HEADING_MIN_INTERVAL_MS) return;
+        lastHeadingPushRef.current = now;
+        setMapHeading(blended);
       });
     });
   }, []);
@@ -343,6 +518,8 @@ export function RideScreen() {
     reroutingRef.current = false;
     rerouteDeclinedRef.current = false;
     offRouteRef.current = 'on-route'; // stale-guard baseline: kills any prior ride's late fetch
+    offTrackStreakRef.current = 0;
+    rerouteSettleRef.current = 0;
     setReroutePhase('idle');
     setRerouteProposal(null);
     setRerouteError(null);
@@ -404,6 +581,8 @@ export function RideScreen() {
     // A reroute conversation can't outlive the ride it belongs to — including a fetch still in
     // flight: resetting offRouteRef makes the confirm callback's stale-guard discard its result.
     offRouteRef.current = 'on-route';
+    offTrackStreakRef.current = 0;
+    rerouteSettleRef.current = 0;
     setReroutePhase('idle');
     setRerouteProposal(null);
     setRerouteError(null);
@@ -446,6 +625,8 @@ export function RideScreen() {
       reroutingRef.current = false;
       rerouteDeclinedRef.current = false;
       offRouteRef.current = 'on-route';
+      offTrackStreakRef.current = 0;
+      rerouteSettleRef.current = 0;
       setReroutePhase('idle');
       setRerouteProposal(null);
       setRerouteError(null);
@@ -505,13 +686,7 @@ export function RideScreen() {
     <div className={`wr-ride__map${riding ? ' wr-ride__map--full' : ''}`}>
       <RideMap
         scored={liveScored ?? scored}
-        rider={
-          rideState
-            ? // The RAW fix, never the snapped point — off the route the marker must show where the
-              // rider actually is, not cling to the track (WR-051).
-              { position: rideState.position, headingDeg: mapHeading ?? rideState.headingDeg }
-            : null
-        }
+        rider={rider}
         previewPolyline={
           reroutePhase === 'preview' ? (rerouteProposal?.previewPolyline ?? null) : null
         }
@@ -519,6 +694,10 @@ export function RideScreen() {
         zoomM={zoomM}
         following={following}
         onFollowChange={setFollowing}
+        headingUp={headingUp}
+        mapBearingDeg={mapBearingDeg}
+        insets={insets}
+        junction={junctionArrow}
       />
       {rideState ? (
         <div className="wr-ride__mapbtns">
@@ -561,6 +740,44 @@ export function RideScreen() {
               </svg>
             </button>
           )}
+          {/* Heading-up ↔ north-up (WR-053). The needle shows where north is on screen, so the
+              rider can always re-orient; a stable label + aria-pressed keeps the state announced
+              once rather than twice. */}
+          <button
+            type="button"
+            className="wr-mapbtn"
+            aria-label="Rotate map to my heading"
+            aria-pressed={headingUp}
+            onClick={toggleMapOrientation}
+          >
+            <svg viewBox="0 0 24 24" width={22} height={22} aria-hidden="true">
+              {/* The needle turns to keep pointing at true north; in north-up it rests upright. */}
+              <g
+                style={{ transform: `rotate(${-appliedBearingDeg}deg)`, transformOrigin: 'center' }}
+              >
+                <circle
+                  cx="12"
+                  cy="12"
+                  r="9"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.4"
+                  opacity="0.45"
+                />
+                <path d="M12 4 L15.5 12 L12 10 L8.5 12 Z" fill="currentColor" />
+                <path
+                  d="M12 20 L8.5 12 L12 14 L15.5 12 Z"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.4"
+                />
+              </g>
+              {/* Heading-up adds a fixed pip at screen-top ("up is you"). The pressed state must not
+                  rest on colour alone (WCAG 1.4.1) — and the needle alone is identical in both modes
+                  whenever the rider happens to be heading due north. */}
+              {headingUp ? <path d="M9.4 1.9 L12 0.2 L14.6 1.9 Z" fill="currentColor" /> : null}
+            </svg>
+          </button>
           {riding ? (
             <button
               type="button"
@@ -591,6 +808,13 @@ export function RideScreen() {
             </button>
           ) : null}
         </div>
+      ) : null}
+      {/* Only while there is a rider to orient — on the idle route preview nothing rotates, so
+          announcing an orientation there would be untrue. */}
+      {rideState ? (
+        <span className="wr-visually-hidden" role="status">
+          {orientationLabel}
+        </span>
       ) : null}
       {rideState?.offRoute === 'alert' && rideState.toTrack ? (
         <div className="wr-ride__alert" role="alert">
@@ -692,12 +916,19 @@ export function RideScreen() {
         {nextTurn ? (
           <div className="wr-ride__turncard" aria-label="Next turn">
             <span className="wr-ride__turnicon" aria-hidden="true">
-              <TurnGlyph instruction={nextTurn.instruction} />
+              <TurnGlyph kind={nextTurn.kind} />
             </span>
             <div className="wr-ride__turnbody">
               <span className="wr-ride__turn-dist tabular">{formatTurnDist(nextTurn.inM)}</span>
               <span className="wr-ride__turn-instr">{nextTurn.instruction}</span>
             </div>
+            {/* A second maneuver follows immediately — the voice says it in the same breath, so the
+                card shows it too rather than leaving the rider to be surprised by it. */}
+            {nextTurn.thenKind ? (
+              <span className="wr-ride__turnthen" aria-hidden="true">
+                <TurnGlyph kind={nextTurn.thenKind} size={18} />
+              </span>
+            ) : null}
           </div>
         ) : null}
 

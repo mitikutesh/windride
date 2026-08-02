@@ -322,6 +322,17 @@
   stroke-width: 1px;
 }
 
+/* The junction arrow (WR-057): pinned at the next maneuver, pointing the way the route leaves it.
+   Outlined in --bg so it reads against the light Liberty basemap as well as the route line. */
+.wr-junctionmarker svg {
+  display: block;
+}
+.wr-junctionmarker path {
+  fill: var(--text);
+  stroke: var(--bg);
+  stroke-width: 1.5px;
+}
+
 /* ---- Full-screen live ride: map fills the viewport, cards float over it (DEC-055) -------- */
 .wr-ride--live {
   position: fixed;
@@ -388,6 +399,15 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+/* The chained "then …" maneuver (WR-056): a smaller arrow on the card's right edge, matching the
+   ", then right" the voice says in the same breath. */
+.wr-ride__turnthen {
+  display: flex;
+  align-items: center;
+  flex: none;
+  margin-left: auto;
+  color: var(--text2);
 }
 
 /* Wind chip — the signature cue, floating on the map edge above the panel. */

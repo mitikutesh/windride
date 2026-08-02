@@ -1,6 +1,6 @@
 // ui/mapLayers.ts — MapLibre helpers shared by the Results map (RouteMap) and the ride map (RideMap):
-// the raster basemap layers (DEC-035), the along-route direction arrow icon, and a metres→zoom
-// helper for the follow-the-rider camera. Kept here so both maps use one source of truth.
+// the raster basemap layers (DEC-035) and the along-route direction arrow icon. Kept here so both
+// maps use one source of truth. The follow-camera maths lives in mapCamera.ts (pure, unit-tested).
 import maplibregl from 'maplibre-gl';
 import { type BasemapId, basemapLayerId, rasterBasemaps } from './basemaps';
 import { MAP_COLORS } from './windColors';
@@ -77,12 +77,4 @@ export function makeArrowIcon(): ImageData | null {
   ctx.lineWidth = 3;
   chevron();
   return ctx.getImageData(0, 0, size, size);
-}
-
-/** MapLibre zoom level that shows ~`metres` across a `widthPx`-wide viewport at latitude `lat`. */
-export function zoomForMetres(metres: number, lat: number, widthPx: number): number {
-  const C = 40075016.686; // equatorial circumference (m)
-  const mpp = metres / Math.max(1, widthPx); // target metres per pixel across the width
-  const z = Math.log2((C * Math.cos((lat * Math.PI) / 180)) / (512 * mpp)); // 512px tiles (MapLibre)
-  return Math.min(20, Math.max(1, z));
 }

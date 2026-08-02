@@ -32,6 +32,12 @@ Test contract · Technical notes · Out of scope · Log.
 | WR-016 | Ride screen: glance zone, wind HUD, wake lock | 014,015 | L | DONE |
 | WR-017 | Recorder: crash-safe idb, pause, GPX out | 013 | M | DONE |
 | WR-051 | Confirm-first reroute + true-position marker + fresh plan start | 015,016 | M | DONE |
+| WR-053 | Heading-up map orientation (rotate to travel, north-up toggle) | 016 | M | DONE |
+| WR-054 | Out-and-back cues: no phantom arrival at the fold + out-and-back snap arms | 014 | S | DONE |
+| WR-055 | Live map zoom policy: ~30 s look-ahead cruise + junction-approach zoom | 054 | M | DONE |
+| WR-056 | Junction glyph + wording: ORS maneuver codes, roundabouts, chained turns | 054 | M | DONE |
+| WR-057 | On-map junction: zoom-scaled cased route, labels on top, turn arrow at the node | 055,056 | S | DONE |
+| WR-058 | Turn cues for step-less routes (curated/AI ship `steps: []`) | 056 | M | TODO |
 
 ## Epic 3 · Conditions Brain (v0.3)
 | ID | Story | Deps | Size | Status |

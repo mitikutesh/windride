@@ -279,3 +279,61 @@ describe('Snapper — replay integration (WR-013 test contract)', () => {
     expect(progress[progress.length - 1]).toBeGreaterThan(0.9 * track.total); // traversed the whole eight
   });
 });
+
+// WR-054: an out-and-back retraces the SAME polyline, so every position is equidistant from the
+// outbound and return arms for the whole route — not just at the ends like a closed loop. Plain
+// min-perp then chose between them on floating-point noise, leaping progress to the mirrored
+// position; since progress may only move forward, it then FROZE until the rider caught up.
+describe('Snapper — out-and-back arms (WR-054)', () => {
+  /** A due-east leg, doubled back on itself: [leg, reverse(leg).slice(1)]. */
+  const leg: LatLon[] = Array.from({ length: 11 }, (_v, i) => ({ lat: 60, lon: 24 + i * 0.002 }));
+  const outAndBack = [...leg, ...[...leg].reverse().slice(1)];
+
+  /** Interpolated point `m` metres along a track (linear in lat/lon, like the replay harness). */
+  function at(track: ReturnType<typeof prepareTrack>, m: number): LatLon {
+    for (let i = 1; i < track.cum.length; i++) {
+      if (track.cum[i] >= m) {
+        const span = track.cum[i] - track.cum[i - 1];
+        const t = span > 0 ? (m - track.cum[i - 1]) / span : 0;
+        return {
+          lat: track.points[i - 1].lat + (track.points[i].lat - track.points[i - 1].lat) * t,
+          lon: track.points[i - 1].lon + (track.points[i].lon - track.points[i - 1].lon) * t,
+        };
+      }
+    }
+    return track.points[track.points.length - 1];
+  }
+
+  it('tracks true progress along both arms instead of latching the mirrored one', () => {
+    const track = prepareTrack(outAndBack);
+    const snapper = new Snapper(track, 0);
+    let prev = -1;
+    for (let m = 0; m <= track.total; m += 20) {
+      const { progressM } = snapper.update({
+        ...at(track, m),
+        time: new Date(1_752_744_000_000 + (m / 20) * 4000).toISOString(),
+        speed: 5,
+      });
+      expect(progressM).toBeGreaterThanOrEqual(prev - SNAP_JITTER_TOLERANCE_M); // monotone
+      // The mirrored arm sits at total - m; latching it would put progress far ahead of the truth.
+      expect(Math.abs(progressM - m)).toBeLessThan(25);
+      prev = progressM;
+    }
+  });
+
+  it('does not freeze partway: the fold is reached at ~half the doubled distance', () => {
+    const track = prepareTrack(outAndBack);
+    const snapper = new Snapper(track, 0);
+    let atFold: number | null = null;
+    for (let m = 0; m <= track.total; m += 20) {
+      const { progressM } = snapper.update({
+        ...at(track, m),
+        time: new Date(1_752_744_000_000 + (m / 20) * 4000).toISOString(),
+        speed: 5,
+      });
+      if (atFold === null && progressM >= track.total / 2) atFold = m;
+    }
+    expect(atFold).not.toBeNull();
+    expect(Math.abs(atFold! - track.total / 2)).toBeLessThan(40);
+  });
+});

@@ -381,6 +381,29 @@ describe('RideController — compass-blended heading (task #32)', () => {
     // Dropping the compass falls back to the (still unknown) travel bearing → null.
     expect(controller.setCompassHeading(null)).toBeNull();
   });
+
+  // --- map bearing (WR-053): heading-up rotation, gated on travel only ---------------------
+  it('has no map bearing on the first fix, then locks onto the travel bearing once moving', () => {
+    const controller = new RideController({ analysis: eastLine(), announcer: fakeAnnouncer() });
+    const first = controller.onFix({ lat: 60, lon: 24, time: '2026-07-10T09:00:00Z' });
+    expect(first.mapBearingDeg).toBeNull(); // nothing has moved yet — the map stays north-up
+    const moved = controller.onFix({ lat: 60, lon: 24 + dLon, time: '2026-07-10T09:00:01Z' });
+    expect(moved.mapBearingDeg).not.toBeNull();
+    expect(angDiff(moved.mapBearingDeg!, 90)).toBeLessThan(5); // riding east
+  });
+
+  it('never lets the device compass rotate the map', () => {
+    const controller = new RideController({ analysis: eastLine(), announcer: fakeAnnouncer() });
+    controller.setCompassHeading(270); // phone pointing west in a bag
+    controller.onFix({ lat: 60, lon: 24, time: '2026-07-10T09:00:00Z' });
+    const moved = controller.onFix({ lat: 60, lon: 24 + dLon, time: '2026-07-10T09:00:01Z' });
+    // headingDeg blends the compass in; mapBearingDeg must not — else the map spins with the phone.
+    expect(angDiff(moved.mapBearingDeg!, 90)).toBeLessThan(5);
+    // A stationary rider swinging the phone moves the puck (setCompassHeading) but not the map.
+    controller.setCompassHeading(0);
+    const still = controller.onFix({ lat: 60, lon: 24 + dLon, time: '2026-07-10T09:00:02Z' });
+    expect(still.mapBearingDeg).toBeCloseTo(moved.mapBearingDeg!, 6);
+  });
 });
 
 describe('RideController — seeded starts (F-004) and resume seeding', () => {
@@ -404,5 +427,170 @@ describe('RideController — seeded starts (F-004) and resume seeding', () => {
     const state = controller.onFix({ ...last, time: '2026-07-10T09:00:00.000Z' });
     expect(state.onTrack).toBe(true);
     expect(Math.abs(state.progressM - ridden)).toBeLessThan(50);
+  });
+});
+
+// WR-054: an out-and-back's steps used to be forwarded from the one-way leg unchanged, so the leg's
+// ARRIVAL step landed on the fold — "You have arrived" at halfway, then silence for the return.
+describe('RideController — out-and-back cues (WR-054)', () => {
+  const wind: WindSample = {
+    windMs: 4,
+    windFromDeg: 200,
+    gustMs: 6,
+    precipProb: 0,
+    tempC: 15,
+    time: '2026-07-10T09:00',
+  };
+
+  /** A there-and-back route shaped exactly the way the ORS adapter now builds one. */
+  function outAndBackAnalysis() {
+    const leg: LatLon[] = Array.from({ length: 11 }, (_v, i) => ({ lat: 60, lon: 24 + i * 0.002 }));
+    const polyline = [...leg, ...[...leg].reverse().slice(1)];
+    const foldIdx = leg.length - 1;
+    const endIdx = polyline.length - 1;
+    const steps: TurnStep[] = [
+      { instruction: 'Head east on Rantatie', distanceM: 200, type: 11, wayPoints: [0, 1] },
+      {
+        instruction: 'Turn around and ride back',
+        distanceM: 0,
+        type: 9,
+        wayPoints: [foldIdx, foldIdx],
+      },
+      { instruction: 'Arrive at your finish', distanceM: 0, type: 10, wayPoints: [endIdx, endIdx] },
+    ];
+    const segments = resample({ polyline });
+    const distanceM = polylineLengthM(polyline);
+    return analyzeCandidate(
+      { id: 'oab', polyline, segments, distanceM, ascentM: 0, steps },
+      segments.map(() => [wind]),
+      { targetDistanceM: distanceM },
+    );
+  }
+
+  /** Ride the whole route at ~5 m/s, returning what was said and where. */
+  function rideIt() {
+    const analysis = outAndBackAnalysis();
+    const announcer = fakeAnnouncer();
+    const controller = new RideController({ analysis, announcer });
+    const track = prepareTrack(analysis.candidate.polyline);
+    const t0 = Date.parse('2026-07-10T09:00:00Z');
+    const said: Array<{ text: string; progressM: number }> = [];
+    const turnsSeen: Array<{ instruction: string; progressM: number }> = [];
+    let step = 0;
+    for (let m = 0; m <= track.total; m += 20) {
+      const before = announcer.announce.mock.calls.length;
+      const state = controller.onFix({
+        ...pointAtDistance(track, m),
+        time: new Date(t0 + step * 4000).toISOString(),
+        speed: 5,
+      });
+      step += 1;
+      for (const call of announcer.announce.mock.calls.slice(before)) {
+        said.push({ text: (call[0] as { text: string }).text, progressM: state.progressM });
+      }
+      if (state.nextTurn) {
+        turnsSeen.push({ instruction: state.nextTurn.instruction, progressM: state.progressM });
+      }
+    }
+    return { said, turnsSeen, total: track.total };
+  }
+
+  it('never announces arrival before the real finish', () => {
+    const { said, total } = rideIt();
+    const arrivals = said.filter((s) => /arriv/i.test(s.text));
+    expect(arrivals.length).toBeGreaterThan(0); // it still announces the finish
+    // The fold sits at 50% of the doubled route; nothing arrival-shaped may be said near it.
+    for (const a of arrivals) expect(a.progressM).toBeGreaterThan(total * 0.75);
+  });
+
+  it('announces the turnaround at the fold instead', () => {
+    const { said, total } = rideIt();
+    const turnaround = said.find((s) => /turn around now/i.test(s.text));
+    expect(turnaround).toBeDefined();
+    expect(Math.abs(turnaround!.progressM - total / 2)).toBeLessThan(60);
+  });
+
+  // WR-055: the junction-zoom input. Distinct from nextTurn.inM — it stays 0 through the corner.
+  it('reports maneuver proximity that tightens toward the fold and holds through it', () => {
+    const analysis = outAndBackAnalysis();
+    const controller = new RideController({ analysis, announcer: fakeAnnouncer() });
+    const track = prepareTrack(analysis.candidate.polyline);
+    const t0 = Date.parse('2026-07-10T09:00:00Z');
+    const seen: Array<{ m: number; prox: number | null }> = [];
+    let step = 0;
+    for (let m = 0; m <= track.total; m += 20) {
+      const state = controller.onFix({
+        ...pointAtDistance(track, m),
+        time: new Date(t0 + step * 4000).toISOString(),
+        speed: 5,
+      });
+      step += 1;
+      seen.push({ m, prox: state.turnProximityM });
+    }
+    const fold = track.total / 2;
+    // Well before the fold: proximity is the distance to it, shrinking as the rider closes in.
+    const early = seen.find((s) => Math.abs(s.m - (fold - 300)) < 15)!;
+    const later = seen.find((s) => Math.abs(s.m - (fold - 100)) < 15)!;
+    expect(early.prox).toBeGreaterThan(later.prox!);
+    // Through the fold it pins to 0 — the rider is mid-maneuver, which nextTurn.inM cannot express.
+    const atFold = seen.filter((s) => Math.abs(s.m - fold) < 30);
+    expect(atFold.length).toBeGreaterThan(0);
+    for (const s of atFold) expect(s.prox).toBe(0);
+    // The arrival step is excluded, so the run-in to the finish is NOT treated as a junction.
+    expect(seen[seen.length - 1].prox).toBeNull();
+  });
+
+  // WR-057: the on-map junction arrow. The fold is the strongest available check that the bearing is
+  // the OUTGOING one — the route leaves it ~180° from the direction it arrived.
+  it('locates the next junction and the bearing the route LEAVES it on', () => {
+    const analysis = outAndBackAnalysis();
+    const controller = new RideController({ analysis, announcer: fakeAnnouncer() });
+    const track = prepareTrack(analysis.candidate.polyline);
+    const first = controller.onFix({
+      ...pointAtDistance(track, 0),
+      time: '2026-07-10T09:00:00Z',
+      speed: 5,
+    });
+    expect(first.junction).not.toBeNull();
+    // The only maneuver is the turnaround at the fold.
+    const fold = pointAtDistance(track, track.total / 2);
+    expect(first.junction!.at.lat).toBeCloseTo(fold.lat, 4);
+    expect(first.junction!.at.lon).toBeCloseTo(fold.lon, 4);
+    // Outbound is due east (90°); the route leaves the fold heading back west (270°).
+    const angDiffLocal = (a: number, b: number) => Math.abs(((a - b + 540) % 360) - 180);
+    expect(angDiffLocal(first.junction!.outBearingDeg, 270)).toBeLessThan(5);
+  });
+
+  it('has no junction once the last maneuver is behind (the finish is not one)', () => {
+    const analysis = outAndBackAnalysis();
+    const controller = new RideController({ analysis, announcer: fakeAnnouncer() });
+    const track = prepareTrack(analysis.candidate.polyline);
+    const t0 = Date.parse('2026-07-10T09:00:00Z');
+    let step = 0;
+    let last = null as null | ReturnType<RideController['onFix']>;
+    for (let m = 0; m <= track.total; m += 20) {
+      last = controller.onFix({
+        ...pointAtDistance(track, m),
+        time: new Date(t0 + step * 4000).toISOString(),
+        speed: 5,
+      });
+      step += 1;
+    }
+    expect(last!.junction).toBeNull();
+  });
+
+  it('reports no maneuver proximity on a route that ships no steps', () => {
+    const analysis = outAndBackAnalysis();
+    const bare = { ...analysis, candidate: { ...analysis.candidate, steps: [] } };
+    const controller = new RideController({ analysis: bare, announcer: fakeAnnouncer() });
+    const state = controller.onFix({ lat: 60, lon: 24, time: '2026-07-10T09:00:00Z', speed: 5 });
+    expect(state.turnProximityM).toBeNull();
+  });
+
+  it('still has a next turn to show on the return leg', () => {
+    const { turnsSeen, total } = rideIt();
+    const onReturn = turnsSeen.filter((t) => t.progressM > total * 0.6);
+    expect(onReturn.length).toBeGreaterThan(0);
+    expect(onReturn.every((t) => t.instruction === 'Arrive at your finish')).toBe(true);
   });
 });

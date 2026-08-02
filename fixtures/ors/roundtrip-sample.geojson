@@ -12,7 +12,7 @@
             "duration": 620.0,
             "steps": [
               { "distance": 667.0, "duration": 96.0, "type": 11, "instruction": "Head east on Rantatie", "way_points": [0, 2] },
-              { "distance": 1335.0, "duration": 200.0, "type": 1, "instruction": "Turn left onto Metsapolku", "way_points": [2, 4] }
+              { "distance": 1335.0, "duration": 200.0, "type": 0, "instruction": "Turn left onto Metsapolku", "way_points": [2, 4] }
             ]
           }
         ],

@@ -7,7 +7,14 @@
  * public API — callers pass/receive plain LatLon and numbers.
  */
 import { bearing as turfBearing, distance as turfDistance } from '@turf/turf';
-import type { CandidateRoute, LatLon, Segment, Surface, TurnStep } from '../domain';
+import {
+  ORS_ARRIVAL,
+  type CandidateRoute,
+  type LatLon,
+  type Segment,
+  type Surface,
+  type TurnStep,
+} from '../domain';
 import { SEGMENT_MAX_M, SEGMENT_MIN_M, SEGMENT_TARGET_M } from './constants';
 
 // --- angle helpers -------------------------------------------------------------------------
@@ -219,9 +226,6 @@ export function expandRangesToEdges<T>(
 }
 
 // --- reroute splice (WR-015) ---------------------------------------------------------------
-/** ORS "Arrive at destination" maneuver code — stripped from a reroute leg (it ends mid-route). */
-const ORS_ARRIVAL_TYPE = 10;
-
 /**
  * Splice a reroute leg into a route at rejoin distance `atM` (NAVIGATION_SPEC §3). Returns the
  * forward route the navigator follows from the leg's start: [leg] + [original route beyond atM].
@@ -281,7 +285,7 @@ export function spliceRoute(
   }
   // Drop the leg's own arrival step — the leg ends AT the rejoin, not the finish; announcing
   // "You have arrived" there would be wrong. The original route's arrival is preserved downstream.
-  const legSteps = (leg.steps ?? []).filter((st) => st.type !== ORS_ARRIVAL_TYPE);
+  const legSteps = (leg.steps ?? []).filter((st) => st.type !== ORS_ARRIVAL);
   const segments = [...leg.segments, ...downstreamSegs];
 
   // Re-index downstream steps into the new polyline; leg steps keep their 0-based indices.

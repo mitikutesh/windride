@@ -1,0 +1,6525 @@
+{
+  "type": "FeatureCollection",
+  "bbox": [
+    24.637785,
+    60.127083,
+    2,
+    24.73015,
+    60.172506,
+    39
+  ],
+  "features": [
+    {
+      "bbox": [
+        24.637785,
+        60.127083,
+        2,
+        24.73015,
+        60.172506,
+        39
+      ],
+      "type": "Feature",
+      "properties": {
+        "ascent": 215.1,
+        "descent": 215.1,
+        "segments": [
+          {
+            "distance": 22476.7,
+            "duration": 4632.9,
+            "steps": [
+              {
+                "distance": 436,
+                "duration": 87.2,
+                "type": 11,
+                "instruction": "Head east on Tillinmäentie",
+                "name": "Tillinmäentie",
+                "way_points": [
+                  0,
+                  14
+                ]
+              },
+              {
+                "distance": 13.6,
+                "duration": 2.7,
+                "type": 1,
+                "instruction": "Turn right",
+                "name": "-",
+                "way_points": [
+                  14,
+                  16
+                ]
+              },
+              {
+                "distance": 119.7,
+                "duration": 23.9,
+                "type": 0,
+                "instruction": "Turn left",
+                "name": "-",
+                "way_points": [
+                  16,
+                  23
+                ]
+              },
+              {
+                "distance": 14.9,
+                "duration": 3,
+                "type": 0,
+                "instruction": "Turn left",
+                "name": "-",
+                "way_points": [
+                  23,
+                  25
+                ]
+              },
+              {
+                "distance": 41.3,
+                "duration": 8.3,
+                "type": 1,
+                "instruction": "Turn right",
+                "name": "-",
+                "way_points": [
+                  25,
+                  26
+                ]
+              },
+              {
+                "distance": 195.4,
+                "duration": 39.1,
+                "type": 13,
+                "instruction": "Keep right",
+                "name": "-",
+                "way_points": [
+                  26,
+                  30
+                ]
+              },
+              {
+                "distance": 110,
+                "duration": 22,
+                "type": 0,
+                "instruction": "Turn left",
+                "name": "-",
+                "way_points": [
+                  30,
+                  36
+                ]
+              },
+              {
+                "distance": 4.5,
+                "duration": 0.9,
+                "type": 1,
+                "instruction": "Turn right",
+                "name": "-",
+                "way_points": [
+                  36,
+                  37
+                ]
+              },
+              {
+                "distance": 369.9,
+                "duration": 74,
+                "type": 0,
+                "instruction": "Turn left onto Nöykkiönlaaksontie",
+                "name": "Nöykkiönlaaksontie",
+                "way_points": [
+                  37,
+                  51
+                ]
+              },
+              {
+                "distance": 353.7,
+                "duration": 70.7,
+                "type": 0,
+                "instruction": "Turn left onto Laidunmäki",
+                "name": "Laidunmäki",
+                "way_points": [
+                  51,
+                  61
+                ]
+              },
+              {
+                "distance": 14,
+                "duration": 2.8,
+                "type": 0,
+                "instruction": "Turn left onto Pisanpellonreitti",
+                "name": "Pisanpellonreitti",
+                "way_points": [
+                  61,
+                  62
+                ]
+              },
+              {
+                "distance": 234.6,
+                "duration": 52.8,
+                "type": 1,
+                "instruction": "Turn right onto Siperianmäki",
+                "name": "Siperianmäki",
+                "way_points": [
+                  62,
+                  70
+                ]
+              },
+              {
+                "distance": 61,
+                "duration": 12.2,
+                "type": 5,
+                "instruction": "Turn slight right onto Siperianpolku",
+                "name": "Siperianpolku",
+                "way_points": [
+                  70,
+                  73
+                ]
+              },
+              {
+                "distance": 300.5,
+                "duration": 60.1,
+                "type": 0,
+                "instruction": "Turn left",
+                "name": "-",
+                "way_points": [
+                  73,
+                  81
+                ]
+              },
+              {
+                "distance": 65.7,
+                "duration": 13.1,
+                "type": 1,
+                "instruction": "Turn right",
+                "name": "-",
+                "way_points": [
+                  81,
+                  86
+                ]
+              },
+              {
+                "distance": 361.8,
+                "duration": 72.4,
+                "type": 0,
+                "instruction": "Turn left onto Eestinkalliontie",
+                "name": "Eestinkalliontie",
+                "way_points": [
+                  86,
+                  101
+                ]
+              },
+              {
+                "distance": 48.5,
+                "duration": 9.7,
+                "type": 1,
+                "instruction": "Turn right onto Eestinkallio",
+                "name": "Eestinkallio",
+                "way_points": [
+                  101,
+                  106
+                ]
+              },
+              {
+                "distance": 422.7,
+                "duration": 84.5,
+                "type": 0,
+                "instruction": "Turn left",
+                "name": "-",
+                "way_points": [
+                  106,
+                  120
+                ]
+              },
+              {
+                "distance": 65.6,
+                "duration": 13.1,
+                "type": 0,
+                "instruction": "Turn left",
+                "name": "-",
+                "way_points": [
+                  120,
+                  125
+                ]
+              },
+              {
+                "distance": 201.7,
+                "duration": 40.3,
+                "type": 1,
+                "instruction": "Turn right",
+                "name": "-",
+                "way_points": [
+                  125,
+                  132
+                ]
+              },
+              {
+                "distance": 12.9,
+                "duration": 2.6,
+                "type": 0,
+                "instruction": "Turn left",
+                "name": "-",
+                "way_points": [
+                  132,
+                  134
+                ]
+              },
+              {
+                "distance": 450.5,
+                "duration": 90.1,
+                "type": 1,
+                "instruction": "Turn right",
+                "name": "-",
+                "way_points": [
+                  134,
+                  153
+                ]
+              },
+              {
+                "distance": 36.1,
+                "duration": 7.2,
+                "type": 0,
+                "instruction": "Turn left",
+                "name": "-",
+                "way_points": [
+                  153,
+                  156
+                ]
+              },
+              {
+                "distance": 95.9,
+                "duration": 19.2,
+                "type": 1,
+                "instruction": "Turn right",
+                "name": "-",
+                "way_points": [
+                  156,
+                  158
+                ]
+              },
+              {
+                "distance": 319.9,
+                "duration": 64,
+                "type": 13,
+                "instruction": "Keep right",
+                "name": "-",
+                "way_points": [
+                  158,
+                  173
+                ]
+              },
+              {
+                "distance": 27.8,
+                "duration": 5.6,
+                "type": 1,
+                "instruction": "Turn right",
+                "name": "-",
+                "way_points": [
+                  173,
+                  176
+                ]
+              },
+              {
+                "distance": 509.1,
+                "duration": 101.8,
+                "type": 0,
+                "instruction": "Turn left",
+                "name": "-",
+                "way_points": [
+                  176,
+                  189
+                ]
+              },
+              {
+                "distance": 21.4,
+                "duration": 7.7,
+                "type": 1,
+                "instruction": "Turn right",
+                "name": "-",
+                "way_points": [
+                  189,
+                  190
+                ]
+              },
+              {
+                "distance": 88.7,
+                "duration": 17.7,
+                "type": 1,
+                "instruction": "Turn right",
+                "name": "-",
+                "way_points": [
+                  190,
+                  195
+                ]
+              },
+              {
+                "distance": 164.8,
+                "duration": 59.3,
+                "type": 2,
+                "instruction": "Turn sharp left",
+                "name": "-",
+                "way_points": [
+                  195,
+                  200
+                ]
+              },
+              {
+                "distance": 67.7,
+                "duration": 24.4,
+                "type": 13,
+                "instruction": "Keep right",
+                "name": "-",
+                "way_points": [
+                  200,
+                  204
+                ]
+              },
+              {
+                "distance": 220.2,
+                "duration": 62.9,
+                "type": 6,
+                "instruction": "Continue straight",
+                "name": "-",
+                "way_points": [
+                  204,
+                  219
+                ]
+              },
+              {
+                "distance": 8.9,
+                "duration": 1.8,
+                "type": 0,
+                "instruction": "Turn left onto Etuniementie",
+                "name": "Etuniementie",
+                "way_points": [
+                  219,
+                  220
+                ]
+              },
+              {
+                "distance": 4.8,
+                "duration": 1,
+                "type": 1,
+                "instruction": "Turn right",
+                "name": "-",
+                "way_points": [
+                  220,
+                  221
+                ]
+              },
+              {
+                "distance": 54.1,
+                "duration": 10.8,
+                "type": 0,
+                "instruction": "Turn left",
+                "name": "-",
+                "way_points": [
+                  221,
+                  223
+                ]
+              },
+              {
+                "distance": 134.9,
+                "duration": 27,
+                "type": 1,
+                "instruction": "Turn right onto Etuniemenniitty",
+                "name": "Etuniemenniitty",
+                "way_points": [
+                  223,
+                  229
+                ]
+              },
+              {
+                "distance": 8.5,
+                "duration": 1.7,
+                "type": 4,
+                "instruction": "Turn slight left",
+                "name": "-",
+                "way_points": [
+                  229,
+                  230
+                ]
+              },
+              {
+                "distance": 273.4,
+                "duration": 55.9,
+                "type": 1,
+                "instruction": "Turn right",
+                "name": "-",
+                "way_points": [
+                  230,
+                  238
+                ]
+              },
+              {
+                "distance": 26.1,
+                "duration": 5.2,
+                "type": 0,
+                "instruction": "Turn left",
+                "name": "-",
+                "way_points": [
+                  238,
+                  241
+                ]
+              },
+              {
+                "distance": 12.9,
+                "duration": 2.6,
+                "type": 0,
+                "instruction": "Turn left",
+                "name": "-",
+                "way_points": [
+                  241,
+                  243
+                ]
+              },
+              {
+                "distance": 459.9,
+                "duration": 92,
+                "type": 13,
+                "instruction": "Keep right",
+                "name": "-",
+                "way_points": [
+                  243,
+                  257
+                ]
+              },
+              {
+                "distance": 32.6,
+                "duration": 6.5,
+                "type": 12,
+                "instruction": "Keep left",
+                "name": "-",
+                "way_points": [
+                  257,
+                  259
+                ]
+              },
+              {
+                "distance": 557.2,
+                "duration": 122.7,
+                "type": 1,
+                "instruction": "Turn right onto Nuottasalmenpolku",
+                "name": "Nuottasalmenpolku",
+                "way_points": [
+                  259,
+                  280
+                ]
+              },
+              {
+                "distance": 155.6,
+                "duration": 31.1,
+                "type": 0,
+                "instruction": "Turn left onto Hylkeenpyytäjäntie",
+                "name": "Hylkeenpyytäjäntie",
+                "way_points": [
+                  280,
+                  287
+                ]
+              },
+              {
+                "distance": 537.1,
+                "duration": 107.4,
+                "type": 1,
+                "instruction": "Turn right",
+                "name": "-",
+                "way_points": [
+                  287,
+                  306
+                ]
+              },
+              {
+                "distance": 507.9,
+                "duration": 101.6,
+                "type": 13,
+                "instruction": "Keep right onto Hyljelahdentie",
+                "name": "Hyljelahdentie",
+                "way_points": [
+                  306,
+                  321
+                ]
+              },
+              {
+                "distance": 403.6,
+                "duration": 80.7,
+                "type": 12,
+                "instruction": "Keep left",
+                "name": "-",
+                "way_points": [
+                  321,
+                  337
+                ]
+              },
+              {
+                "distance": 113.7,
+                "duration": 22.7,
+                "type": 1,
+                "instruction": "Turn right onto Ankeriaankulma",
+                "name": "Ankeriaankulma",
+                "way_points": [
+                  337,
+                  341
+                ]
+              },
+              {
+                "distance": 156.5,
+                "duration": 31.3,
+                "type": 6,
+                "instruction": "Continue straight onto Ankeriaankuja",
+                "name": "Ankeriaankuja",
+                "way_points": [
+                  341,
+                  347
+                ]
+              },
+              {
+                "distance": 335.7,
+                "duration": 67.1,
+                "type": 0,
+                "instruction": "Turn left onto Kaitamäki",
+                "name": "Kaitamäki",
+                "way_points": [
+                  347,
+                  359
+                ]
+              },
+              {
+                "distance": 90.5,
+                "duration": 18.1,
+                "type": 1,
+                "instruction": "Turn right onto Sammentie",
+                "name": "Sammentie",
+                "way_points": [
+                  359,
+                  362
+                ]
+              },
+              {
+                "distance": 247.4,
+                "duration": 49.5,
+                "type": 0,
+                "instruction": "Turn left onto Sammenkuja",
+                "name": "Sammenkuja",
+                "way_points": [
+                  362,
+                  374
+                ]
+              },
+              {
+                "distance": 196.2,
+                "duration": 39.2,
+                "type": 1,
+                "instruction": "Turn right onto Kaitalahdenranta",
+                "name": "Kaitalahdenranta",
+                "way_points": [
+                  374,
+                  380
+                ]
+              },
+              {
+                "distance": 438.3,
+                "duration": 87.7,
+                "type": 0,
+                "instruction": "Turn left",
+                "name": "-",
+                "way_points": [
+                  380,
+                  392
+                ]
+              },
+              {
+                "distance": 325.4,
+                "duration": 65.1,
+                "type": 6,
+                "instruction": "Continue straight onto Vanha Riilahdentie",
+                "name": "Vanha Riilahdentie",
+                "way_points": [
+                  392,
+                  395
+                ]
+              },
+              {
+                "distance": 160.2,
+                "duration": 32,
+                "type": 12,
+                "instruction": "Keep left",
+                "name": "-",
+                "way_points": [
+                  395,
+                  404
+                ]
+              },
+              {
+                "distance": 334,
+                "duration": 66.8,
+                "type": 0,
+                "instruction": "Turn left",
+                "name": "-",
+                "way_points": [
+                  404,
+                  416
+                ]
+              },
+              {
+                "distance": 665.6,
+                "duration": 138,
+                "type": 12,
+                "instruction": "Keep left",
+                "name": "-",
+                "way_points": [
+                  416,
+                  435
+                ]
+              },
+              {
+                "distance": 149.5,
+                "duration": 33.6,
+                "type": 12,
+                "instruction": "Keep left",
+                "name": "-",
+                "way_points": [
+                  435,
+                  441
+                ]
+              },
+              {
+                "distance": 17.9,
+                "duration": 3.6,
+                "type": 4,
+                "instruction": "Turn slight left",
+                "name": "-",
+                "way_points": [
+                  441,
+                  443
+                ]
+              },
+              {
+                "distance": 220.9,
+                "duration": 44.2,
+                "type": 1,
+                "instruction": "Turn right onto Suvisaarentie",
+                "name": "Suvisaarentie",
+                "way_points": [
+                  443,
+                  452
+                ]
+              },
+              {
+                "distance": 5.8,
+                "duration": 1.3,
+                "type": 1,
+                "instruction": "Turn right",
+                "name": "-",
+                "way_points": [
+                  452,
+                  453
+                ]
+              },
+              {
+                "distance": 220.6,
+                "duration": 44.1,
+                "type": 0,
+                "instruction": "Turn left",
+                "name": "-",
+                "way_points": [
+                  453,
+                  461
+                ]
+              },
+              {
+                "distance": 66.6,
+                "duration": 15,
+                "type": 1,
+                "instruction": "Turn right onto Suinonkuja",
+                "name": "Suinonkuja",
+                "way_points": [
+                  461,
+                  462
+                ]
+              },
+              {
+                "distance": 88.8,
+                "duration": 22.8,
+                "type": 0,
+                "instruction": "Turn left onto Suinonpolku",
+                "name": "Suinonpolku",
+                "way_points": [
+                  462,
+                  465
+                ]
+              },
+              {
+                "distance": 88.8,
+                "duration": 22.8,
+                "type": 6,
+                "instruction": "Continue straight onto Suinonpolku",
+                "name": "Suinonpolku",
+                "way_points": [
+                  465,
+                  468
+                ]
+              },
+              {
+                "distance": 75.2,
+                "duration": 16.9,
+                "type": 1,
+                "instruction": "Turn right onto Suinonkuja",
+                "name": "Suinonkuja",
+                "way_points": [
+                  468,
+                  470
+                ]
+              },
+              {
+                "distance": 225.1,
+                "duration": 45,
+                "type": 0,
+                "instruction": "Turn left onto Suvisaarentie",
+                "name": "Suvisaarentie",
+                "way_points": [
+                  470,
+                  479
+                ]
+              },
+              {
+                "distance": 5.8,
+                "duration": 1.3,
+                "type": 0,
+                "instruction": "Turn left",
+                "name": "-",
+                "way_points": [
+                  479,
+                  480
+                ]
+              },
+              {
+                "distance": 498.5,
+                "duration": 99.7,
+                "type": 3,
+                "instruction": "Turn sharp right",
+                "name": "-",
+                "way_points": [
+                  480,
+                  500
+                ]
+              },
+              {
+                "distance": 11.2,
+                "duration": 2.2,
+                "type": 1,
+                "instruction": "Turn right",
+                "name": "-",
+                "way_points": [
+                  500,
+                  502
+                ]
+              },
+              {
+                "distance": 561.9,
+                "duration": 112.4,
+                "type": 0,
+                "instruction": "Turn left onto Suvisaarentie",
+                "name": "Suvisaarentie",
+                "way_points": [
+                  502,
+                  514
+                ]
+              },
+              {
+                "distance": 6.7,
+                "duration": 1.3,
+                "type": 1,
+                "instruction": "Turn right",
+                "name": "-",
+                "way_points": [
+                  514,
+                  515
+                ]
+              },
+              {
+                "distance": 15.4,
+                "duration": 3.1,
+                "type": 12,
+                "instruction": "Keep left",
+                "name": "-",
+                "way_points": [
+                  515,
+                  517
+                ]
+              },
+              {
+                "distance": 5.4,
+                "duration": 1.1,
+                "type": 0,
+                "instruction": "Turn left",
+                "name": "-",
+                "way_points": [
+                  517,
+                  518
+                ]
+              },
+              {
+                "distance": 121.3,
+                "duration": 24.3,
+                "type": 13,
+                "instruction": "Keep right",
+                "name": "-",
+                "way_points": [
+                  518,
+                  523
+                ]
+              },
+              {
+                "distance": 38.3,
+                "duration": 13.8,
+                "type": 0,
+                "instruction": "Turn left",
+                "name": "-",
+                "way_points": [
+                  523,
+                  524
+                ]
+              },
+              {
+                "distance": 153.8,
+                "duration": 30.8,
+                "type": 6,
+                "instruction": "Continue straight onto Hanikka",
+                "name": "Hanikka",
+                "way_points": [
+                  524,
+                  526
+                ]
+              },
+              {
+                "distance": 61.8,
+                "duration": 12.4,
+                "type": 0,
+                "instruction": "Turn left onto Hanikka",
+                "name": "Hanikka",
+                "way_points": [
+                  526,
+                  528
+                ]
+              },
+              {
+                "distance": 13.1,
+                "duration": 2.6,
+                "type": 0,
+                "instruction": "Turn left onto Soukanväylä",
+                "name": "Soukanväylä",
+                "way_points": [
+                  528,
+                  529
+                ]
+              },
+              {
+                "distance": 6.6,
+                "duration": 1.3,
+                "type": 1,
+                "instruction": "Turn right",
+                "name": "-",
+                "way_points": [
+                  529,
+                  530
+                ]
+              },
+              {
+                "distance": 631.5,
+                "duration": 126.3,
+                "type": 1,
+                "instruction": "Turn right",
+                "name": "-",
+                "way_points": [
+                  530,
+                  552
+                ]
+              },
+              {
+                "distance": 180.5,
+                "duration": 36.1,
+                "type": 0,
+                "instruction": "Turn left",
+                "name": "-",
+                "way_points": [
+                  552,
+                  562
+                ]
+              },
+              {
+                "distance": 574.3,
+                "duration": 114.9,
+                "type": 1,
+                "instruction": "Turn right onto Soukantie",
+                "name": "Soukantie",
+                "way_points": [
+                  562,
+                  584
+                ]
+              },
+              {
+                "distance": 5.3,
+                "duration": 1.1,
+                "type": 0,
+                "instruction": "Turn left",
+                "name": "-",
+                "way_points": [
+                  584,
+                  585
+                ]
+              },
+              {
+                "distance": 66.9,
+                "duration": 13.4,
+                "type": 1,
+                "instruction": "Turn right",
+                "name": "-",
+                "way_points": [
+                  585,
+                  591
+                ]
+              },
+              {
+                "distance": 22.3,
+                "duration": 4.5,
+                "type": 1,
+                "instruction": "Turn right",
+                "name": "-",
+                "way_points": [
+                  591,
+                  594
+                ]
+              },
+              {
+                "distance": 729.8,
+                "duration": 146,
+                "type": 0,
+                "instruction": "Turn left",
+                "name": "-",
+                "way_points": [
+                  594,
+                  620
+                ]
+              },
+              {
+                "distance": 218.1,
+                "duration": 43.6,
+                "type": 1,
+                "instruction": "Turn right",
+                "name": "-",
+                "way_points": [
+                  620,
+                  627
+                ]
+              },
+              {
+                "distance": 35.6,
+                "duration": 7.1,
+                "type": 12,
+                "instruction": "Keep left",
+                "name": "-",
+                "way_points": [
+                  627,
+                  628
+                ]
+              },
+              {
+                "distance": 493.9,
+                "duration": 111.1,
+                "type": 2,
+                "instruction": "Turn sharp left",
+                "name": "-",
+                "way_points": [
+                  628,
+                  640
+                ]
+              },
+              {
+                "distance": 337.4,
+                "duration": 75.9,
+                "type": 13,
+                "instruction": "Keep right",
+                "name": "-",
+                "way_points": [
+                  640,
+                  653
+                ]
+              },
+              {
+                "distance": 29.8,
+                "duration": 6.7,
+                "type": 0,
+                "instruction": "Turn left",
+                "name": "-",
+                "way_points": [
+                  653,
+                  655
+                ]
+              },
+              {
+                "distance": 29.8,
+                "duration": 6.7,
+                "type": 6,
+                "instruction": "Continue straight",
+                "name": "-",
+                "way_points": [
+                  655,
+                  657
+                ]
+              },
+              {
+                "distance": 8.7,
+                "duration": 1.9,
+                "type": 0,
+                "instruction": "Turn left",
+                "name": "-",
+                "way_points": [
+                  657,
+                  659
+                ]
+              },
+              {
+                "distance": 241.7,
+                "duration": 55.1,
+                "type": 13,
+                "instruction": "Keep right",
+                "name": "-",
+                "way_points": [
+                  659,
+                  675
+                ]
+              },
+              {
+                "distance": 584.3,
+                "duration": 116.9,
+                "type": 0,
+                "instruction": "Turn left",
+                "name": "-",
+                "way_points": [
+                  675,
+                  696
+                ]
+              },
+              {
+                "distance": 10.7,
+                "duration": 2.1,
+                "type": 1,
+                "instruction": "Turn right onto Laurinlahdentie",
+                "name": "Laurinlahdentie",
+                "way_points": [
+                  696,
+                  698
+                ]
+              },
+              {
+                "distance": 23.4,
+                "duration": 4.7,
+                "type": 5,
+                "instruction": "Turn slight right onto Laurinlahdentie",
+                "name": "Laurinlahdentie",
+                "way_points": [
+                  698,
+                  699
+                ]
+              },
+              {
+                "distance": 6.2,
+                "duration": 1.2,
+                "type": 0,
+                "instruction": "Turn left",
+                "name": "-",
+                "way_points": [
+                  699,
+                  700
+                ]
+              },
+              {
+                "distance": 42.8,
+                "duration": 8.6,
+                "type": 1,
+                "instruction": "Turn right",
+                "name": "-",
+                "way_points": [
+                  700,
+                  703
+                ]
+              },
+              {
+                "distance": 152.7,
+                "duration": 30.5,
+                "type": 4,
+                "instruction": "Turn slight left",
+                "name": "-",
+                "way_points": [
+                  703,
+                  712
+                ]
+              },
+              {
+                "distance": 146.8,
+                "duration": 29.4,
+                "type": 1,
+                "instruction": "Turn right onto Kourapolku",
+                "name": "Kourapolku",
+                "way_points": [
+                  712,
+                  717
+                ]
+              },
+              {
+                "distance": 113.5,
+                "duration": 22.7,
+                "type": 5,
+                "instruction": "Turn slight right onto Ankkurireitti",
+                "name": "Ankkurireitti",
+                "way_points": [
+                  717,
+                  720
+                ]
+              },
+              {
+                "distance": 81.5,
+                "duration": 16.3,
+                "type": 0,
+                "instruction": "Turn left",
+                "name": "-",
+                "way_points": [
+                  720,
+                  721
+                ]
+              },
+              {
+                "distance": 73.9,
+                "duration": 14.8,
+                "type": 1,
+                "instruction": "Turn right onto Saapaspolku",
+                "name": "Saapaspolku",
+                "way_points": [
+                  721,
+                  724
+                ]
+              },
+              {
+                "distance": 119.2,
+                "duration": 23.8,
+                "type": 0,
+                "instruction": "Turn left onto Ankkuritouvi",
+                "name": "Ankkuritouvi",
+                "way_points": [
+                  724,
+                  728
+                ]
+              },
+              {
+                "distance": 513.9,
+                "duration": 102.8,
+                "type": 12,
+                "instruction": "Keep left onto Ankkuritouvi",
+                "name": "Ankkuritouvi",
+                "way_points": [
+                  728,
+                  748
+                ]
+              },
+              {
+                "distance": 262.1,
+                "duration": 54.5,
+                "type": 12,
+                "instruction": "Keep left onto Aallonpohjanpolku",
+                "name": "Aallonpohjanpolku",
+                "way_points": [
+                  748,
+                  766
+                ]
+              },
+              {
+                "distance": 117,
+                "duration": 23.4,
+                "type": 1,
+                "instruction": "Turn right onto Merivirta",
+                "name": "Merivirta",
+                "way_points": [
+                  766,
+                  771
+                ]
+              },
+              {
+                "distance": 12.7,
+                "duration": 2.5,
+                "type": 1,
+                "instruction": "Turn right onto Ristiaallokonkatu",
+                "name": "Ristiaallokonkatu",
+                "way_points": [
+                  771,
+                  772
+                ]
+              },
+              {
+                "distance": 216.3,
+                "duration": 43.3,
+                "type": 0,
+                "instruction": "Turn left",
+                "name": "-",
+                "way_points": [
+                  772,
+                  782
+                ]
+              },
+              {
+                "distance": 28,
+                "duration": 5.6,
+                "type": 0,
+                "instruction": "Turn left",
+                "name": "-",
+                "way_points": [
+                  782,
+                  786
+                ]
+              },
+              {
+                "distance": 201,
+                "duration": 40.2,
+                "type": 12,
+                "instruction": "Keep left",
+                "name": "-",
+                "way_points": [
+                  786,
+                  794
+                ]
+              },
+              {
+                "distance": 15.6,
+                "duration": 3.1,
+                "type": 1,
+                "instruction": "Turn right",
+                "name": "-",
+                "way_points": [
+                  794,
+                  797
+                ]
+              },
+              {
+                "distance": 7.7,
+                "duration": 1.5,
+                "type": 0,
+                "instruction": "Turn left",
+                "name": "-",
+                "way_points": [
+                  797,
+                  798
+                ]
+              },
+              {
+                "distance": 19.3,
+                "duration": 3.9,
+                "type": 13,
+                "instruction": "Keep right",
+                "name": "-",
+                "way_points": [
+                  798,
+                  799
+                ]
+              },
+              {
+                "distance": 5.8,
+                "duration": 1.2,
+                "type": 0,
+                "instruction": "Turn left",
+                "name": "-",
+                "way_points": [
+                  799,
+                  800
+                ]
+              },
+              {
+                "distance": 677.2,
+                "duration": 135.4,
+                "type": 1,
+                "instruction": "Turn right onto Kattilalaaksonkatu",
+                "name": "Kattilalaaksonkatu",
+                "way_points": [
+                  800,
+                  818
+                ]
+              },
+              {
+                "distance": 134.6,
+                "duration": 26.9,
+                "type": 0,
+                "instruction": "Turn left onto Tervanpolttajantie",
+                "name": "Tervanpolttajantie",
+                "way_points": [
+                  818,
+                  826
+                ]
+              },
+              {
+                "distance": 193.9,
+                "duration": 38.8,
+                "type": 12,
+                "instruction": "Keep left",
+                "name": "-",
+                "way_points": [
+                  826,
+                  837
+                ]
+              },
+              {
+                "distance": 70.2,
+                "duration": 14,
+                "type": 0,
+                "instruction": "Turn left onto Rakentajaintie",
+                "name": "Rakentajaintie",
+                "way_points": [
+                  837,
+                  840
+                ]
+              },
+              {
+                "distance": 164.7,
+                "duration": 32.9,
+                "type": 1,
+                "instruction": "Turn right onto Rakentajainkuja",
+                "name": "Rakentajainkuja",
+                "way_points": [
+                  840,
+                  849
+                ]
+              },
+              {
+                "distance": 132.4,
+                "duration": 26.5,
+                "type": 0,
+                "instruction": "Turn left onto Rakentajainpolku",
+                "name": "Rakentajainpolku",
+                "way_points": [
+                  849,
+                  853
+                ]
+              },
+              {
+                "distance": 42.1,
+                "duration": 8.4,
+                "type": 0,
+                "instruction": "Turn left onto Suotie",
+                "name": "Suotie",
+                "way_points": [
+                  853,
+                  857
+                ]
+              },
+              {
+                "distance": 181.1,
+                "duration": 36.2,
+                "type": 1,
+                "instruction": "Turn right onto Joukinahonpolku",
+                "name": "Joukinahonpolku",
+                "way_points": [
+                  857,
+                  862
+                ]
+              },
+              {
+                "distance": 170.2,
+                "duration": 34,
+                "type": 1,
+                "instruction": "Turn right onto Tillinmäentie",
+                "name": "Tillinmäentie",
+                "way_points": [
+                  862,
+                  867
+                ]
+              },
+              {
+                "distance": 0,
+                "duration": 0,
+                "type": 10,
+                "instruction": "Arrive at Tillinmäentie, on the right",
+                "name": "-",
+                "way_points": [
+                  867,
+                  867
+                ]
+              }
+            ],
+            "ascent": 215.05800247192383,
+            "descent": 215.05800247192383
+          }
+        ],
+        "extras": {
+          "waytype": {
+            "values": [
+              [
+                0,
+                14,
+                2
+              ],
+              [
+                14,
+                37,
+                6
+              ],
+              [
+                37,
+                58,
+                3
+              ],
+              [
+                58,
+                86,
+                6
+              ],
+              [
+                86,
+                106,
+                3
+              ],
+              [
+                106,
+                189,
+                6
+              ],
+              [
+                189,
+                190,
+                4
+              ],
+              [
+                190,
+                195,
+                6
+              ],
+              [
+                195,
+                212,
+                4
+              ],
+              [
+                212,
+                220,
+                3
+              ],
+              [
+                220,
+                221,
+                7
+              ],
+              [
+                221,
+                223,
+                6
+              ],
+              [
+                223,
+                230,
+                3
+              ],
+              [
+                230,
+                231,
+                7
+              ],
+              [
+                231,
+                280,
+                6
+              ],
+              [
+                280,
+                287,
+                2
+              ],
+              [
+                287,
+                338,
+                6
+              ],
+              [
+                338,
+                380,
+                3
+              ],
+              [
+                380,
+                441,
+                6
+              ],
+              [
+                441,
+                443,
+                3
+              ],
+              [
+                443,
+                452,
+                2
+              ],
+              [
+                452,
+                453,
+                3
+              ],
+              [
+                453,
+                461,
+                6
+              ],
+              [
+                461,
+                470,
+                3
+              ],
+              [
+                470,
+                479,
+                2
+              ],
+              [
+                479,
+                480,
+                3
+              ],
+              [
+                480,
+                502,
+                6
+              ],
+              [
+                502,
+                514,
+                2
+              ],
+              [
+                514,
+                515,
+                6
+              ],
+              [
+                515,
+                523,
+                7
+              ],
+              [
+                523,
+                524,
+                4
+              ],
+              [
+                524,
+                528,
+                3
+              ],
+              [
+                528,
+                529,
+                2
+              ],
+              [
+                529,
+                562,
+                6
+              ],
+              [
+                562,
+                584,
+                2
+              ],
+              [
+                584,
+                585,
+                3
+              ],
+              [
+                585,
+                626,
+                6
+              ],
+              [
+                626,
+                627,
+                3
+              ],
+              [
+                627,
+                696,
+                6
+              ],
+              [
+                696,
+                699,
+                2
+              ],
+              [
+                699,
+                700,
+                3
+              ],
+              [
+                700,
+                762,
+                6
+              ],
+              [
+                762,
+                766,
+                3
+              ],
+              [
+                766,
+                771,
+                2
+              ],
+              [
+                771,
+                772,
+                3
+              ],
+              [
+                772,
+                799,
+                6
+              ],
+              [
+                799,
+                800,
+                3
+              ],
+              [
+                800,
+                818,
+                2
+              ],
+              [
+                818,
+                825,
+                3
+              ],
+              [
+                825,
+                828,
+                6
+              ],
+              [
+                828,
+                850,
+                3
+              ],
+              [
+                850,
+                853,
+                6
+              ],
+              [
+                853,
+                857,
+                3
+              ],
+              [
+                857,
+                860,
+                6
+              ],
+              [
+                860,
+                862,
+                3
+              ],
+              [
+                862,
+                867,
+                2
+              ]
+            ],
+            "summary": [
+              {
+                "value": 6,
+                "distance": 15037.3,
+                "amount": 66.9
+              },
+              {
+                "value": 3,
+                "distance": 3694.2,
+                "amount": 16.44
+              },
+              {
+                "value": 2,
+                "distance": 3185.5,
+                "amount": 14.17
+              },
+              {
+                "value": 4,
+                "distance": 409.9,
+                "amount": 1.82
+              },
+              {
+                "value": 7,
+                "distance": 149.8,
+                "amount": 0.67
+              }
+            ]
+          },
+          "surface": {
+            "values": [
+              [
+                0,
+                58,
+                3
+              ],
+              [
+                58,
+                62,
+                10
+              ],
+              [
+                62,
+                70,
+                8
+              ],
+              [
+                70,
+                73,
+                10
+              ],
+              [
+                73,
+                83,
+                3
+              ],
+              [
+                83,
+                86,
+                10
+              ],
+              [
+                86,
+                106,
+                0
+              ],
+              [
+                106,
+                189,
+                3
+              ],
+              [
+                189,
+                190,
+                17
+              ],
+              [
+                190,
+                195,
+                10
+              ],
+              [
+                195,
+                196,
+                17
+              ],
+              [
+                196,
+                197,
+                7
+              ],
+              [
+                197,
+                204,
+                17
+              ],
+              [
+                204,
+                208,
+                0
+              ],
+              [
+                208,
+                212,
+                11
+              ],
+              [
+                212,
+                219,
+                10
+              ],
+              [
+                219,
+                231,
+                3
+              ],
+              [
+                231,
+                232,
+                10
+              ],
+              [
+                232,
+                241,
+                3
+              ],
+              [
+                241,
+                243,
+                1
+              ],
+              [
+                243,
+                259,
+                3
+              ],
+              [
+                259,
+                267,
+                8
+              ],
+              [
+                267,
+                278,
+                10
+              ],
+              [
+                278,
+                279,
+                7
+              ],
+              [
+                279,
+                287,
+                3
+              ],
+              [
+                287,
+                304,
+                10
+              ],
+              [
+                304,
+                337,
+                3
+              ],
+              [
+                337,
+                338,
+                0
+              ],
+              [
+                338,
+                341,
+                3
+              ],
+              [
+                341,
+                347,
+                1
+              ],
+              [
+                347,
+                362,
+                3
+              ],
+              [
+                362,
+                374,
+                0
+              ],
+              [
+                374,
+                429,
+                3
+              ],
+              [
+                429,
+                441,
+                8
+              ],
+              [
+                441,
+                452,
+                3
+              ],
+              [
+                452,
+                453,
+                8
+              ],
+              [
+                453,
+                461,
+                3
+              ],
+              [
+                461,
+                462,
+                8
+              ],
+              [
+                462,
+                468,
+                2
+              ],
+              [
+                468,
+                470,
+                8
+              ],
+              [
+                470,
+                479,
+                3
+              ],
+              [
+                479,
+                480,
+                8
+              ],
+              [
+                480,
+                515,
+                3
+              ],
+              [
+                515,
+                523,
+                10
+              ],
+              [
+                523,
+                524,
+                12
+              ],
+              [
+                524,
+                628,
+                3
+              ],
+              [
+                628,
+                673,
+                8
+              ],
+              [
+                673,
+                675,
+                14
+              ],
+              [
+                675,
+                712,
+                3
+              ],
+              [
+                712,
+                721,
+                10
+              ],
+              [
+                721,
+                752,
+                3
+              ],
+              [
+                752,
+                754,
+                14
+              ],
+              [
+                754,
+                761,
+                3
+              ],
+              [
+                761,
+                763,
+                14
+              ],
+              [
+                763,
+                867,
+                3
+              ]
+            ],
+            "summary": [
+              {
+                "value": 3,
+                "distance": 17105.6,
+                "amount": 76.1
+              },
+              {
+                "value": 8,
+                "distance": 2057,
+                "amount": 9.15
+              },
+              {
+                "value": 10,
+                "distance": 1804,
+                "amount": 8.03
+              },
+              {
+                "value": 0,
+                "distance": 782.6,
+                "amount": 3.48
+              },
+              {
+                "value": 17,
+                "distance": 244,
+                "amount": 1.09
+              },
+              {
+                "value": 2,
+                "distance": 177.5,
+                "amount": 0.79
+              },
+              {
+                "value": 1,
+                "distance": 169.5,
+                "amount": 0.75
+              },
+              {
+                "value": 11,
+                "distance": 41.8,
+                "amount": 0.19
+              },
+              {
+                "value": 12,
+                "distance": 38.3,
+                "amount": 0.17
+              },
+              {
+                "value": 14,
+                "distance": 30.5,
+                "amount": 0.14
+              },
+              {
+                "value": 7,
+                "distance": 26,
+                "amount": 0.12
+              }
+            ]
+          },
+          "steepness": {
+            "values": [
+              [
+                0,
+                553,
+                0
+              ],
+              [
+                553,
+                677,
+                -1
+              ],
+              [
+                677,
+                742,
+                1
+              ],
+              [
+                742,
+                867,
+                0
+              ]
+            ],
+            "summary": [
+              {
+                "value": 0,
+                "distance": 17874.7,
+                "amount": 79.53
+              },
+              {
+                "value": -1,
+                "distance": 2993.8,
+                "amount": 13.32
+              },
+              {
+                "value": 1,
+                "distance": 1608.2,
+                "amount": 7.15
+              }
+            ]
+          }
+        },
+        "way_points": [
+          0,
+          867
+        ],
+        "summary": {
+          "distance": 22476.7,
+          "duration": 4632.9
+        }
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            24.650003,
+            60.17005,
+            28
+          ],
+          [
+            24.650697,
+            60.170041,
+            28
+          ],
+          [
+            24.651025,
+            60.170036,
+            28
+          ],
+          [
+            24.65201,
+            60.170018,
+            27
+          ],
+          [
+            24.652224,
+            60.170017,
+            27
+          ],
+          [
+            24.652339,
+            60.170015,
+            27
+          ],
+          [
+            24.654299,
+            60.169978,
+            26
+          ],
+          [
+            24.654557,
+            60.16997,
+            26
+          ],
+          [
+            24.65485,
+            60.16998,
+            26
+          ],
+          [
+            24.655498,
+            60.170055,
+            26
+          ],
+          [
+            24.656219,
+            60.170104,
+            23
+          ],
+          [
+            24.656444,
+            60.170158,
+            23
+          ],
+          [
+            24.656933,
+            60.17025,
+            23
+          ],
+          [
+            24.657514,
+            60.170382,
+            23
+          ],
+          [
+            24.657732,
+            60.170414,
+            23
+          ],
+          [
+            24.657763,
+            60.170385,
+            23
+          ],
+          [
+            24.657845,
+            60.170305,
+            23
+          ],
+          [
+            24.658127,
+            60.170361,
+            21.7
+          ],
+          [
+            24.658473,
+            60.17037,
+            21.6
+          ],
+          [
+            24.6587,
+            60.170329,
+            21.7
+          ],
+          [
+            24.65888,
+            60.170278,
+            21
+          ],
+          [
+            24.659049,
+            60.170166,
+            21
+          ],
+          [
+            24.659237,
+            60.169996,
+            21
+          ],
+          [
+            24.659394,
+            60.169816,
+            21
+          ],
+          [
+            24.65953,
+            60.169842,
+            21
+          ],
+          [
+            24.659644,
+            60.169865,
+            21
+          ],
+          [
+            24.659944,
+            60.169525,
+            21
+          ],
+          [
+            24.660669,
+            60.168493,
+            21.8
+          ],
+          [
+            24.660879,
+            60.168296,
+            21.9
+          ],
+          [
+            24.661003,
+            60.167877,
+            22
+          ],
+          [
+            24.661007,
+            60.167859,
+            22
+          ],
+          [
+            24.661265,
+            60.167878,
+            22
+          ],
+          [
+            24.661517,
+            60.167923,
+            22
+          ],
+          [
+            24.662113,
+            60.168065,
+            22
+          ],
+          [
+            24.662262,
+            60.168101,
+            22
+          ],
+          [
+            24.66242,
+            60.168151,
+            23
+          ],
+          [
+            24.662693,
+            60.168326,
+            24
+          ],
+          [
+            24.66276,
+            60.168303,
+            24
+          ],
+          [
+            24.662893,
+            60.168393,
+            24
+          ],
+          [
+            24.663131,
+            60.168556,
+            24
+          ],
+          [
+            24.663798,
+            60.169012,
+            20
+          ],
+          [
+            24.663912,
+            60.16908,
+            21.6
+          ],
+          [
+            24.665234,
+            60.169686,
+            21.7
+          ],
+          [
+            24.665598,
+            60.169761,
+            21.7
+          ],
+          [
+            24.665795,
+            60.169774,
+            21.6
+          ],
+          [
+            24.666012,
+            60.169763,
+            21.6
+          ],
+          [
+            24.66627,
+            60.169708,
+            22
+          ],
+          [
+            24.666453,
+            60.169655,
+            22
+          ],
+          [
+            24.666616,
+            60.169556,
+            25.8
+          ],
+          [
+            24.666871,
+            60.169322,
+            27
+          ],
+          [
+            24.666969,
+            60.169223,
+            27
+          ],
+          [
+            24.667247,
+            60.168942,
+            27
+          ],
+          [
+            24.667691,
+            60.16912,
+            27
+          ],
+          [
+            24.66781,
+            60.169167,
+            27
+          ],
+          [
+            24.668593,
+            60.169476,
+            27
+          ],
+          [
+            24.670292,
+            60.170143,
+            32
+          ],
+          [
+            24.670781,
+            60.170313,
+            35.8
+          ],
+          [
+            24.671308,
+            60.17044,
+            38
+          ],
+          [
+            24.67155,
+            60.170509,
+            38
+          ],
+          [
+            24.671986,
+            60.170553,
+            38
+          ],
+          [
+            24.672141,
+            60.170555,
+            38
+          ],
+          [
+            24.672588,
+            60.17055,
+            38
+          ],
+          [
+            24.672733,
+            60.170653,
+            38
+          ],
+          [
+            24.673638,
+            60.170618,
+            36.9
+          ],
+          [
+            24.673823,
+            60.17063,
+            37.4
+          ],
+          [
+            24.673989,
+            60.170662,
+            37.8
+          ],
+          [
+            24.674177,
+            60.170745,
+            36
+          ],
+          [
+            24.674332,
+            60.170879,
+            35.2
+          ],
+          [
+            24.674549,
+            60.170947,
+            34.4
+          ],
+          [
+            24.674818,
+            60.170992,
+            33.7
+          ],
+          [
+            24.676663,
+            60.171131,
+            28
+          ],
+          [
+            24.67723,
+            60.171026,
+            30.1
+          ],
+          [
+            24.677594,
+            60.171024,
+            30.4
+          ],
+          [
+            24.677715,
+            60.170994,
+            31
+          ],
+          [
+            24.677769,
+            60.171023,
+            31
+          ],
+          [
+            24.678161,
+            60.171132,
+            31
+          ],
+          [
+            24.680323,
+            60.171545,
+            32.4
+          ],
+          [
+            24.680723,
+            60.171634,
+            33
+          ],
+          [
+            24.68084,
+            60.171667,
+            33
+          ],
+          [
+            24.680911,
+            60.171682,
+            33
+          ],
+          [
+            24.681593,
+            60.171854,
+            34
+          ],
+          [
+            24.682628,
+            60.17213,
+            34
+          ],
+          [
+            24.682682,
+            60.172073,
+            34
+          ],
+          [
+            24.682724,
+            60.172021,
+            34
+          ],
+          [
+            24.682813,
+            60.171908,
+            34
+          ],
+          [
+            24.683072,
+            60.171692,
+            34
+          ],
+          [
+            24.683137,
+            60.171599,
+            34
+          ],
+          [
+            24.683259,
+            60.171602,
+            32.4
+          ],
+          [
+            24.684557,
+            60.171754,
+            32.1
+          ],
+          [
+            24.684995,
+            60.171849,
+            32
+          ],
+          [
+            24.685497,
+            60.171985,
+            30
+          ],
+          [
+            24.685831,
+            60.172077,
+            30
+          ],
+          [
+            24.686167,
+            60.172225,
+            30
+          ],
+          [
+            24.686246,
+            60.172258,
+            30
+          ],
+          [
+            24.686382,
+            60.172313,
+            30
+          ],
+          [
+            24.686601,
+            60.172368,
+            30
+          ],
+          [
+            24.686872,
+            60.172412,
+            30
+          ],
+          [
+            24.687441,
+            60.172489,
+            27.4
+          ],
+          [
+            24.68779,
+            60.172506,
+            27.4
+          ],
+          [
+            24.687935,
+            60.172486,
+            27.5
+          ],
+          [
+            24.688111,
+            60.172408,
+            27.5
+          ],
+          [
+            24.688782,
+            60.171993,
+            27
+          ],
+          [
+            24.688763,
+            60.171947,
+            27
+          ],
+          [
+            24.688816,
+            60.171853,
+            27
+          ],
+          [
+            24.688811,
+            60.171789,
+            27
+          ],
+          [
+            24.688772,
+            60.171608,
+            27
+          ],
+          [
+            24.688729,
+            60.171568,
+            27
+          ],
+          [
+            24.688944,
+            60.171416,
+            27
+          ],
+          [
+            24.689028,
+            60.171277,
+            27
+          ],
+          [
+            24.689141,
+            60.171161,
+            27
+          ],
+          [
+            24.689241,
+            60.171005,
+            27
+          ],
+          [
+            24.689509,
+            60.170645,
+            31
+          ],
+          [
+            24.689597,
+            60.170547,
+            31
+          ],
+          [
+            24.6898,
+            60.170418,
+            31
+          ],
+          [
+            24.690123,
+            60.170297,
+            31
+          ],
+          [
+            24.690876,
+            60.170133,
+            29
+          ],
+          [
+            24.692416,
+            60.169865,
+            27
+          ],
+          [
+            24.693161,
+            60.169699,
+            27
+          ],
+          [
+            24.693614,
+            60.169575,
+            22
+          ],
+          [
+            24.694156,
+            60.169377,
+            22
+          ],
+          [
+            24.694197,
+            60.169276,
+            22
+          ],
+          [
+            24.694328,
+            60.169238,
+            22
+          ],
+          [
+            24.694467,
+            60.169205,
+            22
+          ],
+          [
+            24.6946,
+            60.169183,
+            22
+          ],
+          [
+            24.694909,
+            60.169162,
+            22
+          ],
+          [
+            24.695337,
+            60.169177,
+            22
+          ],
+          [
+            24.69534,
+            60.169025,
+            22
+          ],
+          [
+            24.695439,
+            60.168949,
+            20.5
+          ],
+          [
+            24.695986,
+            60.168751,
+            18
+          ],
+          [
+            24.696439,
+            60.168544,
+            22.2
+          ],
+          [
+            24.696869,
+            60.168298,
+            22
+          ],
+          [
+            24.697296,
+            60.167955,
+            23
+          ],
+          [
+            24.697421,
+            60.167766,
+            23
+          ],
+          [
+            24.697501,
+            60.16777,
+            23
+          ],
+          [
+            24.697654,
+            60.167779,
+            23
+          ],
+          [
+            24.697854,
+            60.167507,
+            20.1
+          ],
+          [
+            24.698046,
+            60.167315,
+            19.9
+          ],
+          [
+            24.698362,
+            60.167057,
+            18
+          ],
+          [
+            24.698653,
+            60.166874,
+            18
+          ],
+          [
+            24.699145,
+            60.166635,
+            18
+          ],
+          [
+            24.699308,
+            60.166599,
+            18
+          ],
+          [
+            24.699547,
+            60.166592,
+            18
+          ],
+          [
+            24.699815,
+            60.166504,
+            18
+          ],
+          [
+            24.699905,
+            60.166456,
+            17
+          ],
+          [
+            24.700181,
+            60.166372,
+            17
+          ],
+          [
+            24.700264,
+            60.166332,
+            17
+          ],
+          [
+            24.700447,
+            60.166216,
+            17
+          ],
+          [
+            24.701,
+            60.165872,
+            17
+          ],
+          [
+            24.701302,
+            60.16566,
+            17
+          ],
+          [
+            24.701624,
+            60.165419,
+            17
+          ],
+          [
+            24.701867,
+            60.16514,
+            16.4
+          ],
+          [
+            24.702257,
+            60.164822,
+            16
+          ],
+          [
+            24.70232,
+            60.164749,
+            16
+          ],
+          [
+            24.702425,
+            60.164635,
+            16
+          ],
+          [
+            24.702636,
+            60.164677,
+            16
+          ],
+          [
+            24.702874,
+            60.164722,
+            16
+          ],
+          [
+            24.703035,
+            60.164749,
+            16
+          ],
+          [
+            24.703421,
+            60.164175,
+            22
+          ],
+          [
+            24.703521,
+            60.163923,
+            22
+          ],
+          [
+            24.703677,
+            60.163587,
+            22
+          ],
+          [
+            24.703705,
+            60.163491,
+            22
+          ],
+          [
+            24.70374,
+            60.163264,
+            22
+          ],
+          [
+            24.703802,
+            60.163015,
+            22
+          ],
+          [
+            24.703922,
+            60.162767,
+            22
+          ],
+          [
+            24.704016,
+            60.162676,
+            22
+          ],
+          [
+            24.704179,
+            60.162579,
+            22
+          ],
+          [
+            24.704553,
+            60.162416,
+            22
+          ],
+          [
+            24.705115,
+            60.162198,
+            22
+          ],
+          [
+            24.705316,
+            60.162156,
+            22
+          ],
+          [
+            24.705618,
+            60.162135,
+            22
+          ],
+          [
+            24.705792,
+            60.162126,
+            22
+          ],
+          [
+            24.706374,
+            60.162096,
+            21
+          ],
+          [
+            24.706762,
+            60.162052,
+            21
+          ],
+          [
+            24.706828,
+            60.162043,
+            21
+          ],
+          [
+            24.706809,
+            60.161959,
+            21
+          ],
+          [
+            24.706785,
+            60.161851,
+            21
+          ],
+          [
+            24.706769,
+            60.161795,
+            21
+          ],
+          [
+            24.706892,
+            60.161754,
+            21
+          ],
+          [
+            24.707033,
+            60.161746,
+            21
+          ],
+          [
+            24.707194,
+            60.161739,
+            20.6
+          ],
+          [
+            24.707276,
+            60.161759,
+            20.7
+          ],
+          [
+            24.709736,
+            60.161638,
+            19.8
+          ],
+          [
+            24.710032,
+            60.161589,
+            19
+          ],
+          [
+            24.710148,
+            60.161586,
+            19
+          ],
+          [
+            24.710513,
+            60.161594,
+            17
+          ],
+          [
+            24.71123,
+            60.161582,
+            16.7
+          ],
+          [
+            24.711897,
+            60.16159,
+            16.5
+          ],
+          [
+            24.712128,
+            60.161612,
+            16.6
+          ],
+          [
+            24.71365,
+            60.161643,
+            15.6
+          ],
+          [
+            24.715884,
+            60.161783,
+            14
+          ],
+          [
+            24.716134,
+            60.161636,
+            14
+          ],
+          [
+            24.715906,
+            60.161438,
+            14
+          ],
+          [
+            24.715892,
+            60.161355,
+            14
+          ],
+          [
+            24.715936,
+            60.16106,
+            14
+          ],
+          [
+            24.715895,
+            60.161006,
+            14
+          ],
+          [
+            24.715717,
+            60.160908,
+            14
+          ],
+          [
+            24.715881,
+            60.160911,
+            14
+          ],
+          [
+            24.716059,
+            60.160914,
+            14
+          ],
+          [
+            24.716723,
+            60.160918,
+            13.6
+          ],
+          [
+            24.7179,
+            60.16103,
+            13.5
+          ],
+          [
+            24.718673,
+            60.16105,
+            14
+          ],
+          [
+            24.719082,
+            60.160914,
+            14
+          ],
+          [
+            24.719203,
+            60.160871,
+            14
+          ],
+          [
+            24.719323,
+            60.16078,
+            14
+          ],
+          [
+            24.71957,
+            60.160647,
+            14
+          ],
+          [
+            24.720223,
+            60.160809,
+            14
+          ],
+          [
+            24.720349,
+            60.160832,
+            14
+          ],
+          [
+            24.720608,
+            60.160878,
+            14
+          ],
+          [
+            24.720827,
+            60.160918,
+            15
+          ],
+          [
+            24.720974,
+            60.160882,
+            15
+          ],
+          [
+            24.72109,
+            60.160798,
+            15
+          ],
+          [
+            24.721198,
+            60.160687,
+            15
+          ],
+          [
+            24.721177,
+            60.160618,
+            15
+          ],
+          [
+            24.721371,
+            60.160462,
+            15
+          ],
+          [
+            24.721523,
+            60.160372,
+            15
+          ],
+          [
+            24.721584,
+            60.160335,
+            15
+          ],
+          [
+            24.721669,
+            60.160273,
+            13
+          ],
+          [
+            24.721945,
+            60.160043,
+            13
+          ],
+          [
+            24.722045,
+            60.159867,
+            13
+          ],
+          [
+            24.722085,
+            60.159825,
+            13
+          ],
+          [
+            24.722217,
+            60.15987,
+            13
+          ],
+          [
+            24.722252,
+            60.15983,
+            13
+          ],
+          [
+            24.722999,
+            60.159999,
+            13.5
+          ],
+          [
+            24.723149,
+            60.16002,
+            14
+          ],
+          [
+            24.723263,
+            60.159796,
+            14
+          ],
+          [
+            24.723562,
+            60.159525,
+            14
+          ],
+          [
+            24.723772,
+            60.159383,
+            14
+          ],
+          [
+            24.72382,
+            60.15935,
+            14
+          ],
+          [
+            24.724244,
+            60.15904,
+            14
+          ],
+          [
+            24.724368,
+            60.158988,
+            14
+          ],
+          [
+            24.724522,
+            60.158994,
+            14
+          ],
+          [
+            24.724541,
+            60.158969,
+            14
+          ],
+          [
+            24.725259,
+            60.158378,
+            16
+          ],
+          [
+            24.725286,
+            60.158264,
+            16
+          ],
+          [
+            24.725369,
+            60.157982,
+            14.5
+          ],
+          [
+            24.725771,
+            60.157371,
+            14.4
+          ],
+          [
+            24.726103,
+            60.156929,
+            14
+          ],
+          [
+            24.726045,
+            60.156801,
+            14
+          ],
+          [
+            24.725944,
+            60.156719,
+            14
+          ],
+          [
+            24.726026,
+            60.156652,
+            14
+          ],
+          [
+            24.726107,
+            60.156587,
+            14
+          ],
+          [
+            24.726191,
+            60.156519,
+            14
+          ],
+          [
+            24.726291,
+            60.156526,
+            14
+          ],
+          [
+            24.726418,
+            60.156508,
+            14
+          ],
+          [
+            24.726497,
+            60.156471,
+            13.3
+          ],
+          [
+            24.726831,
+            60.156103,
+            12
+          ],
+          [
+            24.726852,
+            60.15608,
+            12
+          ],
+          [
+            24.727091,
+            60.155757,
+            16
+          ],
+          [
+            24.727255,
+            60.155604,
+            16
+          ],
+          [
+            24.728005,
+            60.15475,
+            16
+          ],
+          [
+            24.728288,
+            60.154403,
+            16
+          ],
+          [
+            24.728333,
+            60.154345,
+            16
+          ],
+          [
+            24.728362,
+            60.15431,
+            16
+          ],
+          [
+            24.7284,
+            60.154264,
+            16
+          ],
+          [
+            24.729243,
+            60.153277,
+            14
+          ],
+          [
+            24.729439,
+            60.153037,
+            14
+          ],
+          [
+            24.729613,
+            60.152823,
+            14
+          ],
+          [
+            24.729717,
+            60.152718,
+            14
+          ],
+          [
+            24.72998,
+            60.15258,
+            14
+          ],
+          [
+            24.73015,
+            60.152522,
+            14
+          ],
+          [
+            24.73008,
+            60.152469,
+            14
+          ],
+          [
+            24.729948,
+            60.152428,
+            14
+          ],
+          [
+            24.72958,
+            60.15238,
+            14
+          ],
+          [
+            24.729258,
+            60.152346,
+            11.9
+          ],
+          [
+            24.727662,
+            60.152268,
+            11.6
+          ],
+          [
+            24.72739,
+            60.152236,
+            11.6
+          ],
+          [
+            24.727113,
+            60.152157,
+            11.8
+          ],
+          [
+            24.726954,
+            60.152063,
+            11
+          ],
+          [
+            24.72673,
+            60.151966,
+            11
+          ],
+          [
+            24.726574,
+            60.151919,
+            12
+          ],
+          [
+            24.725414,
+            60.151736,
+            12
+          ],
+          [
+            24.725173,
+            60.151639,
+            12
+          ],
+          [
+            24.724777,
+            60.151267,
+            13.7
+          ],
+          [
+            24.724271,
+            60.150862,
+            14
+          ],
+          [
+            24.723631,
+            60.150301,
+            15
+          ],
+          [
+            24.723474,
+            60.150203,
+            15
+          ],
+          [
+            24.723261,
+            60.150104,
+            15
+          ],
+          [
+            24.723112,
+            60.150064,
+            15
+          ],
+          [
+            24.722782,
+            60.150009,
+            15
+          ],
+          [
+            24.722498,
+            60.149975,
+            15
+          ],
+          [
+            24.722331,
+            60.14997,
+            15
+          ],
+          [
+            24.722293,
+            60.149697,
+            7.6
+          ],
+          [
+            24.722241,
+            60.149602,
+            7.4
+          ],
+          [
+            24.722067,
+            60.149542,
+            7.2
+          ],
+          [
+            24.720916,
+            60.149293,
+            7
+          ],
+          [
+            24.720867,
+            60.149262,
+            6.9
+          ],
+          [
+            24.720817,
+            60.149169,
+            6
+          ],
+          [
+            24.720761,
+            60.149011,
+            6
+          ],
+          [
+            24.720191,
+            60.148897,
+            9
+          ],
+          [
+            24.719828,
+            60.148822,
+            9.7
+          ],
+          [
+            24.719686,
+            60.148744,
+            9.6
+          ],
+          [
+            24.719549,
+            60.148699,
+            9.6
+          ],
+          [
+            24.719407,
+            60.148675,
+            9.5
+          ],
+          [
+            24.719212,
+            60.148666,
+            9.4
+          ],
+          [
+            24.718307,
+            60.148483,
+            12
+          ],
+          [
+            24.717293,
+            60.148294,
+            12
+          ],
+          [
+            24.716468,
+            60.148141,
+            13
+          ],
+          [
+            24.713708,
+            60.147571,
+            8
+          ],
+          [
+            24.71349,
+            60.14754,
+            8
+          ],
+          [
+            24.713139,
+            60.147528,
+            9.7
+          ],
+          [
+            24.712932,
+            60.14754,
+            9.6
+          ],
+          [
+            24.712578,
+            60.147591,
+            9.3
+          ],
+          [
+            24.712143,
+            60.147711,
+            10.1
+          ],
+          [
+            24.712092,
+            60.147704,
+            10.5
+          ],
+          [
+            24.712002,
+            60.147657,
+            15
+          ],
+          [
+            24.711961,
+            60.147632,
+            15
+          ],
+          [
+            24.711991,
+            60.14756,
+            15
+          ],
+          [
+            24.711975,
+            60.147524,
+            15
+          ],
+          [
+            24.711551,
+            60.147321,
+            15
+          ],
+          [
+            24.710532,
+            60.146924,
+            15
+          ],
+          [
+            24.710488,
+            60.146909,
+            15
+          ],
+          [
+            24.710008,
+            60.146751,
+            16.3
+          ],
+          [
+            24.709069,
+            60.146515,
+            17
+          ],
+          [
+            24.707863,
+            60.146306,
+            18
+          ],
+          [
+            24.707818,
+            60.146302,
+            18
+          ],
+          [
+            24.706886,
+            60.146229,
+            18
+          ],
+          [
+            24.706504,
+            60.146206,
+            18
+          ],
+          [
+            24.70572,
+            60.146161,
+            20
+          ],
+          [
+            24.705447,
+            60.146139,
+            20
+          ],
+          [
+            24.704846,
+            60.146048,
+            20
+          ],
+          [
+            24.704365,
+            60.145933,
+            20
+          ],
+          [
+            24.703818,
+            60.145749,
+            19
+          ],
+          [
+            24.703555,
+            60.145664,
+            19
+          ],
+          [
+            24.70349,
+            60.145636,
+            19
+          ],
+          [
+            24.703473,
+            60.145627,
+            19
+          ],
+          [
+            24.702528,
+            60.145296,
+            19
+          ],
+          [
+            24.70221,
+            60.145189,
+            17.9
+          ],
+          [
+            24.701741,
+            60.145096,
+            17.5
+          ],
+          [
+            24.701204,
+            60.145033,
+            17.7
+          ],
+          [
+            24.700418,
+            60.144985,
+            17
+          ],
+          [
+            24.700127,
+            60.144967,
+            17
+          ],
+          [
+            24.699542,
+            60.144933,
+            15
+          ],
+          [
+            24.698704,
+            60.14489,
+            15
+          ],
+          [
+            24.698091,
+            60.144855,
+            15
+          ],
+          [
+            24.697426,
+            60.144813,
+            14
+          ],
+          [
+            24.697309,
+            60.144806,
+            14
+          ],
+          [
+            24.69714,
+            60.144793,
+            14
+          ],
+          [
+            24.696987,
+            60.144747,
+            14
+          ],
+          [
+            24.696231,
+            60.144975,
+            14
+          ],
+          [
+            24.695957,
+            60.145059,
+            14
+          ],
+          [
+            24.695467,
+            60.145208,
+            13.3
+          ],
+          [
+            24.695212,
+            60.14526,
+            13
+          ],
+          [
+            24.694842,
+            60.145381,
+            13
+          ],
+          [
+            24.694608,
+            60.145419,
+            13
+          ],
+          [
+            24.694225,
+            60.145444,
+            13
+          ],
+          [
+            24.692973,
+            60.145519,
+            15
+          ],
+          [
+            24.692742,
+            60.14552,
+            15
+          ],
+          [
+            24.692489,
+            60.14549,
+            15
+          ],
+          [
+            24.692227,
+            60.145244,
+            15
+          ],
+          [
+            24.691958,
+            60.144973,
+            15
+          ],
+          [
+            24.691673,
+            60.144712,
+            15
+          ],
+          [
+            24.691528,
+            60.144606,
+            15
+          ],
+          [
+            24.691385,
+            60.144527,
+            16.4
+          ],
+          [
+            24.690954,
+            60.144366,
+            17
+          ],
+          [
+            24.690769,
+            60.144295,
+            17
+          ],
+          [
+            24.690398,
+            60.144162,
+            17
+          ],
+          [
+            24.689502,
+            60.143822,
+            17
+          ],
+          [
+            24.689447,
+            60.143802,
+            17
+          ],
+          [
+            24.688833,
+            60.14357,
+            15
+          ],
+          [
+            24.688338,
+            60.143372,
+            15
+          ],
+          [
+            24.688184,
+            60.143404,
+            15.3
+          ],
+          [
+            24.68731,
+            60.143489,
+            16
+          ],
+          [
+            24.686744,
+            60.143546,
+            16
+          ],
+          [
+            24.686677,
+            60.143248,
+            16
+          ],
+          [
+            24.686671,
+            60.143193,
+            16
+          ],
+          [
+            24.686672,
+            60.142904,
+            16
+          ],
+          [
+            24.686677,
+            60.142747,
+            16
+          ],
+          [
+            24.686717,
+            60.142386,
+            16
+          ],
+          [
+            24.68672,
+            60.142315,
+            16
+          ],
+          [
+            24.686715,
+            60.14212,
+            16
+          ],
+          [
+            24.686751,
+            60.141799,
+            16
+          ],
+          [
+            24.686844,
+            60.141665,
+            16
+          ],
+          [
+            24.686973,
+            60.141537,
+            16
+          ],
+          [
+            24.687023,
+            60.14148,
+            15
+          ],
+          [
+            24.687127,
+            60.141363,
+            15
+          ],
+          [
+            24.685921,
+            60.141196,
+            15
+          ],
+          [
+            24.684989,
+            60.141064,
+            17
+          ],
+          [
+            24.684711,
+            60.141027,
+            17
+          ],
+          [
+            24.684555,
+            60.141006,
+            17
+          ],
+          [
+            24.684108,
+            60.140946,
+            17
+          ],
+          [
+            24.683707,
+            60.1409,
+            17
+          ],
+          [
+            24.683666,
+            60.140794,
+            17
+          ],
+          [
+            24.683636,
+            60.140441,
+            17
+          ],
+          [
+            24.683624,
+            60.140309,
+            17
+          ],
+          [
+            24.683581,
+            60.139826,
+            16
+          ],
+          [
+            24.683556,
+            60.139681,
+            15.9
+          ],
+          [
+            24.683488,
+            60.139526,
+            15.7
+          ],
+          [
+            24.68326,
+            60.139133,
+            15.6
+          ],
+          [
+            24.682733,
+            60.138448,
+            15.9
+          ],
+          [
+            24.682618,
+            60.138189,
+            16
+          ],
+          [
+            24.682608,
+            60.13797,
+            16
+          ],
+          [
+            24.682555,
+            60.137617,
+            16
+          ],
+          [
+            24.682376,
+            60.137044,
+            16
+          ],
+          [
+            24.681908,
+            60.135368,
+            16
+          ],
+          [
+            24.681884,
+            60.135287,
+            16
+          ],
+          [
+            24.681556,
+            60.134145,
+            22
+          ],
+          [
+            24.681567,
+            60.134039,
+            22.8
+          ],
+          [
+            24.681492,
+            60.133667,
+            22.6
+          ],
+          [
+            24.681519,
+            60.133321,
+            22.5
+          ],
+          [
+            24.681482,
+            60.132971,
+            25
+          ],
+          [
+            24.68145,
+            60.132914,
+            25
+          ],
+          [
+            24.681365,
+            60.132896,
+            25
+          ],
+          [
+            24.681338,
+            60.132846,
+            25
+          ],
+          [
+            24.681244,
+            60.132852,
+            25
+          ],
+          [
+            24.681126,
+            60.132859,
+            25
+          ],
+          [
+            24.681012,
+            60.132654,
+            23
+          ],
+          [
+            24.680899,
+            60.132198,
+            23
+          ],
+          [
+            24.680826,
+            60.132046,
+            23
+          ],
+          [
+            24.680308,
+            60.131528,
+            23
+          ],
+          [
+            24.680231,
+            60.131279,
+            23
+          ],
+          [
+            24.680254,
+            60.130985,
+            23
+          ],
+          [
+            24.680308,
+            60.130858,
+            23
+          ],
+          [
+            24.680437,
+            60.130695,
+            23
+          ],
+          [
+            24.680468,
+            60.130514,
+            23
+          ],
+          [
+            24.680557,
+            60.130423,
+            23
+          ],
+          [
+            24.680867,
+            60.13033,
+            23.3
+          ],
+          [
+            24.681222,
+            60.13011,
+            24
+          ],
+          [
+            24.681495,
+            60.13001,
+            24
+          ],
+          [
+            24.681631,
+            60.129963,
+            24
+          ],
+          [
+            24.682208,
+            60.129798,
+            24
+          ],
+          [
+            24.682339,
+            60.129773,
+            24
+          ],
+          [
+            24.682496,
+            60.129733,
+            24
+          ],
+          [
+            24.684666,
+            60.129215,
+            21
+          ],
+          [
+            24.684992,
+            60.129135,
+            18.6
+          ],
+          [
+            24.686044,
+            60.128963,
+            14
+          ],
+          [
+            24.686684,
+            60.12893,
+            12.1
+          ],
+          [
+            24.687953,
+            60.128983,
+            11.6
+          ],
+          [
+            24.688426,
+            60.129022,
+            11.7
+          ],
+          [
+            24.688741,
+            60.129018,
+            11.9
+          ],
+          [
+            24.689124,
+            60.128989,
+            11
+          ],
+          [
+            24.689644,
+            60.128809,
+            10
+          ],
+          [
+            24.689997,
+            60.128721,
+            10.1
+          ],
+          [
+            24.690371,
+            60.128666,
+            10.1
+          ],
+          [
+            24.691054,
+            60.128632,
+            10.1
+          ],
+          [
+            24.692018,
+            60.128552,
+            9
+          ],
+          [
+            24.692478,
+            60.128495,
+            9
+          ],
+          [
+            24.692594,
+            60.128489,
+            10
+          ],
+          [
+            24.693131,
+            60.12853,
+            10.2
+          ],
+          [
+            24.693463,
+            60.12852,
+            10.4
+          ],
+          [
+            24.693814,
+            60.128442,
+            10.4
+          ],
+          [
+            24.694363,
+            60.128263,
+            10.4
+          ],
+          [
+            24.694968,
+            60.128125,
+            11
+          ],
+          [
+            24.69517,
+            60.128145,
+            11
+          ],
+          [
+            24.695283,
+            60.128162,
+            11
+          ],
+          [
+            24.695447,
+            60.127968,
+            11
+          ],
+          [
+            24.695835,
+            60.127521,
+            11
+          ],
+          [
+            24.695951,
+            60.127432,
+            11
+          ],
+          [
+            24.696244,
+            60.127292,
+            10.7
+          ],
+          [
+            24.696539,
+            60.127214,
+            10.7
+          ],
+          [
+            24.696734,
+            60.127184,
+            10.7
+          ],
+          [
+            24.697611,
+            60.12712,
+            10.8
+          ],
+          [
+            24.697913,
+            60.127121,
+            10.7
+          ],
+          [
+            24.698153,
+            60.127141,
+            9
+          ],
+          [
+            24.69818,
+            60.127091,
+            9
+          ],
+          [
+            24.698562,
+            60.127164,
+            9
+          ],
+          [
+            24.699219,
+            60.127377,
+            9
+          ],
+          [
+            24.699557,
+            60.127523,
+            9
+          ],
+          [
+            24.700229,
+            60.127875,
+            9
+          ],
+          [
+            24.700533,
+            60.127989,
+            9
+          ],
+          [
+            24.701031,
+            60.128088,
+            9
+          ],
+          [
+            24.701279,
+            60.12811,
+            9
+          ],
+          [
+            24.701477,
+            60.1281,
+            9
+          ],
+          [
+            24.701344,
+            60.127505,
+            9
+          ],
+          [
+            24.702621,
+            60.12737,
+            10.6
+          ],
+          [
+            24.702668,
+            60.127317,
+            10.5
+          ],
+          [
+            24.702644,
+            60.127227,
+            11
+          ],
+          [
+            24.702668,
+            60.127317,
+            10.5
+          ],
+          [
+            24.702621,
+            60.12737,
+            10.6
+          ],
+          [
+            24.701344,
+            60.127505,
+            9
+          ],
+          [
+            24.701477,
+            60.1281,
+            9
+          ],
+          [
+            24.701498,
+            60.128177,
+            9
+          ],
+          [
+            24.701363,
+            60.128185,
+            9
+          ],
+          [
+            24.701042,
+            60.128171,
+            9
+          ],
+          [
+            24.700823,
+            60.12814,
+            9
+          ],
+          [
+            24.700468,
+            60.128051,
+            9
+          ],
+          [
+            24.70001,
+            60.127857,
+            9
+          ],
+          [
+            24.69937,
+            60.127503,
+            9
+          ],
+          [
+            24.699142,
+            60.127412,
+            9
+          ],
+          [
+            24.698564,
+            60.127229,
+            9
+          ],
+          [
+            24.698153,
+            60.127141,
+            9
+          ],
+          [
+            24.69818,
+            60.127091,
+            9
+          ],
+          [
+            24.697423,
+            60.127083,
+            10.4
+          ],
+          [
+            24.697098,
+            60.1271,
+            10.5
+          ],
+          [
+            24.696549,
+            60.127158,
+            10.5
+          ],
+          [
+            24.696163,
+            60.127248,
+            10.6
+          ],
+          [
+            24.695845,
+            60.127398,
+            11
+          ],
+          [
+            24.695722,
+            60.127503,
+            11
+          ],
+          [
+            24.695353,
+            60.127952,
+            11
+          ],
+          [
+            24.695215,
+            60.128097,
+            11
+          ],
+          [
+            24.69517,
+            60.128145,
+            11
+          ],
+          [
+            24.694937,
+            60.128328,
+            11
+          ],
+          [
+            24.694706,
+            60.128607,
+            11
+          ],
+          [
+            24.694391,
+            60.128889,
+            11
+          ],
+          [
+            24.694128,
+            60.129011,
+            15.1
+          ],
+          [
+            24.693954,
+            60.129066,
+            15.2
+          ],
+          [
+            24.693449,
+            60.129168,
+            15.5
+          ],
+          [
+            24.692885,
+            60.129254,
+            15.9
+          ],
+          [
+            24.692405,
+            60.12928,
+            16.2
+          ],
+          [
+            24.692076,
+            60.129273,
+            16.4
+          ],
+          [
+            24.691474,
+            60.129233,
+            18
+          ],
+          [
+            24.691438,
+            60.129233,
+            18
+          ],
+          [
+            24.691417,
+            60.129284,
+            18
+          ],
+          [
+            24.6914,
+            60.129332,
+            18
+          ],
+          [
+            24.69116,
+            60.129314,
+            18
+          ],
+          [
+            24.690294,
+            60.129256,
+            18
+          ],
+          [
+            24.689281,
+            60.129185,
+            16
+          ],
+          [
+            24.687357,
+            60.129055,
+            18
+          ],
+          [
+            24.686821,
+            60.129041,
+            18
+          ],
+          [
+            24.686466,
+            60.129047,
+            18
+          ],
+          [
+            24.686019,
+            60.129077,
+            19
+          ],
+          [
+            24.685798,
+            60.129105,
+            19.1
+          ],
+          [
+            24.685335,
+            60.12918,
+            19.3
+          ],
+          [
+            24.684731,
+            60.129311,
+            21
+          ],
+          [
+            24.682413,
+            60.129864,
+            24
+          ],
+          [
+            24.681726,
+            60.130047,
+            24
+          ],
+          [
+            24.681783,
+            60.1301,
+            24
+          ],
+          [
+            24.681863,
+            60.130149,
+            24
+          ],
+          [
+            24.681906,
+            60.130221,
+            24
+          ],
+          [
+            24.681858,
+            60.130264,
+            24
+          ],
+          [
+            24.681686,
+            60.130464,
+            24.2
+          ],
+          [
+            24.681686,
+            60.130602,
+            24.3
+          ],
+          [
+            24.681986,
+            60.131103,
+            24.4
+          ],
+          [
+            24.682119,
+            60.131224,
+            24.4
+          ],
+          [
+            24.682234,
+            60.131271,
+            25
+          ],
+          [
+            24.682223,
+            60.131615,
+            25
+          ],
+          [
+            24.682357,
+            60.132162,
+            25
+          ],
+          [
+            24.682384,
+            60.132993,
+            25
+          ],
+          [
+            24.681482,
+            60.132971,
+            25
+          ],
+          [
+            24.681269,
+            60.13297,
+            25
+          ],
+          [
+            24.681244,
+            60.132852,
+            25
+          ],
+          [
+            24.681126,
+            60.132859,
+            25
+          ],
+          [
+            24.681211,
+            60.133168,
+            23.2
+          ],
+          [
+            24.681241,
+            60.133483,
+            22.8
+          ],
+          [
+            24.681182,
+            60.133986,
+            22
+          ],
+          [
+            24.681043,
+            60.134341,
+            19.6
+          ],
+          [
+            24.680746,
+            60.134813,
+            19.8
+          ],
+          [
+            24.680384,
+            60.135196,
+            20
+          ],
+          [
+            24.680176,
+            60.135368,
+            19.9
+          ],
+          [
+            24.679956,
+            60.135542,
+            19.9
+          ],
+          [
+            24.679836,
+            60.135561,
+            20
+          ],
+          [
+            24.679777,
+            60.135602,
+            20
+          ],
+          [
+            24.679715,
+            60.135643,
+            20
+          ],
+          [
+            24.679701,
+            60.135696,
+            20.9
+          ],
+          [
+            24.679363,
+            60.135919,
+            21
+          ],
+          [
+            24.679111,
+            60.136039,
+            21.3
+          ],
+          [
+            24.678911,
+            60.136178,
+            23
+          ],
+          [
+            24.678761,
+            60.136299,
+            23
+          ],
+          [
+            24.678595,
+            60.136416,
+            23.5
+          ],
+          [
+            24.677875,
+            60.137075,
+            23.6
+          ],
+          [
+            24.677491,
+            60.137588,
+            25
+          ],
+          [
+            24.677213,
+            60.137782,
+            25
+          ],
+          [
+            24.677145,
+            60.137879,
+            25
+          ],
+          [
+            24.67707,
+            60.137968,
+            25
+          ],
+          [
+            24.676847,
+            60.137891,
+            28
+          ],
+          [
+            24.676164,
+            60.137748,
+            27.8
+          ],
+          [
+            24.676003,
+            60.137738,
+            29
+          ],
+          [
+            24.675898,
+            60.137714,
+            29
+          ],
+          [
+            24.675808,
+            60.137693,
+            29
+          ],
+          [
+            24.67572,
+            60.137649,
+            29
+          ],
+          [
+            24.675011,
+            60.137452,
+            29
+          ],
+          [
+            24.674526,
+            60.137293,
+            29
+          ],
+          [
+            24.674385,
+            60.137273,
+            29
+          ],
+          [
+            24.674225,
+            60.137208,
+            29
+          ],
+          [
+            24.674168,
+            60.137235,
+            29
+          ],
+          [
+            24.674029,
+            60.137266,
+            29
+          ],
+          [
+            24.673763,
+            60.137463,
+            32.2
+          ],
+          [
+            24.673175,
+            60.138136,
+            33
+          ],
+          [
+            24.673111,
+            60.138226,
+            33
+          ],
+          [
+            24.673013,
+            60.138388,
+            33
+          ],
+          [
+            24.672922,
+            60.138702,
+            33
+          ],
+          [
+            24.672955,
+            60.138913,
+            33
+          ],
+          [
+            24.672917,
+            60.139027,
+            33
+          ],
+          [
+            24.672911,
+            60.139324,
+            34.5
+          ],
+          [
+            24.672812,
+            60.139648,
+            37
+          ],
+          [
+            24.672734,
+            60.139797,
+            39
+          ],
+          [
+            24.672692,
+            60.139877,
+            39
+          ],
+          [
+            24.672601,
+            60.140024,
+            39
+          ],
+          [
+            24.672367,
+            60.140304,
+            39
+          ],
+          [
+            24.672107,
+            60.140562,
+            39
+          ],
+          [
+            24.671986,
+            60.140685,
+            39
+          ],
+          [
+            24.671556,
+            60.14123,
+            39
+          ],
+          [
+            24.671524,
+            60.141265,
+            39
+          ],
+          [
+            24.671488,
+            60.141309,
+            39
+          ],
+          [
+            24.671065,
+            60.141793,
+            37.5
+          ],
+          [
+            24.670857,
+            60.141994,
+            36
+          ],
+          [
+            24.670769,
+            60.141977,
+            36
+          ],
+          [
+            24.670709,
+            60.142034,
+            36.6
+          ],
+          [
+            24.670622,
+            60.142075,
+            36.7
+          ],
+          [
+            24.670402,
+            60.142339,
+            37
+          ],
+          [
+            24.670314,
+            60.142386,
+            37
+          ],
+          [
+            24.670232,
+            60.142415,
+            37
+          ],
+          [
+            24.670083,
+            60.142438,
+            37
+          ],
+          [
+            24.670044,
+            60.142497,
+            37
+          ],
+          [
+            24.66999,
+            60.142555,
+            37
+          ],
+          [
+            24.669928,
+            60.142623,
+            37
+          ],
+          [
+            24.669181,
+            60.142403,
+            37
+          ],
+          [
+            24.668864,
+            60.142332,
+            37
+          ],
+          [
+            24.668791,
+            60.142317,
+            37
+          ],
+          [
+            24.667167,
+            60.141913,
+            35
+          ],
+          [
+            24.666919,
+            60.141844,
+            35
+          ],
+          [
+            24.66665,
+            60.141738,
+            35
+          ],
+          [
+            24.666212,
+            60.141578,
+            32
+          ],
+          [
+            24.66559,
+            60.141385,
+            31
+          ],
+          [
+            24.665222,
+            60.141293,
+            30.8
+          ],
+          [
+            24.664805,
+            60.141222,
+            30
+          ],
+          [
+            24.663692,
+            60.141057,
+            24
+          ],
+          [
+            24.663386,
+            60.141048,
+            24
+          ],
+          [
+            24.663297,
+            60.141027,
+            24
+          ],
+          [
+            24.66309,
+            60.140941,
+            24
+          ],
+          [
+            24.662587,
+            60.140809,
+            24
+          ],
+          [
+            24.6624,
+            60.140778,
+            24
+          ],
+          [
+            24.662195,
+            60.140722,
+            19.4
+          ],
+          [
+            24.661549,
+            60.14059,
+            18
+          ],
+          [
+            24.660762,
+            60.140356,
+            18
+          ],
+          [
+            24.660334,
+            60.140171,
+            18
+          ],
+          [
+            24.659792,
+            60.139867,
+            14.2
+          ],
+          [
+            24.659173,
+            60.139622,
+            13
+          ],
+          [
+            24.659082,
+            60.139607,
+            13
+          ],
+          [
+            24.658879,
+            60.139628,
+            13
+          ],
+          [
+            24.658768,
+            60.13958,
+            13
+          ],
+          [
+            24.658582,
+            60.139502,
+            13
+          ],
+          [
+            24.658331,
+            60.139686,
+            13
+          ],
+          [
+            24.657834,
+            60.139977,
+            11.3
+          ],
+          [
+            24.656755,
+            60.14047,
+            11.3
+          ],
+          [
+            24.656437,
+            60.140636,
+            11.2
+          ],
+          [
+            24.6564,
+            60.140697,
+            11
+          ],
+          [
+            24.656438,
+            60.14087,
+            11
+          ],
+          [
+            24.656522,
+            60.141026,
+            11
+          ],
+          [
+            24.656503,
+            60.141346,
+            11
+          ],
+          [
+            24.656227,
+            60.141308,
+            9.9
+          ],
+          [
+            24.655383,
+            60.141138,
+            9.8
+          ],
+          [
+            24.65399,
+            60.140809,
+            8
+          ],
+          [
+            24.652647,
+            60.140527,
+            8
+          ],
+          [
+            24.650966,
+            60.14017,
+            11
+          ],
+          [
+            24.650685,
+            60.140111,
+            11
+          ],
+          [
+            24.650258,
+            60.139972,
+            11
+          ],
+          [
+            24.650119,
+            60.139932,
+            11
+          ],
+          [
+            24.649614,
+            60.139768,
+            17
+          ],
+          [
+            24.64941,
+            60.139694,
+            12.3
+          ],
+          [
+            24.649102,
+            60.139542,
+            13.3
+          ],
+          [
+            24.648611,
+            60.139343,
+            2
+          ],
+          [
+            24.648277,
+            60.139128,
+            2
+          ],
+          [
+            24.648041,
+            60.139017,
+            2
+          ],
+          [
+            24.647888,
+            60.138983,
+            2
+          ],
+          [
+            24.64769,
+            60.138965,
+            4
+          ],
+          [
+            24.647277,
+            60.138928,
+            5.5
+          ],
+          [
+            24.647041,
+            60.138868,
+            5.6
+          ],
+          [
+            24.646342,
+            60.138607,
+            5.6
+          ],
+          [
+            24.646044,
+            60.138465,
+            5.5
+          ],
+          [
+            24.645596,
+            60.138351,
+            6.2
+          ],
+          [
+            24.645288,
+            60.138294,
+            6.5
+          ],
+          [
+            24.64469,
+            60.138236,
+            7.2
+          ],
+          [
+            24.644554,
+            60.138207,
+            7.6
+          ],
+          [
+            24.643467,
+            60.137855,
+            12
+          ],
+          [
+            24.643458,
+            60.137778,
+            12
+          ],
+          [
+            24.643243,
+            60.13762,
+            12
+          ],
+          [
+            24.643458,
+            60.137778,
+            12
+          ],
+          [
+            24.643467,
+            60.137855,
+            12
+          ],
+          [
+            24.643395,
+            60.137859,
+            12
+          ],
+          [
+            24.643325,
+            60.137882,
+            12
+          ],
+          [
+            24.642842,
+            60.138161,
+            12
+          ],
+          [
+            24.64267,
+            60.138238,
+            12
+          ],
+          [
+            24.642568,
+            60.138317,
+            12
+          ],
+          [
+            24.642293,
+            60.138591,
+            12
+          ],
+          [
+            24.642293,
+            60.138627,
+            12
+          ],
+          [
+            24.642318,
+            60.138668,
+            12
+          ],
+          [
+            24.642416,
+            60.13872,
+            12
+          ],
+          [
+            24.642815,
+            60.138834,
+            12
+          ],
+          [
+            24.643038,
+            60.13887,
+            12
+          ],
+          [
+            24.643281,
+            60.138893,
+            10.5
+          ],
+          [
+            24.643428,
+            60.138924,
+            10.7
+          ],
+          [
+            24.643655,
+            60.139025,
+            10.5
+          ],
+          [
+            24.64411,
+            60.139172,
+            10.1
+          ],
+          [
+            24.64421,
+            60.139243,
+            9
+          ],
+          [
+            24.64423,
+            60.139275,
+            9
+          ],
+          [
+            24.644259,
+            60.139322,
+            9
+          ],
+          [
+            24.644021,
+            60.139374,
+            17
+          ],
+          [
+            24.64364,
+            60.139497,
+            25
+          ],
+          [
+            24.643252,
+            60.139676,
+            23.6
+          ],
+          [
+            24.64306,
+            60.139793,
+            23
+          ],
+          [
+            24.642807,
+            60.140017,
+            23
+          ],
+          [
+            24.6427,
+            60.140129,
+            23
+          ],
+          [
+            24.642541,
+            60.14036,
+            23
+          ],
+          [
+            24.642399,
+            60.140658,
+            23.3
+          ],
+          [
+            24.642378,
+            60.140857,
+            23.4
+          ],
+          [
+            24.642537,
+            60.141642,
+            23.5
+          ],
+          [
+            24.642539,
+            60.141747,
+            23.6
+          ],
+          [
+            24.642465,
+            60.142035,
+            24
+          ],
+          [
+            24.642382,
+            60.142225,
+            24
+          ],
+          [
+            24.642343,
+            60.142294,
+            24
+          ],
+          [
+            24.642103,
+            60.142755,
+            24
+          ],
+          [
+            24.641965,
+            60.143606,
+            24.6
+          ],
+          [
+            24.641855,
+            60.14385,
+            26
+          ],
+          [
+            24.641785,
+            60.143971,
+            26
+          ],
+          [
+            24.641752,
+            60.14404,
+            26
+          ],
+          [
+            24.641794,
+            60.144126,
+            26
+          ],
+          [
+            24.641772,
+            60.144163,
+            26
+          ],
+          [
+            24.641845,
+            60.144177,
+            26
+          ],
+          [
+            24.641924,
+            60.144219,
+            26
+          ],
+          [
+            24.642343,
+            60.144246,
+            26
+          ],
+          [
+            24.642326,
+            60.1443,
+            26
+          ],
+          [
+            24.642608,
+            60.144314,
+            26
+          ],
+          [
+            24.642727,
+            60.144367,
+            26
+          ],
+          [
+            24.642957,
+            60.144485,
+            26
+          ],
+          [
+            24.643059,
+            60.144769,
+            26
+          ],
+          [
+            24.643145,
+            60.144836,
+            26
+          ],
+          [
+            24.643161,
+            60.14489,
+            26
+          ],
+          [
+            24.643136,
+            60.144953,
+            26
+          ],
+          [
+            24.643094,
+            60.145008,
+            26
+          ],
+          [
+            24.642991,
+            60.145348,
+            26
+          ],
+          [
+            24.642843,
+            60.145547,
+            26
+          ],
+          [
+            24.642734,
+            60.145647,
+            26
+          ],
+          [
+            24.642518,
+            60.145763,
+            26
+          ],
+          [
+            24.642669,
+            60.145823,
+            26
+          ],
+          [
+            24.643017,
+            60.145916,
+            26
+          ],
+          [
+            24.643232,
+            60.146066,
+            26
+          ],
+          [
+            24.643953,
+            60.146767,
+            26
+          ],
+          [
+            24.643981,
+            60.146821,
+            26
+          ],
+          [
+            24.644056,
+            60.146861,
+            26
+          ],
+          [
+            24.644693,
+            60.146993,
+            26.4
+          ],
+          [
+            24.645809,
+            60.147276,
+            28
+          ],
+          [
+            24.645284,
+            60.147961,
+            31
+          ],
+          [
+            24.645752,
+            60.148064,
+            31
+          ],
+          [
+            24.646284,
+            60.148251,
+            31
+          ],
+          [
+            24.646408,
+            60.14831,
+            31
+          ],
+          [
+            24.645847,
+            60.148711,
+            31
+          ],
+          [
+            24.645518,
+            60.149042,
+            31
+          ],
+          [
+            24.645399,
+            60.149205,
+            31
+          ],
+          [
+            24.645371,
+            60.149243,
+            31
+          ],
+          [
+            24.645075,
+            60.149483,
+            31
+          ],
+          [
+            24.645026,
+            60.149512,
+            31
+          ],
+          [
+            24.64491,
+            60.14958,
+            31
+          ],
+          [
+            24.644707,
+            60.149692,
+            31
+          ],
+          [
+            24.644618,
+            60.14977,
+            31
+          ],
+          [
+            24.644325,
+            60.150086,
+            35.5
+          ],
+          [
+            24.644231,
+            60.150146,
+            37
+          ],
+          [
+            24.644083,
+            60.150219,
+            37
+          ],
+          [
+            24.643965,
+            60.150268,
+            37
+          ],
+          [
+            24.64341,
+            60.150401,
+            37.7
+          ],
+          [
+            24.642873,
+            60.15056,
+            37.8
+          ],
+          [
+            24.642513,
+            60.150684,
+            37.8
+          ],
+          [
+            24.642047,
+            60.150896,
+            38
+          ],
+          [
+            24.641951,
+            60.150946,
+            38
+          ],
+          [
+            24.640963,
+            60.151638,
+            35.7
+          ],
+          [
+            24.640876,
+            60.151798,
+            35.5
+          ],
+          [
+            24.640856,
+            60.152005,
+            35
+          ],
+          [
+            24.640889,
+            60.152167,
+            35
+          ],
+          [
+            24.641028,
+            60.15244,
+            35
+          ],
+          [
+            24.64123,
+            60.152912,
+            35
+          ],
+          [
+            24.641236,
+            60.15312,
+            35
+          ],
+          [
+            24.641169,
+            60.153198,
+            35
+          ],
+          [
+            24.640976,
+            60.153301,
+            35
+          ],
+          [
+            24.64026,
+            60.153635,
+            35
+          ],
+          [
+            24.640227,
+            60.153653,
+            35
+          ],
+          [
+            24.640185,
+            60.153675,
+            35
+          ],
+          [
+            24.640007,
+            60.153751,
+            35
+          ],
+          [
+            24.639869,
+            60.153783,
+            35
+          ],
+          [
+            24.639566,
+            60.153822,
+            35
+          ],
+          [
+            24.639228,
+            60.153831,
+            29
+          ],
+          [
+            24.639019,
+            60.153807,
+            29
+          ],
+          [
+            24.638787,
+            60.153782,
+            29
+          ],
+          [
+            24.63863,
+            60.153782,
+            29
+          ],
+          [
+            24.638489,
+            60.153798,
+            29
+          ],
+          [
+            24.638363,
+            60.153812,
+            29
+          ],
+          [
+            24.638178,
+            60.153911,
+            29
+          ],
+          [
+            24.637886,
+            60.154072,
+            25
+          ],
+          [
+            24.637785,
+            60.154124,
+            25
+          ],
+          [
+            24.63789,
+            60.154171,
+            25
+          ],
+          [
+            24.637953,
+            60.154198,
+            25
+          ],
+          [
+            24.63824,
+            60.154329,
+            25
+          ],
+          [
+            24.639136,
+            60.154765,
+            25
+          ],
+          [
+            24.639316,
+            60.15485,
+            25
+          ],
+          [
+            24.639506,
+            60.154786,
+            31
+          ],
+          [
+            24.639585,
+            60.15482,
+            31
+          ],
+          [
+            24.639624,
+            60.154873,
+            31
+          ],
+          [
+            24.639924,
+            60.155039,
+            31
+          ],
+          [
+            24.640273,
+            60.155327,
+            31
+          ],
+          [
+            24.640384,
+            60.15538,
+            32.1
+          ],
+          [
+            24.640502,
+            60.155402,
+            32.2
+          ],
+          [
+            24.640771,
+            60.155417,
+            32.5
+          ],
+          [
+            24.640923,
+            60.155403,
+            32.7
+          ],
+          [
+            24.642237,
+            60.155165,
+            33.1
+          ],
+          [
+            24.64268,
+            60.155099,
+            36
+          ],
+          [
+            24.642703,
+            60.155143,
+            36
+          ],
+          [
+            24.642746,
+            60.155223,
+            36
+          ],
+          [
+            24.64279,
+            60.155297,
+            36
+          ],
+          [
+            24.642881,
+            60.155306,
+            36
+          ],
+          [
+            24.642954,
+            60.15532,
+            36
+          ],
+          [
+            24.643031,
+            60.155366,
+            36
+          ],
+          [
+            24.643277,
+            60.155811,
+            36
+          ],
+          [
+            24.643486,
+            60.156168,
+            34
+          ],
+          [
+            24.643685,
+            60.156341,
+            33
+          ],
+          [
+            24.643866,
+            60.156647,
+            33
+          ],
+          [
+            24.64389,
+            60.15686,
+            33
+          ],
+          [
+            24.643844,
+            60.157002,
+            33
+          ],
+          [
+            24.643919,
+            60.15701,
+            33
+          ],
+          [
+            24.644034,
+            60.157022,
+            33
+          ],
+          [
+            24.644121,
+            60.157031,
+            33
+          ],
+          [
+            24.644139,
+            60.1571,
+            33
+          ],
+          [
+            24.644382,
+            60.157225,
+            33
+          ],
+          [
+            24.644308,
+            60.157262,
+            33
+          ],
+          [
+            24.644415,
+            60.157346,
+            32.3
+          ],
+          [
+            24.645018,
+            60.158219,
+            30
+          ],
+          [
+            24.645068,
+            60.158283,
+            30
+          ],
+          [
+            24.645826,
+            60.159227,
+            36.3
+          ],
+          [
+            24.646694,
+            60.15998,
+            36.6
+          ],
+          [
+            24.646752,
+            60.160065,
+            36.6
+          ],
+          [
+            24.646763,
+            60.160143,
+            37
+          ],
+          [
+            24.646535,
+            60.160724,
+            33
+          ],
+          [
+            24.646522,
+            60.160763,
+            33
+          ],
+          [
+            24.646503,
+            60.160816,
+            33
+          ],
+          [
+            24.646418,
+            60.16105,
+            33
+          ],
+          [
+            24.646434,
+            60.161145,
+            33
+          ],
+          [
+            24.64678,
+            60.161431,
+            33
+          ],
+          [
+            24.647501,
+            60.161988,
+            33
+          ],
+          [
+            24.647553,
+            60.162028,
+            33
+          ],
+          [
+            24.647923,
+            60.162317,
+            36.5
+          ],
+          [
+            24.64808,
+            60.162416,
+            35.9
+          ],
+          [
+            24.648694,
+            60.162697,
+            37
+          ],
+          [
+            24.648635,
+            60.162747,
+            37
+          ],
+          [
+            24.648546,
+            60.162833,
+            37
+          ],
+          [
+            24.648401,
+            60.163047,
+            37
+          ],
+          [
+            24.648336,
+            60.163144,
+            37
+          ],
+          [
+            24.648205,
+            60.163359,
+            37
+          ],
+          [
+            24.648195,
+            60.16349,
+            37
+          ],
+          [
+            24.648176,
+            60.163755,
+            37
+          ],
+          [
+            24.648235,
+            60.163857,
+            37
+          ],
+          [
+            24.648189,
+            60.164028,
+            37
+          ],
+          [
+            24.64817,
+            60.164381,
+            37
+          ],
+          [
+            24.64818,
+            60.164428,
+            37
+          ],
+          [
+            24.64819,
+            60.164472,
+            38
+          ],
+          [
+            24.648268,
+            60.164693,
+            38
+          ],
+          [
+            24.648306,
+            60.164797,
+            38
+          ],
+          [
+            24.648358,
+            60.16494,
+            38
+          ],
+          [
+            24.648374,
+            60.164985,
+            38
+          ],
+          [
+            24.648456,
+            60.165208,
+            38
+          ],
+          [
+            24.648498,
+            60.165325,
+            38
+          ],
+          [
+            24.648591,
+            60.165581,
+            38
+          ],
+          [
+            24.648489,
+            60.165597,
+            38
+          ],
+          [
+            24.647604,
+            60.16575,
+            35.3
+          ],
+          [
+            24.647382,
+            60.165768,
+            34
+          ],
+          [
+            24.647396,
+            60.165818,
+            34
+          ],
+          [
+            24.647566,
+            60.166205,
+            34
+          ],
+          [
+            24.647612,
+            60.166349,
+            34
+          ],
+          [
+            24.647698,
+            60.16661,
+            32
+          ],
+          [
+            24.647748,
+            60.166709,
+            32
+          ],
+          [
+            24.647834,
+            60.166778,
+            32
+          ],
+          [
+            24.64804,
+            60.166895,
+            32
+          ],
+          [
+            24.648286,
+            60.167034,
+            32
+          ],
+          [
+            24.648415,
+            60.167111,
+            32
+          ],
+          [
+            24.648043,
+            60.167381,
+            32
+          ],
+          [
+            24.647849,
+            60.167529,
+            32
+          ],
+          [
+            24.647528,
+            60.167984,
+            32
+          ],
+          [
+            24.647464,
+            60.168186,
+            32
+          ],
+          [
+            24.647391,
+            60.168186,
+            32
+          ],
+          [
+            24.647247,
+            60.168185,
+            32
+          ],
+          [
+            24.646887,
+            60.168185,
+            32
+          ],
+          [
+            24.646704,
+            60.168184,
+            32
+          ],
+          [
+            24.646739,
+            60.168657,
+            27.2
+          ],
+          [
+            24.647099,
+            60.169371,
+            25
+          ],
+          [
+            24.647121,
+            60.169483,
+            25
+          ],
+          [
+            24.647041,
+            60.169654,
+            25
+          ],
+          [
+            24.646982,
+            60.169782,
+            25
+          ],
+          [
+            24.647879,
+            60.169891,
+            28
+          ],
+          [
+            24.648726,
+            60.169987,
+            28
+          ],
+          [
+            24.649343,
+            60.170033,
+            28
+          ],
+          [
+            24.649963,
+            60.170051,
+            28
+          ],
+          [
+            24.650003,
+            60.17005,
+            28
+          ]
+        ]
+      }
+    }
+  ],
+  "metadata": {
+    "attribution": "openrouteservice.org | OpenStreetMap contributors",
+    "service": "routing",
+    "timestamp": 1785705188221,
+    "query": {
+      "coordinates": [
+        [
+          24.65,
+          60.17
+        ]
+      ],
+      "profile": "cycling-regular",
+      "profileName": "cycling-regular",
+      "format": "geojson",
+      "instructions": true,
+      "elevation": true,
+      "extra_info": [
+        "surface",
+        "waytype",
+        "steepness"
+      ],
+      "options": {
+        "round_trip": {
+          "length": 20000,
+          "points": 4,
+          "seed": 1
+        }
+      }
+    },
+    "engine": {
+      "version": "9.9.0",
+      "build_date": "2026-06-12T10:08:58Z",
+      "graph_date": "2026-07-27T01:13:39Z",
+      "osm_date": "2026-07-20T00:00:00Z"
+    }
+  }
+}
